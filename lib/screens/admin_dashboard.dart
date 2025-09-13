@@ -9,6 +9,7 @@ import '../models/user.dart';
 import '../models/workplace.dart';
 import '../models/approval_request.dart';
 import '../services/storage_service.dart';
+import '../widgets/profile_header_widget.dart';
 
 class EmployeePerformance {
   final String employeeId;
@@ -53,7 +54,9 @@ class _AdminDashboardState extends State<AdminDashboard> {
 
         return Scaffold(
           appBar: AppBar(
-            title: Text('Admin - ${user.name}'),
+            title: Text('Admin Dashboard'),
+            backgroundColor: Colors.transparent,
+            elevation: 0,
             actions: [
               IconButton(
                 icon: const Icon(Icons.logout),
@@ -61,8 +64,22 @@ class _AdminDashboardState extends State<AdminDashboard> {
               ),
             ],
           ),
-          body: _getCurrentTab(_selectedIndex, todaysTargets, allTargets,
-              allTransactions, appProvider, allBonuses),
+          body: Column(
+            children: [
+              // Profile Header with Action Buttons
+              ProfileHeaderWidget(
+                userName: user.name,
+                userEmail: user.email,
+                onProfileTap: () => setState(() => _selectedIndex = 3), // Navigate to Profile tab
+                actionButtons: _getAdminActionButtons(context, appProvider),
+              ),
+              // Main Content
+              Expanded(
+                child: _getCurrentTab(_selectedIndex, todaysTargets, allTargets,
+                    allTransactions, appProvider, allBonuses),
+              ),
+            ],
+          ),
           bottomNavigationBar: Container(
             decoration: BoxDecoration(
               color: Colors.grey[100],
@@ -1709,6 +1726,35 @@ class _AdminDashboardState extends State<AdminDashboard> {
         ),
       ),
     );
+  }
+
+  List<ActionButton> _getAdminActionButtons(BuildContext context, AppProvider appProvider) {
+    return [
+      ActionButton(
+        icon: Icons.dashboard,
+        label: 'Dashboard',
+        color: Colors.blue,
+        onTap: () => setState(() => _selectedIndex = 0),
+      ),
+      ActionButton(
+        icon: Icons.card_giftcard,
+        label: 'Bonuses',
+        color: Colors.purple,
+        onTap: () => setState(() => _selectedIndex = 1),
+      ),
+      ActionButton(
+        icon: Icons.settings,
+        label: 'Settings',
+        color: Colors.orange,
+        onTap: () => setState(() => _selectedIndex = 2),
+      ),
+      ActionButton(
+        icon: Icons.person,
+        label: 'Profile',
+        color: Colors.green,
+        onTap: () => setState(() => _selectedIndex = 3),
+      ),
+    ];
   }
 
   Widget _buildBonusesTab(AppProvider appProvider, List<Bonus> allBonuses) {

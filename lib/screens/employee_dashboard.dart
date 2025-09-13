@@ -7,6 +7,7 @@ import '../models/bonus.dart';
 import '../models/user.dart';
 import '../models/country.dart';
 import '../models/points_transaction.dart';
+import '../widgets/profile_header_widget.dart';
 
 class EmployeeDashboard extends StatefulWidget {
   const EmployeeDashboard({super.key});
@@ -51,7 +52,7 @@ class _EmployeeDashboardState extends State<EmployeeDashboard> {
           return const Center(child: CircularProgressIndicator());
         }
         final employees =
-            snapshot.data!.where((user) => user.role == 'employee').toList();
+            snapshot.data!.where((user) => user.role == UserRole.employee).toList();
 
         return ListView.builder(
           padding: const EdgeInsets.all(16),
@@ -170,7 +171,9 @@ class _EmployeeDashboardState extends State<EmployeeDashboard> {
 
         return Scaffold(
           appBar: AppBar(
-            title: Text('Welcome, ${user.name}'),
+            title: Text('Employee Dashboard'),
+            backgroundColor: Colors.transparent,
+            elevation: 0,
             actions: [
               IconButton(
                 icon: const Icon(Icons.logout),
@@ -178,15 +181,29 @@ class _EmployeeDashboardState extends State<EmployeeDashboard> {
               ),
             ],
           ),
-          body: IndexedStack(
-            index: _selectedIndex,
+          body: Column(
             children: [
-              _buildOverviewTab(userPoints, todaysTargets, user.id),
-              _buildTargetsTab(appProvider, allTargets),
-              _buildBonusesTab(
-                  availableBonuses, redeemedBonuses, user.id, userPoints),
-              _buildReportsTab(allTargets, allTransactions),
-              _buildProfileTab(user, appProvider),
+              // Profile Header with Action Buttons
+              ProfileHeaderWidget(
+                userName: user.name,
+                userEmail: user.email,
+                onProfileTap: () => setState(() => _selectedIndex = 4), // Navigate to Profile tab
+                actionButtons: _getEmployeeActionButtons(context, appProvider),
+              ),
+              // Main Content
+              Expanded(
+                child: IndexedStack(
+                  index: _selectedIndex,
+                  children: [
+                    _buildOverviewTab(userPoints, todaysTargets, user.id),
+                    _buildTargetsTab(appProvider, allTargets),
+                    _buildBonusesTab(
+                        availableBonuses, redeemedBonuses, user.id, userPoints),
+                    _buildReportsTab(allTargets, allTransactions),
+                    _buildProfileTab(user, appProvider),
+                  ],
+                ),
+              ),
             ],
           ),
           bottomNavigationBar: BottomNavigationBar(
@@ -1329,6 +1346,35 @@ class _EmployeeDashboardState extends State<EmployeeDashboard> {
         ],
       ),
     );
+  }
+
+  List<ActionButton> _getEmployeeActionButtons(BuildContext context, AppProvider appProvider) {
+    return [
+      ActionButton(
+        icon: Icons.dashboard,
+        label: 'Overview',
+        color: Colors.blue,
+        onTap: () => setState(() => _selectedIndex = 0),
+      ),
+      ActionButton(
+        icon: Icons.track_changes,
+        label: 'Targets',
+        color: Colors.orange,
+        onTap: () => setState(() => _selectedIndex = 1),
+      ),
+      ActionButton(
+        icon: Icons.card_giftcard,
+        label: 'Bonuses',
+        color: Colors.purple,
+        onTap: () => setState(() => _selectedIndex = 2),
+      ),
+      ActionButton(
+        icon: Icons.analytics,
+        label: 'Reports',
+        color: Colors.green,
+        onTap: () => setState(() => _selectedIndex = 3),
+      ),
+    ];
   }
 }
 
