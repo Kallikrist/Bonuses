@@ -19,7 +19,7 @@ class ProfileHeaderWidget extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.all(20),
+      padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
         gradient: LinearGradient(
           begin: Alignment.topLeft,
@@ -30,15 +30,15 @@ class ProfileHeaderWidget extends StatelessWidget {
           ],
         ),
         borderRadius: const BorderRadius.only(
-          bottomLeft: Radius.circular(30),
-          bottomRight: Radius.circular(30),
+          bottomLeft: Radius.circular(20),
+          bottomRight: Radius.circular(20),
         ),
       ),
       child: Column(
         children: [
           // Profile Picture and Greeting
           _buildProfileSection(context),
-          const SizedBox(height: 24),
+          const SizedBox(height: 16),
           
           // Action Buttons Grid
           _buildActionButtonsGrid(context),
@@ -54,24 +54,24 @@ class ProfileHeaderWidget extends StatelessWidget {
         GestureDetector(
           onTap: onProfileTap,
           child: Container(
-            width: 80,
-            height: 80,
+            width: 60,
+            height: 60,
             decoration: BoxDecoration(
               shape: BoxShape.circle,
               border: Border.all(
                 color: Theme.of(context).colorScheme.primary,
-                width: 3,
+                width: 2,
               ),
               boxShadow: [
                 BoxShadow(
                   color: Colors.black.withOpacity(0.1),
-                  blurRadius: 10,
-                  offset: const Offset(0, 4),
+                  blurRadius: 8,
+                  offset: const Offset(0, 2),
                 ),
               ],
             ),
             child: CircleAvatar(
-              radius: 37,
+              radius: 28,
               backgroundColor: Theme.of(context).colorScheme.primary.withOpacity(0.1),
               backgroundImage: profileImageUrl != null 
                   ? NetworkImage(profileImageUrl!)
@@ -79,14 +79,14 @@ class ProfileHeaderWidget extends StatelessWidget {
               child: profileImageUrl == null
                   ? Icon(
                       Icons.person,
-                      size: 40,
+                      size: 30,
                       color: Theme.of(context).colorScheme.primary,
                     )
                   : null,
             ),
           ),
         ),
-        const SizedBox(width: 16),
+        const SizedBox(width: 12),
         
         // Greeting and User Info
         Expanded(
@@ -97,13 +97,13 @@ class ProfileHeaderWidget extends StatelessWidget {
                 _getTimeBasedGreeting(),
                 style: Theme.of(context).textTheme.bodyMedium?.copyWith(
                   color: Colors.grey[600],
-                  fontSize: 16,
+                  fontSize: 14,
                 ),
               ),
-              const SizedBox(height: 4),
+              const SizedBox(height: 2),
               Text(
                 userName,
-                style: Theme.of(context).textTheme.headlineSmall?.copyWith(
+                style: Theme.of(context).textTheme.titleLarge?.copyWith(
                   fontWeight: FontWeight.bold,
                   color: Theme.of(context).colorScheme.onSurface,
                 ),
@@ -113,6 +113,7 @@ class ProfileHeaderWidget extends StatelessWidget {
                 userEmail,
                 style: Theme.of(context).textTheme.bodySmall?.copyWith(
                   color: Colors.grey[600],
+                  fontSize: 12,
                 ),
                 overflow: TextOverflow.ellipsis,
               ),
@@ -140,14 +141,14 @@ class ProfileHeaderWidget extends StatelessWidget {
     return GestureDetector(
       onTap: button.onTap,
       child: Container(
-        height: 80,
+        height: 70,
         decoration: BoxDecoration(
           color: Colors.white,
-          borderRadius: BorderRadius.circular(12),
+          borderRadius: BorderRadius.circular(10),
           boxShadow: [
             BoxShadow(
               color: Colors.black.withOpacity(0.08),
-              blurRadius: 6,
+              blurRadius: 4,
               offset: const Offset(0, 2),
             ),
           ],
@@ -156,25 +157,25 @@ class ProfileHeaderWidget extends StatelessWidget {
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
             Container(
-              width: 36,
-              height: 36,
+              width: 32,
+              height: 32,
               decoration: BoxDecoration(
                 color: button.color.withOpacity(0.1),
-                borderRadius: BorderRadius.circular(8),
+                borderRadius: BorderRadius.circular(6),
               ),
               child: Icon(
                 button.icon,
                 color: button.color,
-                size: 18,
+                size: 16,
               ),
             ),
-            const SizedBox(height: 6),
+            const SizedBox(height: 4),
             Text(
               button.label,
               style: Theme.of(context).textTheme.bodySmall?.copyWith(
                 fontWeight: FontWeight.w600,
                 color: Theme.of(context).colorScheme.onSurface,
-                fontSize: 11,
+                fontSize: 10,
               ),
               textAlign: TextAlign.center,
               maxLines: 1,
