@@ -22,6 +22,7 @@ class CalendarPage extends StatefulWidget {
 class _CalendarPageState extends State<CalendarPage> {
   late DateTime _currentMonth;
   late DateTime _selectedDate;
+  bool _isCalendarExpanded = true;
 
   @override
   void initState() {
@@ -42,6 +43,15 @@ class _CalendarPageState extends State<CalendarPage> {
           icon: const Icon(Icons.arrow_back),
         ),
         actions: [
+          IconButton(
+            onPressed: () {
+              setState(() {
+                _isCalendarExpanded = !_isCalendarExpanded;
+              });
+            },
+            icon: Icon(_isCalendarExpanded ? Icons.keyboard_arrow_up : Icons.keyboard_arrow_down),
+            tooltip: _isCalendarExpanded ? 'Hide Calendar' : 'Show Calendar',
+          ),
           if (widget.onDateSelected != null)
             TextButton(
               onPressed: () {
@@ -56,15 +66,16 @@ class _CalendarPageState extends State<CalendarPage> {
         padding: const EdgeInsets.all(20),
         child: Column(
           children: [
-            // Calendar
-            Expanded(
-              flex: 2,
-              child: _buildCalendar(context),
-            ),
+            // Calendar (conditionally shown)
+            if (_isCalendarExpanded)
+              Expanded(
+                flex: 1,
+                child: _buildCalendar(context),
+              ),
             
-            // Dates List
+            // Dates List (always shown, takes more space when calendar is hidden)
             Expanded(
-              flex: 1,
+              flex: _isCalendarExpanded ? 2 : 1,
               child: _buildDatesList(context),
             ),
           ],
@@ -213,6 +224,7 @@ class _CalendarPageState extends State<CalendarPage> {
   }
 
 
+
   void _previousMonth() {
     setState(() {
       _currentMonth = DateTime(_currentMonth.year, _currentMonth.month - 1);
@@ -249,15 +261,41 @@ class _CalendarPageState extends State<CalendarPage> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        // Header
+        // Header with month navigation when calendar is hidden
         Padding(
           padding: const EdgeInsets.only(bottom: 2),
-          child: Text(
-            'All Dates in ${DateFormat('MMMM yyyy').format(_currentMonth)}',
-            style: Theme.of(context).textTheme.titleMedium?.copyWith(
-              fontWeight: FontWeight.w600,
-              color: Theme.of(context).colorScheme.primary,
-            ),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Text(
+                'All Dates in ${DateFormat('MMMM yyyy').format(_currentMonth)}',
+                style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                  fontWeight: FontWeight.w600,
+                  color: Theme.of(context).colorScheme.primary,
+                ),
+              ),
+              if (!_isCalendarExpanded)
+                Row(
+                  children: [
+                    IconButton(
+                      onPressed: _previousMonth,
+                      icon: const Icon(Icons.chevron_left),
+                      style: IconButton.styleFrom(
+                        backgroundColor: Theme.of(context).colorScheme.primary.withOpacity(0.1),
+                        shape: const CircleBorder(),
+                      ),
+                    ),
+                    IconButton(
+                      onPressed: _nextMonth,
+                      icon: const Icon(Icons.chevron_right),
+                      style: IconButton.styleFrom(
+                        backgroundColor: Theme.of(context).colorScheme.primary.withOpacity(0.1),
+                        shape: const CircleBorder(),
+                      ),
+                    ),
+                  ],
+                ),
+            ],
           ),
         ),
         
