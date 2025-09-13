@@ -1351,8 +1351,8 @@ class _EmployeeDashboardState extends State<EmployeeDashboard> {
   List<ActionButton> _getEmployeeActionButtons(BuildContext context, AppProvider appProvider) {
     return [
       ActionButton(
-        icon: Icons.dashboard,
-        label: 'Overview',
+        icon: Icons.calendar_today,
+        label: 'Calendar',
         color: Colors.blue,
         onTap: () => setState(() => _selectedIndex = 0),
       ),

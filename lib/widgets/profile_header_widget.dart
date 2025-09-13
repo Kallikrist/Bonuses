@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import 'package:intl/intl.dart';
+import 'calendar_widget.dart';
 
 class ProfileHeaderWidget extends StatelessWidget {
   final String userName;
@@ -139,7 +141,7 @@ class ProfileHeaderWidget extends StatelessWidget {
 
   Widget _buildActionButton(BuildContext context, ActionButton button) {
     return GestureDetector(
-      onTap: button.onTap,
+      onTap: () => _handleButtonTap(context, button),
       child: Container(
         height: 70,
         decoration: BoxDecoration(
@@ -182,6 +184,36 @@ class ProfileHeaderWidget extends StatelessWidget {
               overflow: TextOverflow.ellipsis,
             ),
           ],
+        ),
+      ),
+    );
+  }
+
+  void _handleButtonTap(BuildContext context, ActionButton button) {
+    // Check if this is a calendar button (first button with calendar icon)
+    if (button.icon == Icons.calendar_today || button.label.toLowerCase().contains('calendar')) {
+      _showCalendarDialog(context);
+    } else {
+      // Call the original onTap for other buttons
+      button.onTap();
+    }
+  }
+
+  void _showCalendarDialog(BuildContext context) {
+    Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (context) => CalendarPage(
+          title: 'Calendar',
+          selectedDate: DateTime.now(),
+          onDateSelected: (selectedDate) {
+            // Handle date selection
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                content: Text('Selected date: ${DateFormat('MMM dd, yyyy').format(selectedDate)}'),
+                duration: const Duration(seconds: 2),
+              ),
+            );
+          },
         ),
       ),
     );

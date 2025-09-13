@@ -1731,8 +1731,8 @@ class _AdminDashboardState extends State<AdminDashboard> {
   List<ActionButton> _getAdminActionButtons(BuildContext context, AppProvider appProvider) {
     return [
       ActionButton(
-        icon: Icons.dashboard,
-        label: 'Dashboard',
+        icon: Icons.calendar_today,
+        label: 'Calendar',
         color: Colors.blue,
         onTap: () => setState(() => _selectedIndex = 0),
       ),
