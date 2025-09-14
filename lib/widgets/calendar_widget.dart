@@ -1,6 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
+import 'package:provider/provider.dart';
 import '../models/sales_target.dart';
+import '../models/user.dart';
+import '../models/workplace.dart';
+import '../providers/app_provider.dart';
 
 class CalendarPage extends StatefulWidget {
   final DateTime? selectedDate;
@@ -45,6 +49,11 @@ class _CalendarPageState extends State<CalendarPage> {
           icon: const Icon(Icons.arrow_back),
         ),
         actions: [
+          IconButton(
+            onPressed: () => _showCalendarOptions(context),
+            icon: const Icon(Icons.more_vert),
+            tooltip: 'Calendar Options',
+          ),
           if (widget.onDateSelected != null)
             TextButton(
               onPressed: () {
@@ -58,23 +67,23 @@ class _CalendarPageState extends State<CalendarPage> {
       body: Container(
         padding: const EdgeInsets.all(16),
         child: Column(
-                      children: [
-                        // Calendar
-                        Expanded(
-                          flex: 1,
-                          child: _buildCalendar(context),
-                        ),
-                        
-                        // Sales Targets for selected date
-                        Expanded(
-                          flex: 2,
-                          child: _buildSalesTargets(context),
-                        ),
-                      ],
+          children: [
+            // Calendar
+            Expanded(
+              flex: 1,
+              child: _buildCalendar(context),
+            ),
+
+            // Sales Targets for selected date
+            Expanded(
+              flex: 2,
+              child: _buildSalesTargets(context),
+            ),
+          ],
         ),
       ),
       floatingActionButton: FloatingActionButton(
-        onPressed: () => _showCalendarOptions(context),
+        onPressed: () => _showAddTargetDialog(context),
         backgroundColor: const Color(0xFF007AFF),
         child: const Icon(
           Icons.add,
@@ -149,30 +158,32 @@ class _CalendarPageState extends State<CalendarPage> {
               ],
             ),
           ),
-          
+
           // Days of Week Header
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 16),
             child: Row(
-              children: ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'].map((day) => 
-                Expanded(
-                  child: Center(
-                    child: Text(
-                      day,
-                      style: const TextStyle(
-                        fontSize: 12,
-                        fontWeight: FontWeight.w500,
-                        color: Colors.grey,
+              children: ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun']
+                  .map(
+                    (day) => Expanded(
+                      child: Center(
+                        child: Text(
+                          day,
+                          style: const TextStyle(
+                            fontSize: 12,
+                            fontWeight: FontWeight.w500,
+                            color: Colors.grey,
+                          ),
+                        ),
                       ),
                     ),
-                  ),
-                ),
-              ).toList(),
+                  )
+                  .toList(),
             ),
           ),
-          
+
           const SizedBox(height: 8),
-          
+
           // Calendar Grid
           Expanded(
             child: Padding(
@@ -180,7 +191,7 @@ class _CalendarPageState extends State<CalendarPage> {
               child: _buildCalendarGrid(context),
             ),
           ),
-          
+
           const SizedBox(height: 8),
         ],
       ),
@@ -188,8 +199,10 @@ class _CalendarPageState extends State<CalendarPage> {
   }
 
   Widget _buildCalendarGrid(BuildContext context) {
-    final firstDayOfMonth = DateTime(_currentMonth.year, _currentMonth.month, 1);
-    final lastDayOfMonth = DateTime(_currentMonth.year, _currentMonth.month + 1, 0);
+    final firstDayOfMonth =
+        DateTime(_currentMonth.year, _currentMonth.month, 1);
+    final lastDayOfMonth =
+        DateTime(_currentMonth.year, _currentMonth.month + 1, 0);
     final firstDayOfWeek = (firstDayOfMonth.weekday - 1) % 7; // Monday = 0
 
     final daysInMonth = lastDayOfMonth.day;
@@ -215,15 +228,18 @@ class _CalendarPageState extends State<CalendarPage> {
         final date = DateTime(_currentMonth.year, _currentMonth.month, day);
         final isSelected = _isSameDay(date, _selectedDate);
         final isToday = _isSameDay(date, DateTime.now());
-        final isHighlighted = widget.highlightedDates?.any((d) => _isSameDay(d, date)) ?? false;
+        final isHighlighted =
+            widget.highlightedDates?.any((d) => _isSameDay(d, date)) ?? false;
         final hasSalesTarget = _hasSalesTargetForDate(date);
 
-        return _buildDayCell(context, date, day, isSelected, isToday, isHighlighted, hasSalesTarget);
+        return _buildDayCell(context, date, day, isSelected, isToday,
+            isHighlighted, hasSalesTarget);
       },
     );
   }
 
-  Widget _buildDayCell(BuildContext context, DateTime date, int day, bool isSelected, bool isToday, bool isHighlighted, bool hasSalesTarget) {
+  Widget _buildDayCell(BuildContext context, DateTime date, int day,
+      bool isSelected, bool isToday, bool isHighlighted, bool hasSalesTarget) {
     return GestureDetector(
       onTap: () => _selectDate(date),
       child: Container(
@@ -247,7 +263,8 @@ class _CalendarPageState extends State<CalendarPage> {
                       : isToday
                           ? const Color(0xFF007AFF)
                           : Colors.black87,
-                  fontWeight: isSelected || isToday ? FontWeight.w600 : FontWeight.w500,
+                  fontWeight:
+                      isSelected || isToday ? FontWeight.w600 : FontWeight.w500,
                 ),
               ),
             ),
@@ -262,9 +279,10 @@ class _CalendarPageState extends State<CalendarPage> {
                     width: 4,
                     height: 4,
                     decoration: BoxDecoration(
-                      color: hasSalesTarget 
-                          ? Colors.orange  // Orange dot for sales targets
-                          : const Color(0xFF007AFF), // Blue dot for highlighted dates
+                      color: hasSalesTarget
+                          ? Colors.orange // Orange dot for sales targets
+                          : const Color(
+                              0xFF007AFF), // Blue dot for highlighted dates
                       borderRadius: BorderRadius.circular(2),
                     ),
                   ),
@@ -295,8 +313,9 @@ class _CalendarPageState extends State<CalendarPage> {
   }
 
   Widget _buildSalesTargets(BuildContext context) {
-    final salesTargets = _getSalesTargetsForDate(_selectedDate, widget.salesTargets ?? []);
-    
+    final salesTargets =
+        _getSalesTargetsForDate(_selectedDate, widget.salesTargets ?? []);
+
     return Container(
       margin: const EdgeInsets.only(top: 20),
       decoration: BoxDecoration(
@@ -319,7 +338,7 @@ class _CalendarPageState extends State<CalendarPage> {
               ),
             ),
           ),
-          
+
           // Sales targets list
           Expanded(
             child: salesTargets.isEmpty
@@ -376,7 +395,8 @@ class _CalendarPageState extends State<CalendarPage> {
                                       color: Colors.grey[600],
                                     ),
                                   ),
-                                  if (target.collaborativeEmployeeNames.isNotEmpty)
+                                  if (target
+                                      .collaborativeEmployeeNames.isNotEmpty)
                                     Text(
                                       'Collaborators: ${target.collaborativeEmployeeNames.join(', ')}',
                                       style: TextStyle(
@@ -388,9 +408,11 @@ class _CalendarPageState extends State<CalendarPage> {
                               ),
                             ),
                             Container(
-                              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                              padding: const EdgeInsets.symmetric(
+                                  horizontal: 8, vertical: 4),
                               decoration: BoxDecoration(
-                                color: _getTargetColorFromStatus(target.status).withOpacity(0.1),
+                                color: _getTargetColorFromStatus(target.status)
+                                    .withOpacity(0.1),
                                 borderRadius: BorderRadius.circular(12),
                               ),
                               child: Text(
@@ -398,7 +420,8 @@ class _CalendarPageState extends State<CalendarPage> {
                                 style: TextStyle(
                                   fontSize: 10,
                                   fontWeight: FontWeight.w600,
-                                  color: _getTargetColorFromStatus(target.status),
+                                  color:
+                                      _getTargetColorFromStatus(target.status),
                                 ),
                               ),
                             ),
@@ -413,7 +436,8 @@ class _CalendarPageState extends State<CalendarPage> {
     );
   }
 
-  List<SalesTarget> _getSalesTargetsForDate(DateTime date, List<SalesTarget> allTargets) {
+  List<SalesTarget> _getSalesTargetsForDate(
+      DateTime date, List<SalesTarget> allTargets) {
     // Filter targets for the selected date
     return allTargets.where((target) {
       return _isSameDay(target.date, date);
@@ -456,15 +480,15 @@ class _CalendarPageState extends State<CalendarPage> {
 
   bool _isSameDay(DateTime date1, DateTime date2) {
     return date1.year == date2.year &&
-           date1.month == date2.month &&
-           date1.day == date2.day;
+        date1.month == date2.month &&
+        date1.day == date2.day;
   }
 
   bool _hasSalesTargetForDate(DateTime date) {
     if (widget.salesTargets == null || widget.salesTargets!.isEmpty) {
       return false;
     }
-    
+
     return widget.salesTargets!.any((target) => _isSameDay(target.date, date));
   }
 
@@ -489,7 +513,7 @@ class _CalendarPageState extends State<CalendarPage> {
               ),
             ),
             const SizedBox(height: 20),
-            
+
             // Title
             const Text(
               'Calendar Options',
@@ -500,7 +524,7 @@ class _CalendarPageState extends State<CalendarPage> {
               ),
             ),
             const SizedBox(height: 20),
-            
+
             // Options
             _buildOptionTile(
               context,
@@ -515,7 +539,7 @@ class _CalendarPageState extends State<CalendarPage> {
                 });
               },
             ),
-            
+
             _buildOptionTile(
               context,
               icon: Icons.calendar_month,
@@ -532,18 +556,7 @@ class _CalendarPageState extends State<CalendarPage> {
                 );
               },
             ),
-            
-            _buildOptionTile(
-              context,
-              icon: Icons.add_circle_outline,
-              title: 'Add Sales Target',
-              subtitle: 'Create new target for selected date',
-              onTap: () {
-                Navigator.pop(context);
-                _showAddTargetDialog(context);
-              },
-            ),
-            
+
             const SizedBox(height: 20),
           ],
         ),
@@ -594,18 +607,492 @@ class _CalendarPageState extends State<CalendarPage> {
   void _showAddTargetDialog(BuildContext context) {
     showDialog(
       context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Add Sales Target'),
-        content: const Text(
-          'This feature will be implemented to add new sales targets for the selected date.',
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text('OK'),
-          ),
-        ],
+      builder: (context) => AddTargetDialog(
+        selectedDate: _selectedDate,
+        onTargetAdded: () {
+          // Refresh the calendar to show the new target
+          setState(() {});
+        },
       ),
+    );
+  }
+}
+
+class AddTargetDialog extends StatefulWidget {
+  final DateTime selectedDate;
+  final VoidCallback onTargetAdded;
+
+  const AddTargetDialog({
+    super.key,
+    required this.selectedDate,
+    required this.onTargetAdded,
+  });
+
+  @override
+  State<AddTargetDialog> createState() => _AddTargetDialogState();
+}
+
+class _AddTargetDialogState extends State<AddTargetDialog> {
+  final _formKey = GlobalKey<FormState>();
+  final _targetAmountController = TextEditingController();
+  final _employeeController = TextEditingController();
+  final _workplaceController = TextEditingController();
+
+  DateTime _selectedDate = DateTime.now();
+  User? _selectedEmployee;
+  Workplace? _selectedWorkplace;
+  List<User> _availableEmployees = [];
+  List<Workplace> _availableWorkplaces = [];
+  List<User> _selectedCollaborators = [];
+  bool _isLoading = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _selectedDate = widget.selectedDate;
+    _loadData();
+  }
+
+  Future<void> _loadData() async {
+    setState(() => _isLoading = true);
+
+    final appProvider = Provider.of<AppProvider>(context, listen: false);
+    _availableEmployees = await appProvider.getUsers();
+    _availableWorkplaces = await appProvider.getWorkplaces();
+
+    // Filter to only show employees
+    _availableEmployees = _availableEmployees
+        .where((user) => user.role == UserRole.employee)
+        .toList();
+
+    setState(() => _isLoading = false);
+  }
+
+  @override
+  void dispose() {
+    _targetAmountController.dispose();
+    _employeeController.dispose();
+    _workplaceController.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AlertDialog(
+      title: const Text('Add Sales Target'),
+      content: SizedBox(
+        width: double.maxFinite,
+        child: _isLoading
+            ? const Center(child: CircularProgressIndicator())
+            : Form(
+                key: _formKey,
+                child: SingleChildScrollView(
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      // Date Selection
+                      const Text(
+                        'Target Date',
+                        style: TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.w600,
+                          color: Colors.black87,
+                        ),
+                      ),
+                      const SizedBox(height: 8),
+                      Row(
+                        children: [
+                          Expanded(
+                            child: Container(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 12,
+                                vertical: 8,
+                              ),
+                              decoration: BoxDecoration(
+                                border: Border.all(color: Colors.grey[300]!),
+                                borderRadius: BorderRadius.circular(8),
+                              ),
+                              child: Text(
+                                DateFormat('MMM dd, yyyy')
+                                    .format(_selectedDate),
+                                style: const TextStyle(fontSize: 16),
+                              ),
+                            ),
+                          ),
+                          const SizedBox(width: 8),
+                          IconButton(
+                            onPressed: _selectDate,
+                            icon: const Icon(Icons.calendar_today),
+                            tooltip: 'Select Date',
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 16),
+
+                      // Target Amount
+                      const Text(
+                        'Target Amount (\$)',
+                        style: TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.w600,
+                          color: Colors.black87,
+                        ),
+                      ),
+                      const SizedBox(height: 8),
+                      TextFormField(
+                        controller: _targetAmountController,
+                        keyboardType: TextInputType.number,
+                        decoration: const InputDecoration(
+                          hintText: 'Enter target amount',
+                          border: OutlineInputBorder(),
+                        ),
+                        validator: (value) {
+                          if (value == null || value.isEmpty) {
+                            return 'Please enter target amount';
+                          }
+                          final amount = double.tryParse(value);
+                          if (amount == null || amount <= 0) {
+                            return 'Please enter a valid amount';
+                          }
+                          return null;
+                        },
+                      ),
+                      const SizedBox(height: 16),
+
+                      // Employee Selection
+                      const Text(
+                        'Assigned Employee',
+                        style: TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.w600,
+                          color: Colors.black87,
+                        ),
+                      ),
+                      const SizedBox(height: 8),
+                      DropdownButtonFormField<User>(
+                        value: _selectedEmployee,
+                        decoration: const InputDecoration(
+                          border: OutlineInputBorder(),
+                          hintText: 'Select employee',
+                        ),
+                        items: _availableEmployees.map((employee) {
+                          return DropdownMenuItem<User>(
+                            value: employee,
+                            child: Text(employee.name),
+                          );
+                        }).toList(),
+                        onChanged: (User? value) {
+                          setState(() {
+                            _selectedEmployee = value;
+                            if (value != null) {
+                              _employeeController.text = value.name;
+                              // Auto-select workplace if employee has one
+                              if (value.workplaceIds.isNotEmpty) {
+                                _selectedWorkplace =
+                                    _availableWorkplaces.firstWhere(
+                                  (wp) => wp.id == value.workplaceIds.first,
+                                  orElse: () => _availableWorkplaces.first,
+                                );
+                                _workplaceController.text =
+                                    _selectedWorkplace?.name ?? '';
+                              }
+                            }
+                          });
+                        },
+                        validator: (value) {
+                          if (value == null) {
+                            return 'Please select an employee';
+                          }
+                          return null;
+                        },
+                      ),
+                      const SizedBox(height: 16),
+
+                      // Workplace Selection
+                      const Text(
+                        'Workplace',
+                        style: TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.w600,
+                          color: Colors.black87,
+                        ),
+                      ),
+                      const SizedBox(height: 8),
+                      DropdownButtonFormField<Workplace>(
+                        value: _selectedWorkplace,
+                        decoration: const InputDecoration(
+                          border: OutlineInputBorder(),
+                          hintText: 'Select workplace',
+                        ),
+                        items: _availableWorkplaces.map((workplace) {
+                          return DropdownMenuItem<Workplace>(
+                            value: workplace,
+                            child: Text(workplace.name),
+                          );
+                        }).toList(),
+                        onChanged: (Workplace? value) {
+                          setState(() {
+                            _selectedWorkplace = value;
+                            if (value != null) {
+                              _workplaceController.text = value.name;
+                            }
+                          });
+                        },
+                        validator: (value) {
+                          if (value == null) {
+                            return 'Please select a workplace';
+                          }
+                          return null;
+                        },
+                      ),
+                      const SizedBox(height: 16),
+
+                      // Collaborators Selection
+                      const Text(
+                        'Team Members (Optional)',
+                        style: TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.w600,
+                          color: Colors.black87,
+                        ),
+                      ),
+                      const SizedBox(height: 8),
+                      Container(
+                        padding: const EdgeInsets.all(12),
+                        decoration: BoxDecoration(
+                          border: Border.all(color: Colors.grey[300]!),
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            if (_selectedCollaborators.isEmpty)
+                              Text(
+                                'No team members selected',
+                                style: TextStyle(
+                                  color: Colors.grey[600],
+                                  fontSize: 14,
+                                ),
+                              )
+                            else
+                              Wrap(
+                                spacing: 8,
+                                runSpacing: 8,
+                                children:
+                                    _selectedCollaborators.map((collaborator) {
+                                  return Chip(
+                                    label: Text(collaborator.name),
+                                    onDeleted: () {
+                                      setState(() {
+                                        _selectedCollaborators
+                                            .remove(collaborator);
+                                      });
+                                    },
+                                    deleteIcon:
+                                        const Icon(Icons.close, size: 16),
+                                  );
+                                }).toList(),
+                              ),
+                            const SizedBox(height: 8),
+                            TextButton.icon(
+                              onPressed: _selectCollaborators,
+                              icon: const Icon(Icons.add, size: 16),
+                              label: const Text('Add Team Members'),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.pop(context),
+          child: const Text('Cancel'),
+        ),
+        ElevatedButton(
+          onPressed: _isLoading ? null : _addTarget,
+          style: ElevatedButton.styleFrom(
+            backgroundColor: const Color(0xFF007AFF),
+            foregroundColor: Colors.white,
+          ),
+          child: const Text('Add Target'),
+        ),
+      ],
+    );
+  }
+
+  Future<void> _selectDate() async {
+    final date = await showDatePicker(
+      context: context,
+      initialDate: _selectedDate,
+      firstDate: DateTime.now().subtract(const Duration(days: 365)),
+      lastDate: DateTime.now().add(const Duration(days: 365)),
+    );
+
+    if (date != null) {
+      setState(() {
+        _selectedDate = date;
+      });
+    }
+  }
+
+  Future<void> _selectCollaborators() async {
+    final availableCollaborators = _availableEmployees
+        .where((emp) => emp.id != _selectedEmployee?.id)
+        .toList();
+
+    final selected = await showDialog<List<User>>(
+      context: context,
+      builder: (context) => MultiSelectDialog(
+        title: 'Select Team Members',
+        items: availableCollaborators,
+        selectedItems: _selectedCollaborators,
+      ),
+    );
+
+    if (selected != null) {
+      setState(() {
+        _selectedCollaborators = selected;
+      });
+    }
+  }
+
+  Future<void> _addTarget() async {
+    if (!_formKey.currentState!.validate()) return;
+
+    setState(() => _isLoading = true);
+
+    try {
+      final appProvider = Provider.of<AppProvider>(context, listen: false);
+      final currentUser = appProvider.currentUser;
+
+      if (currentUser == null) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Please log in to add targets')),
+        );
+        return;
+      }
+
+      final target = SalesTarget(
+        id: DateTime.now().millisecondsSinceEpoch.toString(),
+        date: _selectedDate,
+        targetAmount: double.parse(_targetAmountController.text),
+        createdAt: DateTime.now(),
+        createdBy: currentUser.id,
+        assignedEmployeeId: _selectedEmployee!.id,
+        assignedEmployeeName: _selectedEmployee!.name,
+        assignedWorkplaceId: _selectedWorkplace!.id,
+        assignedWorkplaceName: _selectedWorkplace!.name,
+        collaborativeEmployeeIds:
+            _selectedCollaborators.map((e) => e.id).toList(),
+        collaborativeEmployeeNames:
+            _selectedCollaborators.map((e) => e.name).toList(),
+      );
+
+      await appProvider.addSalesTarget(target);
+
+      if (mounted) {
+        Navigator.pop(context);
+        widget.onTargetAdded();
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Target added for ${_selectedEmployee!.name}'),
+            backgroundColor: Colors.green,
+          ),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Error adding target: $e'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    } finally {
+      if (mounted) {
+        setState(() => _isLoading = false);
+      }
+    }
+  }
+}
+
+class MultiSelectDialog extends StatefulWidget {
+  final String title;
+  final List<User> items;
+  final List<User> selectedItems;
+
+  const MultiSelectDialog({
+    super.key,
+    required this.title,
+    required this.items,
+    required this.selectedItems,
+  });
+
+  @override
+  State<MultiSelectDialog> createState() => _MultiSelectDialogState();
+}
+
+class _MultiSelectDialogState extends State<MultiSelectDialog> {
+  late List<User> _selectedItems;
+
+  @override
+  void initState() {
+    super.initState();
+    _selectedItems = List.from(widget.selectedItems);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AlertDialog(
+      title: Text(widget.title),
+      content: SizedBox(
+        width: double.maxFinite,
+        child: ListView.builder(
+          shrinkWrap: true,
+          itemCount: widget.items.length,
+          itemBuilder: (context, index) {
+            final item = widget.items[index];
+            final isSelected =
+                _selectedItems.any((selected) => selected.id == item.id);
+
+            return CheckboxListTile(
+              title: Text(item.name),
+              subtitle: Text(item.email),
+              value: isSelected,
+              onChanged: (bool? value) {
+                setState(() {
+                  if (value == true) {
+                    _selectedItems.add(item);
+                  } else {
+                    _selectedItems
+                        .removeWhere((selected) => selected.id == item.id);
+                  }
+                });
+              },
+            );
+          },
+        ),
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.pop(context),
+          child: const Text('Cancel'),
+        ),
+        ElevatedButton(
+          onPressed: () => Navigator.pop(context, _selectedItems),
+          style: ElevatedButton.styleFrom(
+            backgroundColor: const Color(0xFF007AFF),
+            foregroundColor: Colors.white,
+          ),
+          child: const Text('Done'),
+        ),
+      ],
     );
   }
 }
