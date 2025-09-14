@@ -321,35 +321,7 @@ class TargetCard extends StatelessWidget {
                         style: Theme.of(context).textTheme.bodySmall,
                       ),
                     ],
-                    if (isAdminView && isApproved) ...[
-                      Container(
-                        padding: const EdgeInsets.symmetric(
-                            horizontal: 8, vertical: 4),
-                        decoration: BoxDecoration(
-                          color: target.pointsAwarded > 0
-                              ? Colors.amber[600]
-                              : Colors.grey[600],
-                          borderRadius: BorderRadius.circular(12),
-                        ),
-                        child: Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            Icon(Icons.stars, size: 12, color: Colors.white),
-                            const SizedBox(width: 4),
-                            Text(
-                              target.pointsAwarded > 0
-                                  ? '${target.pointsAwarded} pts'
-                                  : '0 pts',
-                              style: const TextStyle(
-                                color: Colors.white,
-                                fontSize: 10,
-                                fontWeight: FontWeight.bold,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ] else if (!isAdminView &&
+                    if (!isAdminView &&
                         isMet &&
                         percentageAbove >= 10) ...[
                       Container(
