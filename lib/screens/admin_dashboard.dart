@@ -2774,20 +2774,7 @@ class _AdminDashboardState extends State<AdminDashboard> {
                 const SizedBox(height: 8),
 
                 // Progress Bar
-                LinearProgressIndicator(
-                  value: progress,
-                  backgroundColor: Colors.grey[300],
-                  valueColor: AlwaysStoppedAnimation<Color>(
-                    isApproved
-                        ? Colors.green
-                        : isOverTarget
-                            ? Colors.green
-                            : actualPercentage >= 80
-                                ? Colors.orange
-                                : Colors.blue,
-                  ),
-                  minHeight: 8,
-                ),
+                _buildProgressBar(target, progress, isOverTarget),
 
                 const SizedBox(height: 8),
 
@@ -4262,6 +4249,65 @@ class _AdminDashboardState extends State<AdminDashboard> {
           ),
         ],
       ),
+    );
+  }
+
+  Widget _buildProgressBar(SalesTarget target, double progress, bool isMet) {
+    final percentageAbove = target.percentageAboveTarget;
+    final isApproved =
+        target.isApproved || target.status == TargetStatus.approved;
+    final hasBonus = percentageAbove >= 10.0;
+
+    // If target is approved and met, show green bar with purple bonus section
+    if (isApproved && isMet) {
+      return LayoutBuilder(
+        builder: (context, constraints) {
+          final barWidth = constraints.maxWidth;
+          final bonusWidth = barWidth * 0.1; // 10% of the progress bar width
+
+          return Stack(
+            children: [
+              // Base green progress bar
+              LinearProgressIndicator(
+                value: progress.clamp(0.0, 1.0),
+                backgroundColor: Colors.grey[300],
+                valueColor: const AlwaysStoppedAnimation<Color>(Colors.green),
+                minHeight: 8,
+              ),
+              // Purple bonus section (10% of the bar) if target exceeded by 10%+
+              if (hasBonus)
+                Positioned(
+                  right: 0,
+                  top: 0,
+                  bottom: 0,
+                  child: Container(
+                    width: bonusWidth,
+                    decoration: BoxDecoration(
+                      color: Colors.purple,
+                      borderRadius: BorderRadius.circular(2),
+                    ),
+                  ),
+                ),
+            ],
+          );
+        },
+      );
+    }
+
+    // Default progress bar for non-approved targets
+    return LinearProgressIndicator(
+      value: progress.clamp(0.0, 1.0),
+      backgroundColor: Colors.grey[300],
+      valueColor: AlwaysStoppedAnimation<Color>(
+        isApproved
+            ? Colors.green
+            : isMet
+                ? Colors.green
+                : progress >= 0.8
+                    ? Colors.orange
+                    : Colors.blue,
+      ),
+      minHeight: 8,
     );
   }
 }

@@ -327,7 +327,7 @@ class _EmployeeDashboardState extends State<EmployeeDashboard> {
               // Purple bonus section (10% of the bar) if target exceeded by 10%+
               if (hasBonus)
                 Positioned(
-                  left: 0,
+                  right: 0,
                   top: 0,
                   bottom: 0,
                   child: Container(
