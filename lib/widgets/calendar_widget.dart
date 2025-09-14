@@ -39,58 +39,65 @@ class _CalendarPageState extends State<CalendarPage> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(
-        title: Text(widget.title ?? 'Calendar'),
-        backgroundColor: Colors.white,
-        elevation: 0,
-        leading: IconButton(
-          onPressed: () => Navigator.of(context).pop(),
-          icon: const Icon(Icons.arrow_back),
-        ),
-        actions: [
-          IconButton(
-            onPressed: () => _showCalendarOptions(context),
-            icon: const Icon(Icons.more_vert),
-            tooltip: 'Calendar Options',
+    return Consumer<AppProvider>(
+      builder: (context, appProvider, child) {
+        return Scaffold(
+          appBar: AppBar(
+            title: Text(widget.title ?? 'Calendar'),
+            backgroundColor: Colors.white,
+            elevation: 0,
+            leading: IconButton(
+              onPressed: () => Navigator.of(context).pop(),
+              icon: const Icon(Icons.arrow_back),
+            ),
+            actions: [
+              IconButton(
+                onPressed: () => _showCalendarOptions(context),
+                icon: const Icon(Icons.more_vert),
+                tooltip: 'Calendar Options',
+              ),
+              if (widget.onDateSelected != null)
+                TextButton(
+                  onPressed: () {
+                    widget.onDateSelected?.call(_selectedDate);
+                    Navigator.of(context).pop();
+                  },
+                  child: const Text('Select'),
+                ),
+            ],
           ),
-          if (widget.onDateSelected != null)
-            TextButton(
-              onPressed: () {
-                widget.onDateSelected?.call(_selectedDate);
-                Navigator.of(context).pop();
-              },
-              child: const Text('Select'),
+          body: Container(
+            padding: const EdgeInsets.all(16),
+            child: Column(
+              children: [
+                // Calendar
+                Expanded(
+                  flex: 1,
+                  child: _buildCalendar(context),
+                ),
+                
+                // Sales Targets for selected date
+                Expanded(
+                  flex: 2,
+                  child: _buildSalesTargets(context),
+                ),
+              ],
             ),
-        ],
-      ),
-      body: Container(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          children: [
-            // Calendar
-            Expanded(
-              flex: 1,
-              child: _buildCalendar(context),
-            ),
-
-            // Sales Targets for selected date
-            Expanded(
-              flex: 2,
-              child: _buildSalesTargets(context),
-            ),
-          ],
-        ),
-      ),
-      floatingActionButton: FloatingActionButton(
-        onPressed: () => _showAddTargetDialog(context),
-        backgroundColor: const Color(0xFF007AFF),
-        child: const Icon(
-          Icons.add,
-          color: Colors.white,
-        ),
-      ),
-      floatingActionButtonLocation: FloatingActionButtonLocation.endFloat,
+          ),
+          // Only show the plus button for admins
+          floatingActionButton: appProvider.isAdmin
+              ? FloatingActionButton(
+                  onPressed: () => _showAddTargetDialog(context),
+                  backgroundColor: const Color(0xFF007AFF),
+                  child: const Icon(
+                    Icons.add,
+                    color: Colors.white,
+                  ),
+                )
+              : null,
+          floatingActionButtonLocation: FloatingActionButtonLocation.endFloat,
+        );
+      },
     );
   }
 
