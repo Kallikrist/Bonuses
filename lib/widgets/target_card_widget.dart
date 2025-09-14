@@ -597,6 +597,64 @@ class TargetCard extends StatelessWidget {
                 ],
               ),
             ],
+
+            // Feedback Section for Admin View
+            if (isAdminView) ...[
+              const SizedBox(height: 8),
+              if (target.isApproved || target.status == TargetStatus.approved) ...[
+                Container(
+                  padding: const EdgeInsets.symmetric(
+                      horizontal: 12, vertical: 8),
+                  decoration: BoxDecoration(
+                    color: Colors.green[100],
+                    borderRadius: BorderRadius.circular(8),
+                    border: Border.all(color: Colors.green),
+                  ),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Icon(Icons.check_circle,
+                          color: Colors.green[700], size: 16),
+                      const SizedBox(width: 8),
+                      Text(
+                        target.pointsAwarded > 0
+                            ? 'Approved & +${target.pointsAwarded} Points Earned'
+                            : 'Approved - No Points Awarded',
+                        style: TextStyle(
+                          color: Colors.green[700],
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ] else if (target.status == TargetStatus.submitted) ...[
+                Container(
+                  padding: const EdgeInsets.symmetric(
+                      horizontal: 12, vertical: 8),
+                  decoration: BoxDecoration(
+                    color: Colors.blue[100],
+                    borderRadius: BorderRadius.circular(8),
+                    border: Border.all(color: Colors.blue),
+                  ),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Icon(Icons.upload,
+                          color: Colors.blue[700], size: 16),
+                      const SizedBox(width: 8),
+                      Text(
+                        'Submitted for Approval',
+                        style: TextStyle(
+                          color: Colors.blue[700],
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ],
           ],
         ),
       ),
