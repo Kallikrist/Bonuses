@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'calendar_widget.dart';
+import '../models/sales_target.dart';
 
 class ProfileHeaderWidget extends StatelessWidget {
   final String userName;
@@ -8,6 +9,7 @@ class ProfileHeaderWidget extends StatelessWidget {
   final String? profileImageUrl;
   final List<ActionButton> actionButtons;
   final VoidCallback? onProfileTap;
+  final List<SalesTarget>? salesTargets;
 
   const ProfileHeaderWidget({
     super.key,
@@ -16,6 +18,7 @@ class ProfileHeaderWidget extends StatelessWidget {
     this.profileImageUrl,
     required this.actionButtons,
     this.onProfileTap,
+    this.salesTargets,
   });
 
   @override
@@ -205,6 +208,7 @@ class ProfileHeaderWidget extends StatelessWidget {
         builder: (context) => CalendarPage(
           title: 'Calendar',
           selectedDate: DateTime.now(),
+          salesTargets: salesTargets,
           onDateSelected: (selectedDate) {
             // Handle date selection
             ScaffoldMessenger.of(context).showSnackBar(

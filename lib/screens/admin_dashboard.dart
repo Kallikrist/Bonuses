@@ -72,6 +72,7 @@ class _AdminDashboardState extends State<AdminDashboard> {
                 userEmail: user.email,
                 onProfileTap: () => setState(() => _selectedIndex = 3), // Navigate to Profile tab
                 actionButtons: _getAdminActionButtons(context, appProvider),
+                salesTargets: allTargets,
               ),
               // Main Content
               Expanded(

@@ -1,11 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
+import '../models/sales_target.dart';
 
 class CalendarPage extends StatefulWidget {
   final DateTime? selectedDate;
   final Function(DateTime)? onDateSelected;
   final List<DateTime>? highlightedDates;
   final String? title;
+  final List<SalesTarget>? salesTargets;
 
   const CalendarPage({
     super.key,
@@ -13,6 +15,7 @@ class CalendarPage extends StatefulWidget {
     this.onDateSelected,
     this.highlightedDates,
     this.title,
+    this.salesTargets,
   });
 
   @override
@@ -22,7 +25,6 @@ class CalendarPage extends StatefulWidget {
 class _CalendarPageState extends State<CalendarPage> {
   late DateTime _currentMonth;
   late DateTime _selectedDate;
-  bool _isCalendarExpanded = true;
 
   @override
   void initState() {
@@ -36,22 +38,13 @@ class _CalendarPageState extends State<CalendarPage> {
     return Scaffold(
       appBar: AppBar(
         title: Text(widget.title ?? 'Calendar'),
-        backgroundColor: Colors.transparent,
+        backgroundColor: Colors.white,
         elevation: 0,
         leading: IconButton(
           onPressed: () => Navigator.of(context).pop(),
           icon: const Icon(Icons.arrow_back),
         ),
         actions: [
-          IconButton(
-            onPressed: () {
-              setState(() {
-                _isCalendarExpanded = !_isCalendarExpanded;
-              });
-            },
-            icon: Icon(_isCalendarExpanded ? Icons.keyboard_arrow_up : Icons.keyboard_arrow_down),
-            tooltip: _isCalendarExpanded ? 'Hide Calendar' : 'Show Calendar',
-          ),
           if (widget.onDateSelected != null)
             TextButton(
               onPressed: () {
@@ -63,94 +56,125 @@ class _CalendarPageState extends State<CalendarPage> {
         ],
       ),
       body: Container(
-        padding: const EdgeInsets.all(20),
+        padding: const EdgeInsets.all(16),
         child: Column(
-          children: [
-            // Calendar (conditionally shown)
-            if (_isCalendarExpanded)
-              Expanded(
-                flex: 1,
-                child: _buildCalendar(context),
-              ),
-            
-            // Dates List (always shown, takes more space when calendar is hidden)
-            Expanded(
-              flex: _isCalendarExpanded ? 2 : 1,
-              child: _buildDatesList(context),
-            ),
-          ],
+                      children: [
+                        // Calendar
+                        Expanded(
+                          flex: 1,
+                          child: _buildCalendar(context),
+                        ),
+                        
+                        // Sales Targets for selected date
+                        Expanded(
+                          flex: 2,
+                          child: _buildSalesTargets(context),
+                        ),
+                      ],
         ),
       ),
     );
   }
 
-
   Widget _buildCalendar(BuildContext context) {
-    return Column(
-      children: [
-        // Month Navigation
-        _buildMonthNavigation(context),
-        const SizedBox(height: 16),
-        
-        // Days of Week Header
-        _buildDaysOfWeekHeader(context),
-        const SizedBox(height: 8),
-        
-        // Calendar Grid
-        Expanded(
-          child: _buildCalendarGrid(context),
-        ),
-      ],
-    );
-  }
-
-  Widget _buildMonthNavigation(BuildContext context) {
-    return Row(
-      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-      children: [
-        IconButton(
-          onPressed: _previousMonth,
-          icon: const Icon(Icons.chevron_left),
-          style: IconButton.styleFrom(
-            backgroundColor: Theme.of(context).colorScheme.primary.withOpacity(0.1),
-            shape: const CircleBorder(),
+    return Container(
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.1),
+            blurRadius: 10,
+            offset: const Offset(0, 4),
           ),
-        ),
-        Text(
-          DateFormat('MMMM yyyy').format(_currentMonth),
-          style: Theme.of(context).textTheme.titleLarge?.copyWith(
-            fontWeight: FontWeight.w600,
-          ),
-        ),
-        IconButton(
-          onPressed: _nextMonth,
-          icon: const Icon(Icons.chevron_right),
-          style: IconButton.styleFrom(
-            backgroundColor: Theme.of(context).colorScheme.primary.withOpacity(0.1),
-            shape: const CircleBorder(),
-          ),
-        ),
-      ],
-    );
-  }
-
-  Widget _buildDaysOfWeekHeader(BuildContext context) {
-    const daysOfWeek = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
-    
-    return Row(
-      children: daysOfWeek.map((day) => 
-        Expanded(
-          child: Center(
-            child: Text(
-              day,
-              style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                fontWeight: FontWeight.w600,
-                color: Colors.grey[600],
-              ),
+        ],
+      ),
+      child: Column(
+        children: [
+          // Month Navigation
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                GestureDetector(
+                  onTap: _previousMonth,
+                  child: Container(
+                    width: 32,
+                    height: 32,
+                    decoration: BoxDecoration(
+                      color: Colors.grey[100],
+                      borderRadius: BorderRadius.circular(16),
+                    ),
+                    child: const Icon(
+                      Icons.chevron_left,
+                      color: Colors.grey,
+                      size: 16,
+                    ),
+                  ),
+                ),
+                Text(
+                  DateFormat('MMMM yyyy').format(_currentMonth),
+                  style: const TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.w600,
+                    color: Colors.black87,
+                  ),
+                ),
+                GestureDetector(
+                  onTap: _nextMonth,
+                  child: Container(
+                    width: 32,
+                    height: 32,
+                    decoration: BoxDecoration(
+                      color: Colors.grey[100],
+                      borderRadius: BorderRadius.circular(16),
+                    ),
+                    child: const Icon(
+                      Icons.chevron_right,
+                      color: Colors.grey,
+                      size: 16,
+                    ),
+                  ),
+                ),
+              ],
             ),
           ),
-        ),
-      ).toList(),
+          
+          // Days of Week Header
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16),
+            child: Row(
+              children: ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'].map((day) => 
+                Expanded(
+                  child: Center(
+                    child: Text(
+                      day,
+                      style: const TextStyle(
+                        fontSize: 12,
+                        fontWeight: FontWeight.w500,
+                        color: Colors.grey,
+                      ),
+                    ),
+                  ),
+                ),
+              ).toList(),
+            ),
+          ),
+          
+          const SizedBox(height: 8),
+          
+          // Calendar Grid
+          Expanded(
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16),
+              child: _buildCalendarGrid(context),
+            ),
+          ),
+          
+          const SizedBox(height: 8),
+        ],
+      ),
     );
   }
 
@@ -158,72 +182,90 @@ class _CalendarPageState extends State<CalendarPage> {
     final firstDayOfMonth = DateTime(_currentMonth.year, _currentMonth.month, 1);
     final lastDayOfMonth = DateTime(_currentMonth.year, _currentMonth.month + 1, 0);
     final firstDayOfWeek = (firstDayOfMonth.weekday - 1) % 7; // Monday = 0
-    
+
     final daysInMonth = lastDayOfMonth.day;
     final totalCells = firstDayOfWeek + daysInMonth;
     final rows = (totalCells / 7).ceil();
-    
+
     return GridView.builder(
       gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
         crossAxisCount: 7,
         childAspectRatio: 1.2,
+        mainAxisSpacing: 2,
+        crossAxisSpacing: 2,
       ),
       itemCount: rows * 7,
       itemBuilder: (context, index) {
         final dayIndex = index - firstDayOfWeek;
-        
+
         if (dayIndex < 0 || dayIndex >= daysInMonth) {
           return const SizedBox(); // Empty cell
         }
-        
+
         final day = dayIndex + 1;
         final date = DateTime(_currentMonth.year, _currentMonth.month, day);
         final isSelected = _isSameDay(date, _selectedDate);
         final isToday = _isSameDay(date, DateTime.now());
         final isHighlighted = widget.highlightedDates?.any((d) => _isSameDay(d, date)) ?? false;
-        
-        return _buildDayCell(context, date, day, isSelected, isToday, isHighlighted);
+        final hasSalesTarget = _hasSalesTargetForDate(date);
+
+        return _buildDayCell(context, date, day, isSelected, isToday, isHighlighted, hasSalesTarget);
       },
     );
   }
 
-  Widget _buildDayCell(BuildContext context, DateTime date, int day, bool isSelected, bool isToday, bool isHighlighted) {
+  Widget _buildDayCell(BuildContext context, DateTime date, int day, bool isSelected, bool isToday, bool isHighlighted, bool hasSalesTarget) {
     return GestureDetector(
       onTap: () => _selectDate(date),
       child: Container(
-        margin: const EdgeInsets.all(2),
         decoration: BoxDecoration(
-          color: isSelected 
-              ? Theme.of(context).colorScheme.primary
-              : isHighlighted
-                  ? Theme.of(context).colorScheme.primary.withOpacity(0.1)
+          color: isSelected
+              ? const Color(0xFF007AFF)
+              : isToday
+                  ? const Color(0xFF007AFF).withOpacity(0.1)
                   : Colors.transparent,
-          borderRadius: BorderRadius.circular(8),
-          border: isToday && !isSelected
-              ? Border.all(
-                  color: Theme.of(context).colorScheme.primary,
-                  width: 2,
-                )
-              : null,
+          borderRadius: BorderRadius.circular(16),
         ),
-        child: Center(
-          child: Text(
-            day.toString(),
-            style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-              color: isSelected 
-                  ? Colors.white
-                  : isToday
-                      ? Theme.of(context).colorScheme.primary
-                      : Theme.of(context).colorScheme.onSurface,
-              fontWeight: isSelected || isToday ? FontWeight.bold : FontWeight.normal,
+        child: Stack(
+          children: [
+            Center(
+              child: Text(
+                day.toString(),
+                style: TextStyle(
+                  fontSize: 15,
+                  color: isSelected
+                      ? Colors.white
+                      : isToday
+                          ? const Color(0xFF007AFF)
+                          : Colors.black87,
+                  fontWeight: isSelected || isToday ? FontWeight.w600 : FontWeight.w500,
+                ),
+              ),
             ),
-          ),
+            // Dot indicators for highlighted dates and sales targets
+            if ((isHighlighted || hasSalesTarget) && !isSelected)
+              Positioned(
+                bottom: 4,
+                left: 0,
+                right: 0,
+                child: Center(
+                  child: Container(
+                    width: 4,
+                    height: 4,
+                    decoration: BoxDecoration(
+                      color: hasSalesTarget 
+                          ? Colors.orange  // Orange dot for sales targets
+                          : const Color(0xFF007AFF), // Blue dot for highlighted dates
+                      borderRadius: BorderRadius.circular(2),
+                    ),
+                  ),
+                ),
+              ),
+          ],
         ),
       ),
     );
   }
-
-
 
   void _previousMonth() {
     setState(() {
@@ -243,190 +285,177 @@ class _CalendarPageState extends State<CalendarPage> {
     });
   }
 
+  Widget _buildSalesTargets(BuildContext context) {
+    final salesTargets = _getSalesTargetsForDate(_selectedDate, widget.salesTargets ?? []);
+    
+    return Container(
+      margin: const EdgeInsets.only(top: 20),
+      decoration: BoxDecoration(
+        color: Colors.grey[50],
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: Colors.grey[200]!),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // Header
+          Padding(
+            padding: const EdgeInsets.all(16),
+            child: Text(
+              'Sales Targets - ${DateFormat('MMM dd, yyyy').format(_selectedDate)}',
+              style: const TextStyle(
+                fontSize: 16,
+                fontWeight: FontWeight.w600,
+                color: Colors.black87,
+              ),
+            ),
+          ),
+          
+          // Sales targets list
+          Expanded(
+            child: salesTargets.isEmpty
+                ? Center(
+                    child: Text(
+                      'No sales targets for this date',
+                      style: TextStyle(
+                        fontSize: 14,
+                        color: Colors.grey[600],
+                      ),
+                    ),
+                  )
+                : ListView.builder(
+                    padding: const EdgeInsets.symmetric(horizontal: 16),
+                    itemCount: salesTargets.length,
+                    itemBuilder: (context, index) {
+                      final target = salesTargets[index];
+                      return Container(
+                        margin: const EdgeInsets.only(bottom: 8),
+                        padding: const EdgeInsets.all(12),
+                        decoration: BoxDecoration(
+                          color: Colors.white,
+                          borderRadius: BorderRadius.circular(8),
+                          border: Border.all(color: Colors.grey[200]!),
+                        ),
+                        child: Row(
+                          children: [
+                            Container(
+                              width: 8,
+                              height: 8,
+                              decoration: BoxDecoration(
+                                color: _getTargetColorFromStatus(target.status),
+                                shape: BoxShape.circle,
+                              ),
+                            ),
+                            const SizedBox(width: 12),
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    '${target.assignedEmployeeName ?? 'Unassigned'} - ${target.assignedWorkplaceName ?? 'No Workplace'}',
+                                    style: const TextStyle(
+                                      fontSize: 14,
+                                      fontWeight: FontWeight.w600,
+                                      color: Colors.black87,
+                                    ),
+                                  ),
+                                  const SizedBox(height: 4),
+                                  Text(
+                                    'Target: \$${target.targetAmount.toStringAsFixed(0)} | Actual: \$${target.actualAmount.toStringAsFixed(0)}',
+                                    style: TextStyle(
+                                      fontSize: 12,
+                                      color: Colors.grey[600],
+                                    ),
+                                  ),
+                                  if (target.collaborativeEmployeeNames.isNotEmpty)
+                                    Text(
+                                      'Collaborators: ${target.collaborativeEmployeeNames.join(', ')}',
+                                      style: TextStyle(
+                                        fontSize: 11,
+                                        color: Colors.grey[500],
+                                      ),
+                                    ),
+                                ],
+                              ),
+                            ),
+                            Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                              decoration: BoxDecoration(
+                                color: _getTargetColorFromStatus(target.status).withOpacity(0.1),
+                                borderRadius: BorderRadius.circular(12),
+                              ),
+                              child: Text(
+                                _getStatusText(target.status),
+                                style: TextStyle(
+                                  fontSize: 10,
+                                  fontWeight: FontWeight.w600,
+                                  color: _getTargetColorFromStatus(target.status),
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      );
+                    },
+                  ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  List<SalesTarget> _getSalesTargetsForDate(DateTime date, List<SalesTarget> allTargets) {
+    // Filter targets for the selected date
+    return allTargets.where((target) {
+      return _isSameDay(target.date, date);
+    }).toList();
+  }
+
+  Color _getTargetColorFromStatus(TargetStatus status) {
+    switch (status) {
+      case TargetStatus.met:
+        return Colors.green;
+      case TargetStatus.pending:
+        return Colors.blue;
+      case TargetStatus.submitted:
+        return Colors.orange;
+      case TargetStatus.approved:
+        return Colors.green;
+      case TargetStatus.missed:
+        return Colors.red;
+      default:
+        return Colors.blue;
+    }
+  }
+
+  String _getStatusText(TargetStatus status) {
+    switch (status) {
+      case TargetStatus.pending:
+        return 'Pending';
+      case TargetStatus.met:
+        return 'Met';
+      case TargetStatus.missed:
+        return 'Missed';
+      case TargetStatus.submitted:
+        return 'Submitted';
+      case TargetStatus.approved:
+        return 'Approved';
+      default:
+        return 'Unknown';
+    }
+  }
+
   bool _isSameDay(DateTime date1, DateTime date2) {
     return date1.year == date2.year &&
            date1.month == date2.month &&
            date1.day == date2.day;
   }
 
-  Widget _buildDatesList(BuildContext context) {
-    final lastDayOfMonth = DateTime(_currentMonth.year, _currentMonth.month + 1, 0);
-    final daysInMonth = lastDayOfMonth.day;
+  bool _hasSalesTargetForDate(DateTime date) {
+    if (widget.salesTargets == null || widget.salesTargets!.isEmpty) {
+      return false;
+    }
     
-    // Generate list of all dates in the month
-    final dates = List.generate(daysInMonth, (index) => 
-      DateTime(_currentMonth.year, _currentMonth.month, index + 1)
-    );
-
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        // Header with month navigation when calendar is hidden
-        Padding(
-          padding: const EdgeInsets.only(bottom: 2),
-          child: Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Text(
-                'All Dates in ${DateFormat('MMMM yyyy').format(_currentMonth)}',
-                style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                  fontWeight: FontWeight.w600,
-                  color: Theme.of(context).colorScheme.primary,
-                ),
-              ),
-              if (!_isCalendarExpanded)
-                Row(
-                  children: [
-                    IconButton(
-                      onPressed: _previousMonth,
-                      icon: const Icon(Icons.chevron_left),
-                      style: IconButton.styleFrom(
-                        backgroundColor: Theme.of(context).colorScheme.primary.withOpacity(0.1),
-                        shape: const CircleBorder(),
-                      ),
-                    ),
-                    IconButton(
-                      onPressed: _nextMonth,
-                      icon: const Icon(Icons.chevron_right),
-                      style: IconButton.styleFrom(
-                        backgroundColor: Theme.of(context).colorScheme.primary.withOpacity(0.1),
-                        shape: const CircleBorder(),
-                      ),
-                    ),
-                  ],
-                ),
-            ],
-          ),
-        ),
-        
-        // Scrollable dates list
-        Expanded(
-          child: Container(
-            decoration: BoxDecoration(
-              color: Colors.grey[50],
-              borderRadius: BorderRadius.circular(12),
-              border: Border.all(
-                color: Colors.grey[200]!,
-                width: 1,
-              ),
-            ),
-            child: ListView.builder(
-              padding: const EdgeInsets.all(2),
-              itemCount: dates.length,
-              itemBuilder: (context, index) {
-                final date = dates[index];
-                final isSelected = _isSameDay(date, _selectedDate);
-                final isToday = _isSameDay(date, DateTime.now());
-                final isHighlighted = widget.highlightedDates?.any((d) => _isSameDay(d, date)) ?? false;
-                
-                return _buildDateListItem(context, date, isSelected, isToday, isHighlighted);
-              },
-            ),
-          ),
-        ),
-      ],
-    );
-  }
-
-  Widget _buildDateListItem(BuildContext context, DateTime date, bool isSelected, bool isToday, bool isHighlighted) {
-    return Container(
-      margin: const EdgeInsets.symmetric(vertical: 1),
-      child: Material(
-        color: Colors.transparent,
-        child: InkWell(
-          onTap: () => _selectDate(date),
-          borderRadius: BorderRadius.circular(8),
-          child: Container(
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-            decoration: BoxDecoration(
-              color: isSelected 
-                  ? Theme.of(context).colorScheme.primary.withOpacity(0.1)
-                  : isHighlighted
-                      ? Theme.of(context).colorScheme.primary.withOpacity(0.05)
-                      : Colors.transparent,
-              borderRadius: BorderRadius.circular(8),
-              border: isToday && !isSelected
-                  ? Border.all(
-                      color: Theme.of(context).colorScheme.primary.withOpacity(0.3),
-                      width: 1,
-                    )
-                  : null,
-            ),
-            child: Row(
-              children: [
-                // Date number
-                Container(
-                  width: 32,
-                  height: 32,
-                  decoration: BoxDecoration(
-                    color: isSelected 
-                        ? Theme.of(context).colorScheme.primary
-                        : isToday
-                            ? Theme.of(context).colorScheme.primary.withOpacity(0.1)
-                            : Colors.grey[200],
-                    borderRadius: BorderRadius.circular(16),
-                  ),
-                  child: Center(
-                    child: Text(
-                      date.day.toString(),
-                      style: TextStyle(
-                        color: isSelected 
-                            ? Colors.white
-                            : isToday
-                                ? Theme.of(context).colorScheme.primary
-                                : Theme.of(context).colorScheme.onSurface,
-                        fontWeight: isSelected || isToday ? FontWeight.bold : FontWeight.normal,
-                        fontSize: 14,
-                      ),
-                    ),
-                  ),
-                ),
-                
-                const SizedBox(width: 12),
-                
-                // Date details
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        DateFormat('EEEE').format(date), // Day of week
-                        style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                          fontWeight: FontWeight.w600,
-                          color: isSelected 
-                              ? Theme.of(context).colorScheme.primary
-                              : Theme.of(context).colorScheme.onSurface,
-                        ),
-                      ),
-                      const SizedBox(height: 2),
-                      Text(
-                        DateFormat('MMM dd, yyyy').format(date),
-                        style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                          color: Colors.grey[600],
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-                
-                // Selection indicator
-                if (isSelected)
-                  Icon(
-                    Icons.check_circle,
-                    color: Theme.of(context).colorScheme.primary,
-                    size: 20,
-                  )
-                else if (isToday)
-                  Icon(
-                    Icons.today,
-                    color: Theme.of(context).colorScheme.primary.withOpacity(0.7),
-                    size: 20,
-                  ),
-              ],
-            ),
-          ),
-        ),
-      ),
-    );
+    return widget.salesTargets!.any((target) => _isSameDay(target.date, date));
   }
 }

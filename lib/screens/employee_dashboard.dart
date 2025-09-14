@@ -189,6 +189,7 @@ class _EmployeeDashboardState extends State<EmployeeDashboard> {
                 userEmail: user.email,
                 onProfileTap: () => setState(() => _selectedIndex = 4), // Navigate to Profile tab
                 actionButtons: _getEmployeeActionButtons(context, appProvider),
+                salesTargets: allTargets,
               ),
               // Main Content
               Expanded(
