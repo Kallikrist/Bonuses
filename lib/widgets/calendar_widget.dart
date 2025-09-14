@@ -75,7 +75,7 @@ class _CalendarPageState extends State<CalendarPage> {
                   flex: 1,
                   child: _buildCalendar(context),
                 ),
-                
+
                 // Sales Targets for selected date
                 Expanded(
                   flex: 2,
@@ -246,8 +246,15 @@ class _CalendarPageState extends State<CalendarPage> {
     );
   }
 
-  Widget _buildDayCell(BuildContext context, DateTime date, int day,
-      bool isSelected, bool isToday, bool isHighlighted, bool hasSalesTarget, TargetStatus? targetStatus) {
+  Widget _buildDayCell(
+      BuildContext context,
+      DateTime date,
+      int day,
+      bool isSelected,
+      bool isToday,
+      bool isHighlighted,
+      bool hasSalesTarget,
+      TargetStatus? targetStatus) {
     return GestureDetector(
       onTap: () => _selectDate(date),
       child: Container(
@@ -287,7 +294,8 @@ class _CalendarPageState extends State<CalendarPage> {
                     width: 4,
                     height: 4,
                     decoration: BoxDecoration(
-                      color: _getDotColorForTargetStatus(targetStatus, isHighlighted),
+                      color: _getDotColorForTargetStatus(
+                          targetStatus, isHighlighted),
                       borderRadius: BorderRadius.circular(2),
                     ),
                   ),
@@ -502,29 +510,37 @@ class _CalendarPageState extends State<CalendarPage> {
       return null;
     }
 
-    final targetsForDate = widget.salesTargets!.where((target) => _isSameDay(target.date, date)).toList();
-    
+    final targetsForDate = widget.salesTargets!
+        .where((target) => _isSameDay(target.date, date))
+        .toList();
+
     if (targetsForDate.isEmpty) {
       return null;
     }
 
     // If all targets are pending, return pending
-    if (targetsForDate.every((target) => target.status == TargetStatus.pending)) {
+    if (targetsForDate
+        .every((target) => target.status == TargetStatus.pending)) {
       return TargetStatus.pending;
     }
 
     // If all targets are approved/succeeded, return approved
-    if (targetsForDate.every((target) => target.status == TargetStatus.approved || target.status == TargetStatus.met)) {
+    if (targetsForDate.every((target) =>
+        target.status == TargetStatus.approved ||
+        target.status == TargetStatus.met)) {
       return TargetStatus.approved;
     }
 
     // If any target is submitted (waiting for approval), return submitted
-    if (targetsForDate.any((target) => target.status == TargetStatus.submitted)) {
+    if (targetsForDate
+        .any((target) => target.status == TargetStatus.submitted)) {
       return TargetStatus.submitted;
     }
 
     // If any target is approved but not all, return submitted (mixed state)
-    if (targetsForDate.any((target) => target.status == TargetStatus.approved || target.status == TargetStatus.met)) {
+    if (targetsForDate.any((target) =>
+        target.status == TargetStatus.approved ||
+        target.status == TargetStatus.met)) {
       return TargetStatus.submitted;
     }
 
@@ -532,7 +548,8 @@ class _CalendarPageState extends State<CalendarPage> {
     return TargetStatus.pending;
   }
 
-  Color _getDotColorForTargetStatus(TargetStatus? targetStatus, bool isHighlighted) {
+  Color _getDotColorForTargetStatus(
+      TargetStatus? targetStatus, bool isHighlighted) {
     // If it's just a highlighted date (no sales target), use blue
     if (targetStatus == null && isHighlighted) {
       return const Color(0xFF007AFF); // Blue for highlighted dates

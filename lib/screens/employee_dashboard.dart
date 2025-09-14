@@ -51,8 +51,9 @@ class _EmployeeDashboardState extends State<EmployeeDashboard> {
         if (!snapshot.hasData) {
           return const Center(child: CircularProgressIndicator());
         }
-        final employees =
-            snapshot.data!.where((user) => user.role == UserRole.employee).toList();
+        final employees = snapshot.data!
+            .where((user) => user.role == UserRole.employee)
+            .toList();
 
         return ListView.builder(
           padding: const EdgeInsets.all(16),
@@ -187,7 +188,8 @@ class _EmployeeDashboardState extends State<EmployeeDashboard> {
               ProfileHeaderWidget(
                 userName: user.name,
                 userEmail: user.email,
-                onProfileTap: () => setState(() => _selectedIndex = 4), // Navigate to Profile tab
+                onProfileTap: () => setState(
+                    () => _selectedIndex = 4), // Navigate to Profile tab
                 actionButtons: _getEmployeeActionButtons(context, appProvider),
                 salesTargets: allTargets,
               ),
@@ -302,6 +304,56 @@ class _EmployeeDashboardState extends State<EmployeeDashboard> {
     );
   }
 
+  Widget _buildProgressBar(SalesTarget target, double progress, bool isMet) {
+    final percentageAbove = target.percentageAboveTarget;
+    final isApproved = target.isApproved;
+    final hasBonus = percentageAbove >= 10.0;
+
+    // If target is approved and met, show green bar with purple bonus section
+    if (isApproved && isMet) {
+      return LayoutBuilder(
+        builder: (context, constraints) {
+          final barWidth = constraints.maxWidth;
+          final bonusWidth = barWidth * 0.1; // 10% of the progress bar width
+
+          return Stack(
+            children: [
+              // Base green progress bar
+              LinearProgressIndicator(
+                value: progress.clamp(0.0, 1.0),
+                backgroundColor: Colors.grey[300],
+                valueColor: const AlwaysStoppedAnimation<Color>(Colors.green),
+              ),
+              // Purple bonus section (10% of the bar) if target exceeded by 10%+
+              if (hasBonus)
+                Positioned(
+                  left: 0,
+                  top: 0,
+                  bottom: 0,
+                  child: Container(
+                    width: bonusWidth,
+                    decoration: BoxDecoration(
+                      color: Colors.purple,
+                      borderRadius: BorderRadius.circular(2),
+                    ),
+                  ),
+                ),
+            ],
+          );
+        },
+      );
+    }
+
+    // Default progress bar for non-approved targets
+    return LinearProgressIndicator(
+      value: progress.clamp(0.0, 1.0),
+      backgroundColor: Colors.grey[300],
+      valueColor: AlwaysStoppedAnimation<Color>(
+        isMet ? Colors.green : Colors.orange,
+      ),
+    );
+  }
+
   Widget _buildTargetCard(SalesTarget target, String userId) {
     final progress = target.targetAmount > 0
         ? target.actualAmount / target.targetAmount
@@ -309,8 +361,19 @@ class _EmployeeDashboardState extends State<EmployeeDashboard> {
     final isMet = target.isMet;
     final percentageAbove = target.percentageAboveTarget;
 
+    // Check if target is approved
+    final isApproved =
+        target.isApproved || target.status == TargetStatus.approved;
+
     return Card(
       margin: const EdgeInsets.only(bottom: 8),
+      color: isApproved ? Colors.green[50] : null,
+      shape: isApproved
+          ? RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(12),
+              side: BorderSide(color: Colors.green[400]!, width: 2),
+            )
+          : null,
       child: Padding(
         padding: const EdgeInsets.all(16),
         child: Column(
@@ -405,13 +468,7 @@ class _EmployeeDashboardState extends State<EmployeeDashboard> {
               ],
             ),
             const SizedBox(height: 8),
-            LinearProgressIndicator(
-              value: progress.clamp(0.0, 1.0),
-              backgroundColor: Colors.grey[300],
-              valueColor: AlwaysStoppedAnimation<Color>(
-                isMet ? Colors.green : Colors.orange,
-              ),
-            ),
+            _buildProgressBar(target, progress, isMet),
             const SizedBox(height: 8),
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -509,7 +566,8 @@ class _EmployeeDashboardState extends State<EmployeeDashboard> {
                           icon: const Icon(Icons.upload, size: 16),
                           label: const Text('Submit Sales'),
                         )
-                      : target.isApproved
+                      : target.isApproved ||
+                              target.status == TargetStatus.approved
                           ? Container(
                               padding: const EdgeInsets.symmetric(
                                   horizontal: 12, vertical: 8),
@@ -525,7 +583,9 @@ class _EmployeeDashboardState extends State<EmployeeDashboard> {
                                       color: Colors.green[700], size: 16),
                                   const SizedBox(width: 8),
                                   Text(
-                                    'Approved & Points Awarded',
+                                    target.pointsAwarded > 0
+                                        ? 'Approved & +${target.pointsAwarded} Points Earned'
+                                        : 'Approved - No Points Awarded',
                                     style: TextStyle(
                                       color: Colors.green[700],
                                       fontWeight: FontWeight.bold,
@@ -534,30 +594,57 @@ class _EmployeeDashboardState extends State<EmployeeDashboard> {
                                 ],
                               ),
                             )
-                          : Container(
-                              padding: const EdgeInsets.symmetric(
-                                  horizontal: 12, vertical: 8),
-                              decoration: BoxDecoration(
-                                color: Colors.orange[100],
-                                borderRadius: BorderRadius.circular(8),
-                                border: Border.all(color: Colors.orange),
-                              ),
-                              child: Row(
-                                mainAxisAlignment: MainAxisAlignment.center,
-                                children: [
-                                  Icon(Icons.pending_actions,
-                                      color: Colors.orange[700], size: 16),
-                                  const SizedBox(width: 8),
-                                  Text(
-                                    'Pending Admin Approval',
-                                    style: TextStyle(
-                                      color: Colors.orange[700],
-                                      fontWeight: FontWeight.bold,
-                                    ),
+                          : target.status == TargetStatus.submitted
+                              ? Container(
+                                  padding: const EdgeInsets.symmetric(
+                                      horizontal: 12, vertical: 8),
+                                  decoration: BoxDecoration(
+                                    color: Colors.blue[100],
+                                    borderRadius: BorderRadius.circular(8),
+                                    border: Border.all(color: Colors.blue),
                                   ),
-                                ],
-                              ),
-                            ),
+                                  child: Row(
+                                    mainAxisAlignment: MainAxisAlignment.center,
+                                    children: [
+                                      Icon(Icons.upload,
+                                          color: Colors.blue[700], size: 16),
+                                      const SizedBox(width: 8),
+                                      Text(
+                                        'Submitted for Approval',
+                                        style: TextStyle(
+                                          color: Colors.blue[700],
+                                          fontWeight: FontWeight.bold,
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                )
+                              : Container(
+                                  padding: const EdgeInsets.symmetric(
+                                      horizontal: 12, vertical: 8),
+                                  decoration: BoxDecoration(
+                                    color: Colors.orange[100],
+                                    borderRadius: BorderRadius.circular(8),
+                                    border: Border.all(color: Colors.orange),
+                                  ),
+                                  child: Row(
+                                    mainAxisAlignment: MainAxisAlignment.center,
+                                    children: [
+                                      Icon(Icons.pending_actions,
+                                          color: Colors.orange[700], size: 16),
+                                      const SizedBox(width: 8),
+                                      Text(
+                                        target.isSubmitted
+                                            ? 'Pending Admin Approval'
+                                            : 'Awaiting Submission',
+                                        style: TextStyle(
+                                          color: Colors.orange[700],
+                                          fontWeight: FontWeight.bold,
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ),
                 ),
               ],
             ),
@@ -1349,7 +1436,8 @@ class _EmployeeDashboardState extends State<EmployeeDashboard> {
     );
   }
 
-  List<ActionButton> _getEmployeeActionButtons(BuildContext context, AppProvider appProvider) {
+  List<ActionButton> _getEmployeeActionButtons(
+      BuildContext context, AppProvider appProvider) {
     return [
       ActionButton(
         icon: Icons.calendar_today,

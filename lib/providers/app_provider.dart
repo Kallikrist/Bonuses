@@ -139,12 +139,12 @@ class AppProvider with ChangeNotifier {
       (t) => t.id == target.id,
       orElse: () => target,
     );
-    
+
     // Check if points need to be adjusted
     if (originalTarget.pointsAwarded != target.pointsAwarded) {
       await _adjustPointsForTargetUpdate(originalTarget, target);
     }
-    
+
     await StorageService.updateSalesTarget(target);
     final index = _salesTargets.indexWhere((t) => t.id == target.id);
     if (index != -1) {
@@ -161,17 +161,18 @@ class AppProvider with ChangeNotifier {
 
   Future<void> _adjustPointsForTargetUpdate(
       SalesTarget originalTarget, SalesTarget updatedTarget) async {
-    final pointsDifference = updatedTarget.pointsAwarded - originalTarget.pointsAwarded;
-    
+    final pointsDifference =
+        updatedTarget.pointsAwarded - originalTarget.pointsAwarded;
+
     if (pointsDifference == 0) return; // No change needed
-    
+
     // Get all employees involved in this target
     final allEmployeeIds = <String>{};
     if (originalTarget.assignedEmployeeId != null) {
       allEmployeeIds.add(originalTarget.assignedEmployeeId!);
     }
     allEmployeeIds.addAll(originalTarget.collaborativeEmployeeIds);
-    
+
     // Create adjustment transactions for each employee
     for (final employeeId in allEmployeeIds) {
       final transaction = PointsTransaction(
@@ -179,18 +180,19 @@ class AppProvider with ChangeNotifier {
         userId: employeeId,
         type: PointsTransactionType.adjustment,
         points: pointsDifference, // Can be positive or negative
-        description: pointsDifference > 0 
+        description: pointsDifference > 0
             ? 'Points adjustment: Target ${originalTarget.id} increased by ${pointsDifference} points'
             : 'Points adjustment: Target ${originalTarget.id} decreased by ${pointsDifference.abs()} points',
         date: DateTime.now(),
         relatedTargetId: originalTarget.id,
       );
-      
+
       await StorageService.addPointsTransaction(transaction);
       _pointsTransactions.add(transaction);
     }
-    
-    print('DEBUG: Adjusted points for target ${originalTarget.id}: ${pointsDifference > 0 ? '+' : ''}$pointsDifference points');
+
+    print(
+        'DEBUG: Adjusted points for target ${originalTarget.id}: ${pointsDifference > 0 ? '+' : ''}$pointsDifference points');
   }
 
   Future<void> markTargetAsMissed(String targetId, String adminId) async {
@@ -370,7 +372,17 @@ class AppProvider with ChangeNotifier {
       );
 
       await addApprovalRequest(approvalRequest);
-      print('DEBUG: Target ${targetId} met - approval request created');
+
+      // Update target to show as submitted for approval
+      final updatedTarget = target.copyWith(
+        actualAmount: actualAmount,
+        isSubmitted: true,
+        status: TargetStatus.submitted,
+      );
+
+      await updateSalesTarget(updatedTarget);
+      print(
+          'DEBUG: Target ${targetId} met - approval request created and target marked as submitted');
     } else {
       // Target not met - automatically mark as missed with no points
       final updatedTarget = target
@@ -436,6 +448,7 @@ class AppProvider with ChangeNotifier {
 
       final updatedTarget = calculatedTarget.copyWith(
         isApproved: true,
+        status: TargetStatus.approved,
         approvedBy: adminId,
         approvedAt: DateTime.now(),
       );
@@ -845,10 +858,12 @@ class AppProvider with ChangeNotifier {
 
   // Approval Request methods
   Future<void> addApprovalRequest(ApprovalRequest request) async {
-    print('DEBUG: Adding approval request - Type: ${request.type.name}, Target: ${request.targetId}');
+    print(
+        'DEBUG: Adding approval request - Type: ${request.type.name}, Target: ${request.targetId}');
     await StorageService.addApprovalRequest(request);
     _approvalRequests = await StorageService.getApprovalRequests();
-    print('DEBUG: Approval request added. Total requests: ${_approvalRequests.length}');
+    print(
+        'DEBUG: Approval request added. Total requests: ${_approvalRequests.length}');
     notifyListeners();
   }
 
@@ -903,11 +918,19 @@ class AppProvider with ChangeNotifier {
     final target = _salesTargets.firstWhere((t) => t.id == request.targetId);
 
     // Calculate the updated target with new actual amount
-    final updatedTarget = target
+    final calculatedTarget = target
         .copyWith(
           actualAmount: request.newActualAmount!,
         )
         .calculateResults();
+
+    // Mark as approved
+    final updatedTarget = calculatedTarget.copyWith(
+      isApproved: true,
+      status: TargetStatus.approved,
+      approvedBy: _currentUser?.id,
+      approvedAt: DateTime.now(),
+    );
 
     await updateSalesTarget(updatedTarget);
 

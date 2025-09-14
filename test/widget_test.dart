@@ -222,11 +222,11 @@ void main() {
       final success1 = await appProvider.login('john@store.com', 'password123');
       expect(success1, isTrue);
       expect(appProvider.currentUser?.email, equals('john@store.com'));
-      
+
       // Logout
       await appProvider.logout();
       expect(appProvider.currentUser, isNull);
-      
+
       // Login as second employee
       final success2 = await appProvider.login('jane@store.com', 'password123');
       expect(success2, isTrue);
@@ -247,14 +247,15 @@ void main() {
       await MockStorageService.clearAllData();
     });
 
-    test('Calendar shows correct dot colors for different target statuses', () async {
+    test('Calendar shows correct dot colors for different target statuses',
+        () async {
       // Login as admin to create targets
       await appProvider.login('admin@store.com', 'password123');
-      
+
       final today = DateTime.now();
       final tomorrow = today.add(const Duration(days: 1));
       final dayAfter = today.add(const Duration(days: 2));
-      
+
       // Create targets with different statuses
       final pendingTarget = SalesTarget(
         id: 'pending_target',
@@ -268,7 +269,7 @@ void main() {
         assignedWorkplaceName: 'Downtown Store',
         status: TargetStatus.pending,
       );
-      
+
       final submittedTarget = SalesTarget(
         id: 'submitted_target',
         date: tomorrow,
@@ -282,7 +283,7 @@ void main() {
         status: TargetStatus.submitted,
         isSubmitted: true,
       );
-      
+
       final approvedTarget = SalesTarget(
         id: 'approved_target',
         date: dayAfter,
@@ -296,27 +297,30 @@ void main() {
         status: TargetStatus.approved,
         isApproved: true,
       );
-      
+
       // Add targets
       await appProvider.addSalesTarget(pendingTarget);
       await appProvider.addSalesTarget(submittedTarget);
       await appProvider.addSalesTarget(approvedTarget);
-      
+
       // Verify targets were added
       expect(appProvider.salesTargets.length, equals(4)); // 3 new + 1 sample
-      
+
       // Test target status determination logic
       final targets = appProvider.salesTargets;
-      
+
       // Find targets for each date
-      final todayTargets = targets.where((t) => _isSameDay(t.date, today)).toList();
-      final tomorrowTargets = targets.where((t) => _isSameDay(t.date, tomorrow)).toList();
-      final dayAfterTargets = targets.where((t) => _isSameDay(t.date, dayAfter)).toList();
-      
+      final todayTargets =
+          targets.where((t) => _isSameDay(t.date, today)).toList();
+      final tomorrowTargets =
+          targets.where((t) => _isSameDay(t.date, tomorrow)).toList();
+      final dayAfterTargets =
+          targets.where((t) => _isSameDay(t.date, dayAfter)).toList();
+
       expect(todayTargets.length, equals(2)); // 1 sample + 1 new pending target
       expect(tomorrowTargets.length, equals(1));
       expect(dayAfterTargets.length, equals(1));
-      
+
       // Verify statuses
       expect(todayTargets.first.status, equals(TargetStatus.pending));
       expect(tomorrowTargets.first.status, equals(TargetStatus.submitted));
@@ -327,6 +331,6 @@ void main() {
 
 bool _isSameDay(DateTime date1, DateTime date2) {
   return date1.year == date2.year &&
-         date1.month == date2.month &&
-         date1.day == date2.day;
+      date1.month == date2.month &&
+      date1.day == date2.day;
 }

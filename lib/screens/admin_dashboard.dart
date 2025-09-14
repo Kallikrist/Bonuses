@@ -70,7 +70,8 @@ class _AdminDashboardState extends State<AdminDashboard> {
               ProfileHeaderWidget(
                 userName: user.name,
                 userEmail: user.email,
-                onProfileTap: () => setState(() => _selectedIndex = 3), // Navigate to Profile tab
+                onProfileTap: () => setState(
+                    () => _selectedIndex = 3), // Navigate to Profile tab
                 actionButtons: _getAdminActionButtons(context, appProvider),
                 salesTargets: allTargets,
               ),
@@ -558,71 +559,89 @@ class _AdminDashboardState extends State<AdminDashboard> {
     }).toList();
   }
 
-  List<SalesTarget> _filterTargetsByTimePeriod(List<SalesTarget> targets, String timePeriod, DateTime now) {
+  List<SalesTarget> _filterTargetsByTimePeriod(
+      List<SalesTarget> targets, String timePeriod, DateTime now) {
     switch (timePeriod) {
       case 'today':
         final today = DateTime(now.year, now.month, now.day);
         final tomorrow = today.add(const Duration(days: 1));
-        return targets.where((target) => 
-          target.date.isAfter(today.subtract(const Duration(milliseconds: 1))) &&
-          target.date.isBefore(tomorrow)
-        ).toList();
+        return targets
+            .where((target) =>
+                target.date
+                    .isAfter(today.subtract(const Duration(milliseconds: 1))) &&
+                target.date.isBefore(tomorrow))
+            .toList();
       case 'week':
         final weekStart = now.subtract(Duration(days: now.weekday - 1));
         final weekEnd = weekStart.add(const Duration(days: 6));
-        return targets.where((target) => 
-          target.date.isAfter(weekStart.subtract(const Duration(days: 1))) &&
-          target.date.isBefore(weekEnd.add(const Duration(days: 1)))
-        ).toList();
+        return targets
+            .where((target) =>
+                target.date
+                    .isAfter(weekStart.subtract(const Duration(days: 1))) &&
+                target.date.isBefore(weekEnd.add(const Duration(days: 1))))
+            .toList();
       case 'month':
         final monthStart = DateTime(now.year, now.month, 1);
         final monthEnd = DateTime(now.year, now.month + 1, 1);
-        return targets.where((target) => 
-          target.date.isAfter(monthStart.subtract(const Duration(milliseconds: 1))) &&
-          target.date.isBefore(monthEnd)
-        ).toList();
+        return targets
+            .where((target) =>
+                target.date.isAfter(
+                    monthStart.subtract(const Duration(milliseconds: 1))) &&
+                target.date.isBefore(monthEnd))
+            .toList();
       case 'year':
         final yearStart = DateTime(now.year, 1, 1);
         final yearEnd = DateTime(now.year + 1, 1, 1);
-        return targets.where((target) => 
-          target.date.isAfter(yearStart.subtract(const Duration(milliseconds: 1))) &&
-          target.date.isBefore(yearEnd)
-        ).toList();
+        return targets
+            .where((target) =>
+                target.date.isAfter(
+                    yearStart.subtract(const Duration(milliseconds: 1))) &&
+                target.date.isBefore(yearEnd))
+            .toList();
       default:
         return targets;
     }
   }
 
-  List<PointsTransaction> _filterTransactionsByTimePeriod(List<PointsTransaction> transactions, String timePeriod, DateTime now) {
+  List<PointsTransaction> _filterTransactionsByTimePeriod(
+      List<PointsTransaction> transactions, String timePeriod, DateTime now) {
     switch (timePeriod) {
       case 'today':
         final today = DateTime(now.year, now.month, now.day);
         final tomorrow = today.add(const Duration(days: 1));
-        return transactions.where((transaction) => 
-          transaction.date.isAfter(today.subtract(const Duration(milliseconds: 1))) &&
-          transaction.date.isBefore(tomorrow)
-        ).toList();
+        return transactions
+            .where((transaction) =>
+                transaction.date
+                    .isAfter(today.subtract(const Duration(milliseconds: 1))) &&
+                transaction.date.isBefore(tomorrow))
+            .toList();
       case 'week':
         final weekStart = now.subtract(Duration(days: now.weekday - 1));
         final weekEnd = weekStart.add(const Duration(days: 6));
-        return transactions.where((transaction) => 
-          transaction.date.isAfter(weekStart.subtract(const Duration(days: 1))) &&
-          transaction.date.isBefore(weekEnd.add(const Duration(days: 1)))
-        ).toList();
+        return transactions
+            .where((transaction) =>
+                transaction.date
+                    .isAfter(weekStart.subtract(const Duration(days: 1))) &&
+                transaction.date.isBefore(weekEnd.add(const Duration(days: 1))))
+            .toList();
       case 'month':
         final monthStart = DateTime(now.year, now.month, 1);
         final monthEnd = DateTime(now.year, now.month + 1, 1);
-        return transactions.where((transaction) => 
-          transaction.date.isAfter(monthStart.subtract(const Duration(milliseconds: 1))) &&
-          transaction.date.isBefore(monthEnd)
-        ).toList();
+        return transactions
+            .where((transaction) =>
+                transaction.date.isAfter(
+                    monthStart.subtract(const Duration(milliseconds: 1))) &&
+                transaction.date.isBefore(monthEnd))
+            .toList();
       case 'year':
         final yearStart = DateTime(now.year, 1, 1);
         final yearEnd = DateTime(now.year + 1, 1, 1);
-        return transactions.where((transaction) => 
-          transaction.date.isAfter(yearStart.subtract(const Duration(milliseconds: 1))) &&
-          transaction.date.isBefore(yearEnd)
-        ).toList();
+        return transactions
+            .where((transaction) =>
+                transaction.date.isAfter(
+                    yearStart.subtract(const Duration(milliseconds: 1))) &&
+                transaction.date.isBefore(yearEnd))
+            .toList();
       default:
         return transactions;
     }
@@ -682,7 +701,9 @@ class _AdminDashboardState extends State<AdminDashboard> {
         ),
         const SizedBox(height: 16),
         // Top Performers Content
-        _buildEmployeePerformanceSection(allTargets, allTransactions, appProvider, timePeriod: _selectedTimePeriod),
+        _buildEmployeePerformanceSection(
+            allTargets, allTransactions, appProvider,
+            timePeriod: _selectedTimePeriod),
       ],
     );
   }
@@ -709,13 +730,15 @@ class _AdminDashboardState extends State<AdminDashboard> {
   }
 
   Widget _buildEmployeePerformanceSection(List<SalesTarget> allTargets,
-      List<PointsTransaction> allTransactions, AppProvider appProvider, {String timePeriod = 'all'}) {
-    
+      List<PointsTransaction> allTransactions, AppProvider appProvider,
+      {String timePeriod = 'all'}) {
     // Filter targets and transactions based on time period
     final now = DateTime.now();
-    final filteredTargets = _filterTargetsByTimePeriod(allTargets, timePeriod, now);
-    final filteredTransactions = _filterTransactionsByTimePeriod(allTransactions, timePeriod, now);
-    
+    final filteredTargets =
+        _filterTargetsByTimePeriod(allTargets, timePeriod, now);
+    final filteredTransactions =
+        _filterTransactionsByTimePeriod(allTransactions, timePeriod, now);
+
     // Calculate employee performance
     final Map<String, EmployeePerformance> employeeStats = {};
 
@@ -749,8 +772,8 @@ class _AdminDashboardState extends State<AdminDashboard> {
 
     // Add points from transactions (earned and adjustment points only)
     for (final transaction in filteredTransactions) {
-      if ((transaction.type == PointsTransactionType.earned || 
-           transaction.type == PointsTransactionType.adjustment) &&
+      if ((transaction.type == PointsTransactionType.earned ||
+              transaction.type == PointsTransactionType.adjustment) &&
           employeeStats.containsKey(transaction.userId)) {
         final stats = employeeStats[transaction.userId]!;
         employeeStats[transaction.userId] = EmployeePerformance(
@@ -859,16 +882,22 @@ class _AdminDashboardState extends State<AdminDashboard> {
                               children: [
                                 Consumer<AppProvider>(
                                   builder: (context, provider, child) {
-                                    final earnedPoints = provider.getUserEarnedPoints(employee.employeeId);
-                                    final currentPoints = provider.getUserTotalPoints(employee.employeeId);
+                                    final earnedPoints =
+                                        provider.getUserEarnedPoints(
+                                            employee.employeeId);
+                                    final currentPoints =
+                                        provider.getUserTotalPoints(
+                                            employee.employeeId);
                                     return Column(
-                                      crossAxisAlignment: CrossAxisAlignment.start,
+                                      crossAxisAlignment:
+                                          CrossAxisAlignment.start,
                                       children: [
                                         Row(
                                           mainAxisSize: MainAxisSize.min,
                                           children: [
                                             Icon(Icons.stars,
-                                                size: 16, color: Colors.amber[600]),
+                                                size: 16,
+                                                color: Colors.amber[600]),
                                             const SizedBox(width: 4),
                                             Text(
                                               '$earnedPoints pts awarded',
@@ -885,7 +914,8 @@ class _AdminDashboardState extends State<AdminDashboard> {
                                           mainAxisSize: MainAxisSize.min,
                                           children: [
                                             Icon(Icons.account_balance_wallet,
-                                                size: 16, color: Colors.blue[600]),
+                                                size: 16,
+                                                color: Colors.blue[600]),
                                             const SizedBox(width: 4),
                                             Text(
                                               '$currentPoints current',
@@ -1729,7 +1759,8 @@ class _AdminDashboardState extends State<AdminDashboard> {
     );
   }
 
-  List<ActionButton> _getAdminActionButtons(BuildContext context, AppProvider appProvider) {
+  List<ActionButton> _getAdminActionButtons(
+      BuildContext context, AppProvider appProvider) {
     return [
       ActionButton(
         icon: Icons.calendar_today,
@@ -2280,7 +2311,8 @@ class _AdminDashboardState extends State<AdminDashboard> {
           const SizedBox(height: 24),
 
           // Top Performers Section
-          _buildTopPerformersWithToggle(allTargets, allTransactions, appProvider),
+          _buildTopPerformersWithToggle(
+              allTargets, allTransactions, appProvider),
         ],
       ),
     );
@@ -2581,8 +2613,19 @@ class _AdminDashboardState extends State<AdminDashboard> {
         : 0;
     final isOverTarget = target.actualAmount > target.targetAmount;
 
+    // Check if target is approved
+    final isApproved =
+        target.isApproved || target.status == TargetStatus.approved;
+
     return Card(
       margin: const EdgeInsets.only(bottom: 8),
+      color: isApproved ? Colors.green[50] : null,
+      shape: isApproved
+          ? RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(12),
+              side: BorderSide(color: Colors.green[400]!, width: 2),
+            )
+          : null,
       child: Padding(
         padding: const EdgeInsets.all(16),
         child: Column(
@@ -2707,11 +2750,13 @@ class _AdminDashboardState extends State<AdminDashboard> {
                       padding: const EdgeInsets.symmetric(
                           horizontal: 8, vertical: 4),
                       decoration: BoxDecoration(
-                        color: isOverTarget
+                        color: isApproved
                             ? Colors.green
-                            : actualPercentage >= 80
-                                ? Colors.orange
-                                : Colors.blue,
+                            : isOverTarget
+                                ? Colors.green
+                                : actualPercentage >= 80
+                                    ? Colors.orange
+                                    : Colors.blue,
                         borderRadius: BorderRadius.circular(12),
                       ),
                       child: Text(
@@ -2733,11 +2778,13 @@ class _AdminDashboardState extends State<AdminDashboard> {
                   value: progress,
                   backgroundColor: Colors.grey[300],
                   valueColor: AlwaysStoppedAnimation<Color>(
-                    isOverTarget
+                    isApproved
                         ? Colors.green
-                        : actualPercentage >= 80
-                            ? Colors.orange
-                            : Colors.blue,
+                        : isOverTarget
+                            ? Colors.green
+                            : actualPercentage >= 80
+                                ? Colors.orange
+                                : Colors.blue,
                   ),
                   minHeight: 8,
                 ),
@@ -2782,9 +2829,9 @@ class _AdminDashboardState extends State<AdminDashboard> {
                     ],
                   ],
                 ),
-                
+
                 const SizedBox(height: 4),
-                
+
                 // Pending Approvals Status
                 if (pendingRequests.isNotEmpty || target.isMet) ...[
                   Row(
@@ -2801,6 +2848,23 @@ class _AdminDashboardState extends State<AdminDashboard> {
                           child: Text(
                             '${pendingRequests.length} Pending',
                             style: const TextStyle(
+                              color: Colors.white,
+                              fontSize: 10,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                        ),
+                      ] else if (isApproved) ...[
+                        Container(
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 8, vertical: 2),
+                          decoration: BoxDecoration(
+                            color: Colors.green[600],
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                          child: const Text(
+                            'APPROVED',
+                            style: TextStyle(
                               color: Colors.white,
                               fontSize: 10,
                               fontWeight: FontWeight.bold,
@@ -2970,7 +3034,8 @@ class _AdminDashboardState extends State<AdminDashboard> {
                     children: [
                       const Text(
                         'Manage Targets',
-                        style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+                        style: TextStyle(
+                            fontSize: 20, fontWeight: FontWeight.bold),
                       ),
                       IconButton(
                         onPressed: () => Navigator.pop(context),
@@ -3617,12 +3682,15 @@ class _AdminDashboardState extends State<AdminDashboard> {
                 }
 
                 // Add points adjustment information
-                final pointsDifference = updatedTarget.pointsAwarded - target.pointsAwarded;
+                final pointsDifference =
+                    updatedTarget.pointsAwarded - target.pointsAwarded;
                 if (pointsDifference != 0) {
                   if (pointsDifference > 0) {
-                    message += '\n+${pointsDifference} points awarded to employees';
+                    message +=
+                        '\n+${pointsDifference} points awarded to employees';
                   } else {
-                    message += '\n${pointsDifference.abs()} points withdrawn from employees';
+                    message +=
+                        '\n${pointsDifference.abs()} points withdrawn from employees';
                     backgroundColor = Colors.orange;
                   }
                 }
@@ -3842,7 +3910,8 @@ class _AdminDashboardState extends State<AdminDashboard> {
                     children: [
                       const Text(
                         'Pending Approvals',
-                        style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+                        style: TextStyle(
+                            fontSize: 20, fontWeight: FontWeight.bold),
                       ),
                       IconButton(
                         onPressed: () => Navigator.pop(context),
@@ -4308,7 +4377,8 @@ class _EmployeeProfileScreenState extends State<EmployeeProfileScreen> {
                           const SizedBox(width: 8),
                           Consumer<AppProvider>(
                             builder: (context, provider, child) {
-                              final currentPoints = provider.getUserTotalPoints(currentEmployee.id);
+                              final currentPoints = provider
+                                  .getUserTotalPoints(currentEmployee.id);
                               return Text(
                                 '$currentPoints points',
                                 style: const TextStyle(
@@ -4382,7 +4452,8 @@ class _EmployeeProfileScreenState extends State<EmployeeProfileScreen> {
                     [
                       Consumer<AppProvider>(
                         builder: (context, provider, child) {
-                          final currentPoints = provider.getUserTotalPoints(currentEmployee.id);
+                          final currentPoints =
+                              provider.getUserTotalPoints(currentEmployee.id);
                           return _buildProfileField(
                             Icons.stars,
                             'Total Points',
@@ -4645,7 +4716,8 @@ class _EmployeeProfileScreenState extends State<EmployeeProfileScreen> {
             children: [
               Consumer<AppProvider>(
                 builder: (context, provider, child) {
-                  final currentPoints = provider.getUserTotalPoints(currentEmployee.id);
+                  final currentPoints =
+                      provider.getUserTotalPoints(currentEmployee.id);
                   return Text('Current points: $currentPoints');
                 },
               ),
@@ -4829,7 +4901,8 @@ class _EmployeeProfileScreenState extends State<EmployeeProfileScreen> {
                   children: [
                     Consumer<AppProvider>(
                       builder: (context, provider, child) {
-                        final currentPoints = provider.getUserTotalPoints(currentEmployee.id);
+                        final currentPoints =
+                            provider.getUserTotalPoints(currentEmployee.id);
                         return _buildPointsSummaryCard(
                           'Current Points',
                           '$currentPoints',
@@ -4906,7 +4979,8 @@ class _EmployeeProfileScreenState extends State<EmployeeProfileScreen> {
                             children: [
                               Consumer<AppProvider>(
                                 builder: (context, provider, child) {
-                                  final currentPoints = provider.getUserTotalPoints(currentEmployee.id);
+                                  final currentPoints = provider
+                                      .getUserTotalPoints(currentEmployee.id);
                                   return _buildPointsSummaryCard(
                                     'Current Points',
                                     '$currentPoints',
