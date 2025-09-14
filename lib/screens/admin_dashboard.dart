@@ -2805,35 +2805,6 @@ class _AdminDashboardState extends State<AdminDashboard> {
                         fontSize: 12,
                       ),
                     ),
-                    if (isApproved) ...[
-                      Container(
-                        padding: const EdgeInsets.symmetric(
-                            horizontal: 8, vertical: 2),
-                        decoration: BoxDecoration(
-                          color: target.pointsAwarded > 0
-                              ? Colors.amber[600]
-                              : Colors.grey[600],
-                          borderRadius: BorderRadius.circular(12),
-                        ),
-                        child: Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            Icon(Icons.stars, size: 12, color: Colors.white),
-                            const SizedBox(width: 4),
-                            Text(
-                              target.pointsAwarded > 0
-                                  ? '${target.pointsAwarded} pts'
-                                  : '0 pts',
-                              style: const TextStyle(
-                                color: Colors.white,
-                                fontSize: 10,
-                                fontWeight: FontWeight.bold,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ],
                   ],
                 ),
 
@@ -2855,23 +2826,6 @@ class _AdminDashboardState extends State<AdminDashboard> {
                           child: Text(
                             '${pendingRequests.length} Pending',
                             style: const TextStyle(
-                              color: Colors.white,
-                              fontSize: 10,
-                              fontWeight: FontWeight.bold,
-                            ),
-                          ),
-                        ),
-                      ] else if (isApproved) ...[
-                        Container(
-                          padding: const EdgeInsets.symmetric(
-                              horizontal: 8, vertical: 2),
-                          decoration: BoxDecoration(
-                            color: Colors.green[600],
-                            borderRadius: BorderRadius.circular(12),
-                          ),
-                          child: const Text(
-                            'APPROVED',
-                            style: TextStyle(
                               color: Colors.white,
                               fontSize: 10,
                               fontWeight: FontWeight.bold,
