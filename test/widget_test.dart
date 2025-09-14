@@ -81,6 +81,22 @@ void main() {
       expect(appProvider.isAdmin, isFalse);
     });
 
+    test('Admin can logout successfully when logged in', () async {
+      // First login successfully as admin
+      final loginSuccess = await appProvider.login('admin@store.com', 'password123');
+      expect(loginSuccess, isTrue);
+      expect(appProvider.currentUser, isNotNull);
+      expect(appProvider.currentUser?.email, equals('admin@store.com'));
+      expect(appProvider.isAdmin, isTrue);
+      expect(appProvider.isEmployee, isFalse);
+      
+      // Then logout
+      await appProvider.logout();
+      expect(appProvider.currentUser, isNull);
+      expect(appProvider.isAdmin, isFalse);
+      expect(appProvider.isEmployee, isFalse);
+    });
+
     test('AppProvider logout works correctly', () async {
       // First login successfully
       await appProvider.login('admin@store.com', 'password123');
@@ -110,7 +126,7 @@ void main() {
     test('Employee can log in successfully with correct credentials', () async {
       // Test successful employee login
       final success = await appProvider.login('john@store.com', 'password123');
-      
+
       expect(success, isTrue);
       expect(appProvider.currentUser, isNotNull);
       expect(appProvider.currentUser?.email, equals('john@store.com'));
@@ -122,7 +138,7 @@ void main() {
     test('Employee can log in with different employee credentials', () async {
       // Test successful login with another employee
       final success = await appProvider.login('jane@store.com', 'password123');
-      
+
       expect(success, isTrue);
       expect(appProvider.currentUser, isNotNull);
       expect(appProvider.currentUser?.email, equals('jane@store.com'));
@@ -133,8 +149,9 @@ void main() {
 
     test('Employee login with invalid password fails', () async {
       // Test failed login with wrong password
-      final success = await appProvider.login('john@store.com', 'wrongpassword');
-      
+      final success =
+          await appProvider.login('john@store.com', 'wrongpassword');
+
       expect(success, isFalse);
       expect(appProvider.currentUser, isNull);
       expect(appProvider.isAdmin, isFalse);
@@ -143,8 +160,9 @@ void main() {
 
     test('Employee login with non-existent email fails', () async {
       // Test failed login with non-existent email
-      final success = await appProvider.login('nonexistent@store.com', 'password123');
-      
+      final success =
+          await appProvider.login('nonexistent@store.com', 'password123');
+
       expect(success, isFalse);
       expect(appProvider.currentUser, isNull);
       expect(appProvider.isAdmin, isFalse);
@@ -153,11 +171,12 @@ void main() {
 
     test('Employee can logout successfully', () async {
       // First login successfully
-      final loginSuccess = await appProvider.login('john@store.com', 'password123');
+      final loginSuccess =
+          await appProvider.login('john@store.com', 'password123');
       expect(loginSuccess, isTrue);
       expect(appProvider.currentUser, isNotNull);
       expect(appProvider.isEmployee, isTrue);
-      
+
       // Then logout
       await appProvider.logout();
       expect(appProvider.currentUser, isNull);
@@ -169,7 +188,7 @@ void main() {
       // Login as employee
       final success = await appProvider.login('john@store.com', 'password123');
       expect(success, isTrue);
-      
+
       final user = appProvider.currentUser;
       expect(user, isNotNull);
       expect(user?.workplaceIds, isNotEmpty);
@@ -183,11 +202,11 @@ void main() {
       final success1 = await appProvider.login('john@store.com', 'password123');
       expect(success1, isTrue);
       expect(appProvider.currentUser?.email, equals('john@store.com'));
-      
+
       // Logout
       await appProvider.logout();
       expect(appProvider.currentUser, isNull);
-      
+
       // Login as second employee
       final success2 = await appProvider.login('jane@store.com', 'password123');
       expect(success2, isTrue);
