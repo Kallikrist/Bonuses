@@ -8,6 +8,7 @@ import '../models/user.dart';
 import '../models/country.dart';
 import '../models/points_transaction.dart';
 import '../widgets/profile_header_widget.dart';
+import '../widgets/target_card_widget.dart';
 
 class EmployeeDashboard extends StatefulWidget {
   const EmployeeDashboard({super.key});
@@ -198,7 +199,8 @@ class _EmployeeDashboardState extends State<EmployeeDashboard> {
                 child: IndexedStack(
                   index: _selectedIndex,
                   children: [
-                    _buildOverviewTab(userPoints, todaysTargets, user.id),
+                    _buildOverviewTab(
+                        userPoints, todaysTargets, user.id, appProvider),
                     _buildTargetsTab(appProvider, allTargets),
                     _buildBonusesTab(
                         availableBonuses, redeemedBonuses, user.id, userPoints),
@@ -250,8 +252,8 @@ class _EmployeeDashboardState extends State<EmployeeDashboard> {
     );
   }
 
-  Widget _buildOverviewTab(
-      int userPoints, List<SalesTarget> todaysTargets, String userId) {
+  Widget _buildOverviewTab(int userPoints, List<SalesTarget> todaysTargets,
+      String userId, AppProvider appProvider) {
     return SingleChildScrollView(
       padding: const EdgeInsets.all(16),
       child: Column(
@@ -298,7 +300,15 @@ class _EmployeeDashboardState extends State<EmployeeDashboard> {
               ),
             )
           else
-            ...todaysTargets.map((target) => _buildTargetCard(target, userId)),
+            ...todaysTargets.map((target) => TargetCard(
+                  target: target,
+                  appProvider: appProvider,
+                  currentUserId: userId,
+                  isAdminView: false,
+                  onAddCollaborators: () =>
+                      _showAddCollaboratorsDialog(context, target, userId),
+                  onSubmitSales: () => _showSubmitSalesDialog(context, target),
+                )),
         ],
       ),
     );

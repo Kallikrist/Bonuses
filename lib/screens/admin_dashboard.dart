@@ -10,6 +10,7 @@ import '../models/workplace.dart';
 import '../models/approval_request.dart';
 import '../services/storage_service.dart';
 import '../widgets/profile_header_widget.dart';
+import '../widgets/target_card_widget.dart';
 
 class EmployeePerformance {
   final String employeeId;
@@ -174,8 +175,23 @@ class _AdminDashboardState extends State<AdminDashboard> {
               ),
             )
           else
-            ...todaysTargets.map(
-                (target) => _buildTargetCardWithApproval(target, appProvider)),
+            ...todaysTargets.map((target) => TargetCard(
+                  target: target,
+                  appProvider: appProvider,
+                  isAdminView: true,
+                  onEdit: () =>
+                      _showEditTargetDialog(context, target, appProvider),
+                  onDelete: () =>
+                      _showDeleteTargetDialog(context, target, appProvider),
+                  onQuickApprove: () => _showQuickApproveDialog(
+                      context,
+                      appProvider.approvalRequests
+                          .where((request) =>
+                              request.targetId == target.id &&
+                              request.status == ApprovalStatus.pending)
+                          .toList(),
+                      appProvider),
+                )),
         ],
       ),
     );
@@ -2774,7 +2790,7 @@ class _AdminDashboardState extends State<AdminDashboard> {
                 const SizedBox(height: 8),
 
                 // Progress Bar
-                _buildProgressBar(target, progress, isOverTarget),
+                _buildProgressBar(target, progress, target.isMet),
 
                 const SizedBox(height: 8),
 
@@ -2789,12 +2805,14 @@ class _AdminDashboardState extends State<AdminDashboard> {
                         fontSize: 12,
                       ),
                     ),
-                    if (target.pointsAwarded > 0) ...[
+                    if (isApproved) ...[
                       Container(
                         padding: const EdgeInsets.symmetric(
                             horizontal: 8, vertical: 2),
                         decoration: BoxDecoration(
-                          color: Colors.amber[600],
+                          color: target.pointsAwarded > 0
+                              ? Colors.amber[600]
+                              : Colors.grey[600],
                           borderRadius: BorderRadius.circular(12),
                         ),
                         child: Row(
@@ -2803,7 +2821,9 @@ class _AdminDashboardState extends State<AdminDashboard> {
                             Icon(Icons.stars, size: 12, color: Colors.white),
                             const SizedBox(width: 4),
                             Text(
-                              '${target.pointsAwarded} pts',
+                              target.pointsAwarded > 0
+                                  ? '${target.pointsAwarded} pts'
+                                  : '0 pts',
                               style: const TextStyle(
                                 color: Colors.white,
                                 fontSize: 10,
@@ -4256,14 +4276,17 @@ class _AdminDashboardState extends State<AdminDashboard> {
     final percentageAbove = target.percentageAboveTarget;
     final isApproved =
         target.isApproved || target.status == TargetStatus.approved;
-    final hasBonus = percentageAbove >= 10.0;
+    final hasBonus =
+        percentageAbove > 0.0; // Any amount above target shows purple
 
     // If target is approved and met, show green bar with purple bonus section
     if (isApproved && isMet) {
       return LayoutBuilder(
         builder: (context, constraints) {
           final barWidth = constraints.maxWidth;
-          final bonusWidth = barWidth * 0.1; // 10% of the progress bar width
+          // Purple section width is proportional to how much target is exceeded
+          // Cap it at 50% of bar width to prevent it from being too large
+          final bonusWidth = barWidth * (percentageAbove / 100).clamp(0.0, 0.5);
 
           return Stack(
             children: [
@@ -4274,7 +4297,7 @@ class _AdminDashboardState extends State<AdminDashboard> {
                 valueColor: const AlwaysStoppedAnimation<Color>(Colors.green),
                 minHeight: 8,
               ),
-              // Purple bonus section (10% of the bar) if target exceeded by 10%+
+              // Purple bonus section proportional to target exceedance
               if (hasBonus)
                 Positioned(
                   right: 0,
