@@ -73,6 +73,15 @@ class _CalendarPageState extends State<CalendarPage> {
                       ],
         ),
       ),
+      floatingActionButton: FloatingActionButton(
+        onPressed: () => _showCalendarOptions(context),
+        backgroundColor: const Color(0xFF007AFF),
+        child: const Icon(
+          Icons.add,
+          color: Colors.white,
+        ),
+      ),
+      floatingActionButtonLocation: FloatingActionButtonLocation.endFloat,
     );
   }
 
@@ -457,5 +466,146 @@ class _CalendarPageState extends State<CalendarPage> {
     }
     
     return widget.salesTargets!.any((target) => _isSameDay(target.date, date));
+  }
+
+  void _showCalendarOptions(BuildContext context) {
+    showModalBottomSheet(
+      context: context,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (context) => Container(
+        padding: const EdgeInsets.all(20),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            // Handle bar
+            Container(
+              width: 40,
+              height: 4,
+              decoration: BoxDecoration(
+                color: Colors.grey[300],
+                borderRadius: BorderRadius.circular(2),
+              ),
+            ),
+            const SizedBox(height: 20),
+            
+            // Title
+            const Text(
+              'Calendar Options',
+              style: TextStyle(
+                fontSize: 18,
+                fontWeight: FontWeight.w600,
+                color: Colors.black87,
+              ),
+            ),
+            const SizedBox(height: 20),
+            
+            // Options
+            _buildOptionTile(
+              context,
+              icon: Icons.today,
+              title: 'Go to Today',
+              subtitle: 'Jump to current date',
+              onTap: () {
+                Navigator.pop(context);
+                setState(() {
+                  _selectedDate = DateTime.now();
+                  _currentMonth = DateTime.now();
+                });
+              },
+            ),
+            
+            _buildOptionTile(
+              context,
+              icon: Icons.calendar_month,
+              title: 'Browse Months',
+              subtitle: 'View extended calendar',
+              onTap: () {
+                Navigator.pop(context);
+                // TODO: Implement extended calendar view
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(
+                    content: Text('Extended calendar view coming soon!'),
+                    duration: Duration(seconds: 2),
+                  ),
+                );
+              },
+            ),
+            
+            _buildOptionTile(
+              context,
+              icon: Icons.add_circle_outline,
+              title: 'Add Sales Target',
+              subtitle: 'Create new target for selected date',
+              onTap: () {
+                Navigator.pop(context);
+                _showAddTargetDialog(context);
+              },
+            ),
+            
+            const SizedBox(height: 20),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildOptionTile(
+    BuildContext context, {
+    required IconData icon,
+    required String title,
+    required String subtitle,
+    required VoidCallback onTap,
+  }) {
+    return ListTile(
+      leading: Container(
+        padding: const EdgeInsets.all(8),
+        decoration: BoxDecoration(
+          color: const Color(0xFF007AFF).withOpacity(0.1),
+          borderRadius: BorderRadius.circular(8),
+        ),
+        child: Icon(
+          icon,
+          color: const Color(0xFF007AFF),
+          size: 20,
+        ),
+      ),
+      title: Text(
+        title,
+        style: const TextStyle(
+          fontSize: 16,
+          fontWeight: FontWeight.w500,
+          color: Colors.black87,
+        ),
+      ),
+      subtitle: Text(
+        subtitle,
+        style: TextStyle(
+          fontSize: 14,
+          color: Colors.grey[600],
+        ),
+      ),
+      onTap: onTap,
+      contentPadding: const EdgeInsets.symmetric(vertical: 4),
+    );
+  }
+
+  void _showAddTargetDialog(BuildContext context) {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Add Sales Target'),
+        content: const Text(
+          'This feature will be implemented to add new sales targets for the selected date.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('OK'),
+          ),
+        ],
+      ),
+    );
   }
 }
