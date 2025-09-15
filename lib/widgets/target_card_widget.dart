@@ -321,9 +321,7 @@ class TargetCard extends StatelessWidget {
                         style: Theme.of(context).textTheme.bodySmall,
                       ),
                     ],
-                    if (!isAdminView &&
-                        isMet &&
-                        percentageAbove >= 10) ...[
+                    if (!isAdminView && isMet && percentageAbove >= 10) ...[
                       Container(
                         padding: const EdgeInsets.symmetric(
                             horizontal: 8, vertical: 4),
@@ -573,10 +571,11 @@ class TargetCard extends StatelessWidget {
             // Feedback Section for Admin View
             if (isAdminView) ...[
               const SizedBox(height: 8),
-              if (target.isApproved || target.status == TargetStatus.approved) ...[
+              if (target.isApproved ||
+                  target.status == TargetStatus.approved) ...[
                 Container(
-                  padding: const EdgeInsets.symmetric(
-                      horizontal: 12, vertical: 8),
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
                   decoration: BoxDecoration(
                     color: Colors.green[100],
                     borderRadius: BorderRadius.circular(8),
@@ -602,8 +601,8 @@ class TargetCard extends StatelessWidget {
                 ),
               ] else if (target.status == TargetStatus.submitted) ...[
                 Container(
-                  padding: const EdgeInsets.symmetric(
-                      horizontal: 12, vertical: 8),
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
                   decoration: BoxDecoration(
                     color: Colors.blue[100],
                     borderRadius: BorderRadius.circular(8),
@@ -612,8 +611,7 @@ class TargetCard extends StatelessWidget {
                   child: Row(
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
-                      Icon(Icons.upload,
-                          color: Colors.blue[700], size: 16),
+                      Icon(Icons.upload, color: Colors.blue[700], size: 16),
                       const SizedBox(width: 8),
                       Text(
                         'Submitted for Approval',
@@ -635,13 +633,12 @@ class TargetCard extends StatelessWidget {
 
   Widget _buildProgressBar(SalesTarget target, double progress, bool isMet) {
     final percentageAbove = target.percentageAboveTarget;
-    final isApproved =
-        target.isApproved || target.status == TargetStatus.approved;
     final hasBonus =
         percentageAbove > 0.0; // Any amount above target shows purple
+    final reachedTarget = progress >= 1.0;
 
-    // If target is approved and met, show green bar with purple bonus section
-    if (isApproved && isMet) {
+    // If target is met (>= 100%), show green bar with optional purple bonus section
+    if (reachedTarget) {
       return LayoutBuilder(
         builder: (context, constraints) {
           final barWidth = constraints.maxWidth;
@@ -678,12 +675,12 @@ class TargetCard extends StatelessWidget {
       );
     }
 
-    // Default progress bar for non-approved targets
+    // Default progress bar for below-target progress (orange)
     return LinearProgressIndicator(
       value: progress.clamp(0.0, 1.0),
       backgroundColor: Colors.grey[300],
       valueColor: AlwaysStoppedAnimation<Color>(
-        isMet ? Colors.green : Colors.orange,
+        Colors.orange,
       ),
       minHeight: 8,
     );
