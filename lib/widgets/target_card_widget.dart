@@ -535,34 +535,78 @@ class TargetCard extends StatelessWidget {
                                       ],
                                     ),
                                   )
-                                : Container(
-                                    padding: const EdgeInsets.symmetric(
-                                        horizontal: 12, vertical: 8),
-                                    decoration: BoxDecoration(
-                                      color: Colors.orange[100],
-                                      borderRadius: BorderRadius.circular(8),
-                                      border: Border.all(color: Colors.orange),
-                                    ),
-                                    child: Row(
-                                      mainAxisAlignment:
-                                          MainAxisAlignment.center,
-                                      children: [
-                                        Icon(Icons.pending_actions,
-                                            color: Colors.orange[700],
-                                            size: 16),
-                                        const SizedBox(width: 8),
-                                        Text(
-                                          target.isSubmitted
-                                              ? 'Pending Admin Approval'
-                                              : 'Awaiting Submission',
-                                          style: TextStyle(
-                                            color: Colors.orange[700],
-                                            fontWeight: FontWeight.bold,
+                                : target.status == TargetStatus.missed
+                                    ? Column(
+                                        crossAxisAlignment:
+                                            CrossAxisAlignment.stretch,
+                                        children: [
+                                          Container(
+                                            padding: const EdgeInsets.symmetric(
+                                                horizontal: 12, vertical: 8),
+                                            decoration: BoxDecoration(
+                                              color: Colors.red[50],
+                                              borderRadius:
+                                                  BorderRadius.circular(8),
+                                              border:
+                                                  Border.all(color: Colors.red),
+                                            ),
+                                            child: Row(
+                                              mainAxisAlignment:
+                                                  MainAxisAlignment.center,
+                                              children: [
+                                                Icon(Icons.error_outline,
+                                                    color: Colors.red[700],
+                                                    size: 16),
+                                                const SizedBox(width: 8),
+                                                Text(
+                                                  'Missed - No Points Awarded',
+                                                  style: TextStyle(
+                                                    color: Colors.red[700],
+                                                    fontWeight: FontWeight.bold,
+                                                  ),
+                                                ),
+                                              ],
+                                            ),
                                           ),
+                                          const SizedBox(height: 8),
+                                          ElevatedButton.icon(
+                                            onPressed: onSubmitSales,
+                                            icon: const Icon(Icons.edit,
+                                                size: 16),
+                                            label: const Text('Resubmit Sales'),
+                                          ),
+                                        ],
+                                      )
+                                    : Container(
+                                        padding: const EdgeInsets.symmetric(
+                                            horizontal: 12, vertical: 8),
+                                        decoration: BoxDecoration(
+                                          color: Colors.orange[100],
+                                          borderRadius:
+                                              BorderRadius.circular(8),
+                                          border:
+                                              Border.all(color: Colors.orange),
                                         ),
-                                      ],
-                                    ),
-                                  ),
+                                        child: Row(
+                                          mainAxisAlignment:
+                                              MainAxisAlignment.center,
+                                          children: [
+                                            Icon(Icons.pending_actions,
+                                                color: Colors.orange[700],
+                                                size: 16),
+                                            const SizedBox(width: 8),
+                                            Text(
+                                              target.isSubmitted
+                                                  ? 'Pending Admin Approval'
+                                                  : 'Awaiting Submission',
+                                              style: TextStyle(
+                                                color: Colors.orange[700],
+                                                fontWeight: FontWeight.bold,
+                                              ),
+                                            ),
+                                          ],
+                                        ),
+                                      ),
                   ),
                 ],
               ),
@@ -632,7 +676,13 @@ class TargetCard extends StatelessWidget {
   }
 
   Widget _buildProgressBar(SalesTarget target, double progress, bool isMet) {
-    final percentageAbove = target.percentageAboveTarget;
+    // Calculate above-target percentage dynamically so it also works
+    // immediately after submission (before any persisted fields catch up).
+    final double computedAbove = target.targetAmount > 0
+        ? ((target.actualAmount - target.targetAmount) / target.targetAmount) *
+            100.0
+        : 0.0;
+    final double percentageAbove = computedAbove > 0 ? computedAbove : 0.0;
     final hasBonus =
         percentageAbove > 0.0; // Any amount above target shows purple
     final reachedTarget = progress >= 1.0;
