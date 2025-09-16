@@ -72,10 +72,10 @@ class TestableAppProvider with ChangeNotifier {
     // In a real app, this would validate against a server
     // For demo purposes, we'll use simple email-based authentication
     final users = await MockStorageService.getUsers();
-    
+
     try {
       final user = users.firstWhere((u) => u.email == email);
-      
+
       // Simple password validation (in real app, use proper authentication)
       if (password == 'password123') {
         _currentUser = user;
@@ -131,7 +131,6 @@ class TestableAppProvider with ChangeNotifier {
           (target.status == TargetStatus.pending ||
               target.status == TargetStatus.submitted ||
               (target.status == TargetStatus.met && !target.isMet))) {
-        
         // Mark as missed with no points - use calculateResults to ensure proper status
         final calculatedTarget = target
             .copyWith(
@@ -524,21 +523,112 @@ class TestableAppProvider with ChangeNotifier {
   Future<void> _awardPointsForTargetCompletion(SalesTarget target) async {
     // Award points to the assigned employee
     if (target.assignedEmployeeId != null) {
-      await updateUserPoints(
-        target.assignedEmployeeId!,
-        target.pointsAwarded,
-        'Target completed: \$${target.targetAmount.toStringAsFixed(0)}',
+      final transaction = PointsTransaction(
+        id: '${DateTime.now().millisecondsSinceEpoch}_${target.assignedEmployeeId}',
+        userId: target.assignedEmployeeId!,
+        type: PointsTransactionType.earned,
+        points: target.pointsAwarded,
+        description:
+            'Sales target exceeded by ${((target.actualAmount / target.targetAmount) * 100 - 100).toStringAsFixed(1)}%',
+        date: DateTime.now(),
+        relatedTargetId: target.id,
       );
+
+      await MockStorageService.addPointsTransaction(transaction);
+      _pointsTransactions.add(transaction);
+
+      // Update user's total points
+      final users = await MockStorageService.getUsers();
+      final userIndex =
+          users.indexWhere((u) => u.id == target.assignedEmployeeId);
+      if (userIndex != -1) {
+        final user = users[userIndex];
+        users[userIndex] =
+            user.copyWith(totalPoints: user.totalPoints + target.pointsAwarded);
+        await MockStorageService.saveUsers(users);
+      }
     }
 
     // Award points to team members
     for (int i = 0; i < target.collaborativeEmployeeIds.length; i++) {
       final employeeId = target.collaborativeEmployeeIds[i];
-      await updateUserPoints(
-        employeeId,
-        target.pointsAwarded,
-        'Team target completed: \$${target.targetAmount.toStringAsFixed(0)}',
+      final transaction = PointsTransaction(
+        id: '${DateTime.now().millisecondsSinceEpoch}_${employeeId}',
+        userId: employeeId,
+        type: PointsTransactionType.earned,
+        points: target.pointsAwarded,
+        description:
+            'Team target completed: \$${target.targetAmount.toStringAsFixed(0)}',
+        date: DateTime.now(),
+        relatedTargetId: target.id,
       );
+
+      await MockStorageService.addPointsTransaction(transaction);
+      _pointsTransactions.add(transaction);
+
+      // Update user's total points
+      final users = await MockStorageService.getUsers();
+      final userIndex = users.indexWhere((u) => u.id == employeeId);
+      if (userIndex != -1) {
+        final user = users[userIndex];
+        users[userIndex] =
+            user.copyWith(totalPoints: user.totalPoints + target.pointsAwarded);
+        await MockStorageService.saveUsers(users);
+      }
     }
+  }
+
+  // Points calculation method
+  int getPointsForEffectivePercent(double effectivePercent) {
+    // Default points rules (matching the real implementation)
+    if (effectivePercent < 100) return 0;
+    if (effectivePercent < 110) return 10; // 100-109% = 10 points
+    if (effectivePercent < 120) return 15; // 110-119% = 15 points
+    if (effectivePercent < 150) return 20; // 120-149% = 20 points
+    if (effectivePercent < 200) return 30; // 150-199% = 30 points
+    return 50; // 200%+ = 50 points
+  }
+
+  // Sales target approval method
+  Future<void> approveSalesTarget(String targetId, String adminId) async {
+    final targetIndex = _salesTargets.indexWhere((t) => t.id == targetId);
+    if (targetIndex == -1) {
+      throw Exception('Target not found');
+    }
+
+    final target = _salesTargets[targetIndex];
+
+    // Check if already approved
+    if (target.isApproved) {
+      return; // Already approved, don't award points again
+    }
+
+    // Calculate points based on achievement
+    int pointsAwarded = 0;
+    if (target.actualAmount >= target.targetAmount) {
+      final effectivePercent =
+          (target.actualAmount / target.targetAmount) * 100;
+      pointsAwarded = getPointsForEffectivePercent(effectivePercent);
+    }
+
+    // Update target status
+    final updatedTarget = target.copyWith(
+      status: TargetStatus.approved,
+      isApproved: true,
+      approvedBy: adminId,
+      approvedAt: DateTime.now(),
+      pointsAwarded: pointsAwarded,
+      isMet: target.actualAmount >= target.targetAmount,
+    );
+
+    await MockStorageService.updateSalesTarget(updatedTarget);
+    _salesTargets[targetIndex] = updatedTarget;
+
+    // Award points to team members if target is met
+    if (updatedTarget.isMet && updatedTarget.pointsAwarded > 0) {
+      await _awardPointsForTargetCompletion(updatedTarget);
+    }
+
+    notifyListeners();
   }
 }

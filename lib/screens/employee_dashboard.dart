@@ -672,15 +672,17 @@ class _EmployeeDashboardState extends State<EmployeeDashboard> {
       itemCount: userTransactions.length,
       itemBuilder: (context, index) {
         final transaction = userTransactions[index];
+        // Consider adjustment transactions with positive points as "earned" for display
+        final isEarned = transaction.type.name == 'earned' ||
+            (transaction.type.name == 'adjustment' && transaction.points > 0);
+
         return Card(
           margin: const EdgeInsets.only(bottom: 8),
           child: ListTile(
             leading: CircleAvatar(
-              backgroundColor: transaction.type.name == 'earned'
-                  ? Colors.green
-                  : Colors.orange,
+              backgroundColor: isEarned ? Colors.green : Colors.orange,
               child: Icon(
-                transaction.type.name == 'earned' ? Icons.add : Icons.remove,
+                isEarned ? Icons.add : Icons.remove,
                 color: Colors.white,
               ),
             ),
@@ -688,11 +690,9 @@ class _EmployeeDashboardState extends State<EmployeeDashboard> {
             subtitle: Text(
                 DateFormat('MMM dd, yyyy - HH:mm').format(transaction.date)),
             trailing: Text(
-              '${transaction.type.name == 'earned' ? '+' : '-'}${transaction.points}',
+              '${isEarned ? '+' : '-'}${transaction.points}',
               style: TextStyle(
-                color: transaction.type.name == 'earned'
-                    ? Colors.green
-                    : Colors.orange,
+                color: isEarned ? Colors.green : Colors.orange,
                 fontWeight: FontWeight.bold,
               ),
             ),

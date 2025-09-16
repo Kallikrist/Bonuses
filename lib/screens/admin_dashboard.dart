@@ -5176,12 +5176,18 @@ class _EmployeeProfileScreenState extends State<EmployeeProfileScreen> {
 
                     // Calculate totals from actual transactions
                     final totalEarned = employeeTransactions
-                        .where((t) => t.type == PointsTransactionType.earned)
+                        .where((t) =>
+                            t.type == PointsTransactionType.earned ||
+                            (t.type == PointsTransactionType.adjustment &&
+                                t.points > 0))
                         .fold<int>(0, (sum, t) => sum + t.points);
 
                     final totalSpent = employeeTransactions
-                        .where((t) => t.type == PointsTransactionType.redeemed)
-                        .fold<int>(0, (sum, t) => sum + t.points);
+                        .where((t) =>
+                            t.type == PointsTransactionType.redeemed ||
+                            (t.type == PointsTransactionType.adjustment &&
+                                t.points < 0))
+                        .fold<int>(0, (sum, t) => sum + t.points.abs());
 
                     return Column(
                       children: [
@@ -5273,8 +5279,13 @@ class _EmployeeProfileScreenState extends State<EmployeeProfileScreen> {
   }
 
   Widget _buildPointsTransactionCard(PointsTransaction transaction, int index) {
-    final isEarned = transaction.type == PointsTransactionType.earned;
-    final isRedeemed = transaction.type == PointsTransactionType.redeemed;
+    // Consider adjustment transactions with positive points as "earned" for display
+    final isEarned = transaction.type == PointsTransactionType.earned ||
+        (transaction.type == PointsTransactionType.adjustment &&
+            transaction.points > 0);
+    final isRedeemed = transaction.type == PointsTransactionType.redeemed ||
+        (transaction.type == PointsTransactionType.adjustment &&
+            transaction.points < 0);
 
     return Card(
       margin: const EdgeInsets.only(bottom: 8),
