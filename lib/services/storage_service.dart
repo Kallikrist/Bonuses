@@ -6,6 +6,7 @@ import '../models/points_transaction.dart';
 import '../models/bonus.dart';
 import '../models/workplace.dart';
 import '../models/approval_request.dart';
+import '../models/points_rules.dart';
 
 class StorageService {
   static const String _usersKey = 'users';
@@ -15,6 +16,7 @@ class StorageService {
   static const String _bonusesKey = 'bonuses';
   static const String _workplacesKey = 'workplaces';
   static const String _approvalRequestsKey = 'approval_requests';
+  static const String _pointsRulesKey = 'points_rules';
 
   static Future<SharedPreferences> get _prefs async =>
       await SharedPreferences.getInstance();
@@ -70,6 +72,23 @@ class StorageService {
   static Future<void> clearCurrentUser() async {
     final prefs = await _prefs;
     await prefs.remove(_currentUserKey);
+  }
+
+  // Points rules
+  static Future<PointsRules> getPointsRules() async {
+    final prefs = await _prefs;
+    final jsonStr = prefs.getString(_pointsRulesKey);
+    if (jsonStr == null) return PointsRules.defaults();
+    try {
+      return PointsRules.fromJson(jsonDecode(jsonStr));
+    } catch (_) {
+      return PointsRules.defaults();
+    }
+  }
+
+  static Future<void> setPointsRules(PointsRules rules) async {
+    final prefs = await _prefs;
+    await prefs.setString(_pointsRulesKey, jsonEncode(rules.toJson()));
   }
 
   // Sales targets management
@@ -364,9 +383,11 @@ class StorageService {
     return requestsList.map((json) => ApprovalRequest.fromJson(json)).toList();
   }
 
-  static Future<void> saveApprovalRequests(List<ApprovalRequest> requests) async {
+  static Future<void> saveApprovalRequests(
+      List<ApprovalRequest> requests) async {
     final prefs = await _prefs;
-    final String requestsJson = json.encode(requests.map((r) => r.toJson()).toList());
+    final String requestsJson =
+        json.encode(requests.map((r) => r.toJson()).toList());
     await prefs.setString(_approvalRequestsKey, requestsJson);
   }
 

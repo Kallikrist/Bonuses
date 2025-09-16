@@ -7,6 +7,7 @@ import '../models/workplace.dart';
 import '../models/approval_request.dart';
 import '../services/storage_service.dart';
 import '../services/auth_service.dart';
+import '../models/points_rules.dart';
 
 class AppProvider with ChangeNotifier {
   User? _currentUser;
@@ -16,6 +17,7 @@ class AppProvider with ChangeNotifier {
   List<Workplace> _workplaces = [];
   List<ApprovalRequest> _approvalRequests = [];
   bool _isLoading = false;
+  PointsRules _pointsRules = PointsRules.defaults();
 
   User? get currentUser => _currentUser;
   List<SalesTarget> get salesTargets => _salesTargets;
@@ -26,6 +28,7 @@ class AppProvider with ChangeNotifier {
   bool get isLoading => _isLoading;
   bool get isAdmin => _currentUser?.role == UserRole.admin;
   bool get isEmployee => _currentUser?.role == UserRole.employee;
+  PointsRules get pointsRules => _pointsRules;
 
   Future<void> initialize() async {
     _setLoading(true);
@@ -58,10 +61,17 @@ class AppProvider with ChangeNotifier {
     _bonuses = await StorageService.getBonuses();
     _workplaces = await StorageService.getWorkplaces();
     _approvalRequests = await StorageService.getApprovalRequests();
+    _pointsRules = await StorageService.getPointsRules();
 
     // Process existing targets that should be marked as missed
     await processExistingTargets();
 
+    notifyListeners();
+  }
+
+  Future<void> updatePointsRules(PointsRules rules) async {
+    _pointsRules = rules;
+    await StorageService.setPointsRules(rules);
     notifyListeners();
   }
 
@@ -153,6 +163,16 @@ class AppProvider with ChangeNotifier {
     notifyListeners();
   }
 
+  Future<void> updateSalesTargetForApproval(SalesTarget target) async {
+    // Update target without triggering points adjustment (used during approval)
+    await StorageService.updateSalesTarget(target);
+    final index = _salesTargets.indexWhere((t) => t.id == target.id);
+    if (index != -1) {
+      _salesTargets[index] = target;
+    }
+    notifyListeners();
+  }
+
   Future<void> deleteSalesTarget(String targetId) async {
     await StorageService.deleteSalesTarget(targetId);
     _salesTargets.removeWhere((t) => t.id == targetId);
@@ -165,6 +185,19 @@ class AppProvider with ChangeNotifier {
         updatedTarget.pointsAwarded - originalTarget.pointsAwarded;
 
     if (pointsDifference == 0) return; // No change needed
+
+    // Skip adjustment if target is being approved (status change from submitted to approved)
+    // or if target is already approved and being edited
+    // or if target is being edited and has points (admin editing)
+    if ((originalTarget.status == TargetStatus.submitted &&
+            updatedTarget.status == TargetStatus.approved) ||
+        (originalTarget.status == TargetStatus.approved &&
+            updatedTarget.status == TargetStatus.approved) ||
+        (originalTarget.pointsAwarded > 0 &&
+            updatedTarget.pointsAwarded == 0)) {
+      print('DEBUG: Skipping points adjustment for approval/editing process');
+      return;
+    }
 
     // Get all employees involved in this target
     final allEmployeeIds = <String>{};
@@ -374,13 +407,18 @@ class AppProvider with ChangeNotifier {
       await addApprovalRequest(approvalRequest);
 
       // Update target to show as submitted for approval
+      // Pre-calc points preview using current rules (supports custom thresholds)
+      final effectivePercent = (actualAmount / target.targetAmount) * 100.0;
+      final prePoints = getPointsForEffectivePercent(effectivePercent);
+
       final updatedTarget = target.copyWith(
         actualAmount: actualAmount,
         isSubmitted: true,
         status: TargetStatus.submitted,
+        pointsAwarded: prePoints,
       );
 
-      await updateSalesTarget(updatedTarget);
+      await updateSalesTargetForApproval(updatedTarget);
       print(
           'DEBUG: Target ${targetId} met - approval request created and target marked as submitted');
     } else {
@@ -392,7 +430,7 @@ class AppProvider with ChangeNotifier {
           )
           .calculateResults();
 
-      await updateSalesTarget(updatedTarget);
+      await updateSalesTargetForApproval(updatedTarget);
       print(
           'DEBUG: Target ${targetId} not met - automatically marked as missed with no points');
     }
@@ -446,15 +484,23 @@ class AppProvider with ChangeNotifier {
       // Calculate results first to determine if target is met
       final calculatedTarget = target.calculateResults();
 
+      // Determine points based on admin-configured rules (custom rules supported)
+      int awarded = 0;
+      if (calculatedTarget.isMet) {
+        final effectivePercent = 100.0 + calculatedTarget.percentageAboveTarget;
+        awarded = getPointsForEffectivePercent(effectivePercent);
+      }
+
       final updatedTarget = calculatedTarget.copyWith(
         isApproved: true,
         status: TargetStatus.approved,
         approvedBy: adminId,
         approvedAt: DateTime.now(),
+        pointsAwarded: awarded,
       );
 
-      await StorageService.updateSalesTarget(updatedTarget);
-      _salesTargets[targetIndex] = updatedTarget;
+      // Update target directly without triggering _adjustPointsForTargetUpdate
+      await updateSalesTargetForApproval(updatedTarget);
 
       // Award points to all team members if target is met and points are available
       print(
@@ -509,25 +555,13 @@ class AppProvider with ChangeNotifier {
 
           // Update user's total points in storage
           final users = await StorageService.getUsers();
-          final userIndex = users.indexWhere((u) => u.id == memberId);
-          if (userIndex != -1) {
-            final user = users[userIndex];
-            print(
-                'DEBUG: Updating user ${user.name} points from ${user.totalPoints} to ${user.totalPoints + updatedTarget.pointsAwarded}');
-            final updatedUser = user.copyWith(
+          final idx = users.indexWhere((u) => u.id == memberId);
+          if (idx != -1) {
+            final user = users[idx];
+            users[idx] = user.copyWith(
               totalPoints: user.totalPoints + updatedTarget.pointsAwarded,
             );
-            users[userIndex] = updatedUser;
             await StorageService.saveUsers(users);
-
-            // Update current user if it's the same user
-            if (_currentUser != null && _currentUser!.id == memberId) {
-              _currentUser = updatedUser;
-              print(
-                  'DEBUG: Updated current user points to ${_currentUser!.totalPoints}');
-            }
-          } else {
-            print('DEBUG: User with ID $memberId not found');
           }
         }
       }
@@ -810,7 +844,13 @@ class AppProvider with ChangeNotifier {
     }
 
     final user = users[userIndex];
-    final newTotalPoints = user.totalPoints + pointsChange;
+
+    // Calculate current points from transactions (not from user.totalPoints)
+    final currentPoints = getUserTotalPoints(userId);
+    final newTotalPoints = currentPoints + pointsChange;
+
+    print(
+        'DEBUG: updateUserPoints - User: ${user.name}, Current points: $currentPoints, Change: $pointsChange, New total: $newTotalPoints');
 
     // Ensure points don't go below 0
     if (newTotalPoints < 0) {
@@ -818,10 +858,8 @@ class AppProvider with ChangeNotifier {
       return;
     }
 
-    // Update user's total points
-    final updatedUser = user.copyWith(totalPoints: newTotalPoints);
-    users[userIndex] = updatedUser;
-    await StorageService.saveUsers(users);
+    // Note: We don't update user.totalPoints here because points are calculated from transactions
+    // The getUserTotalPoints method calculates the total from all transactions
 
     // Create a points transaction
     final transaction = PointsTransaction(
@@ -840,13 +878,8 @@ class AppProvider with ChangeNotifier {
     // Update local data
     _pointsTransactions.add(transaction);
 
-    // Update current user if it's the same user
-    if (_currentUser != null && _currentUser!.id == userId) {
-      _currentUser = updatedUser;
-    }
-
-    // Reload data to ensure consistency
-    await _loadData();
+    // Note: We don't update _currentUser here because points are calculated from transactions
+    // The getUserTotalPoints method calculates the total from all transactions
 
     notifyListeners();
   }
@@ -924,18 +957,26 @@ class AppProvider with ChangeNotifier {
         )
         .calculateResults();
 
-    // Mark as approved
+    // Determine points based on admin-configured rules (custom rules supported)
+    int awarded = 0;
+    if (calculatedTarget.isMet) {
+      final effectivePercent = 100.0 + calculatedTarget.percentageAboveTarget;
+      awarded = getPointsForEffectivePercent(effectivePercent);
+    }
+
+    // Mark as approved with correct points
     final updatedTarget = calculatedTarget.copyWith(
       isApproved: true,
       status: TargetStatus.approved,
       approvedBy: _currentUser?.id,
       approvedAt: DateTime.now(),
+      pointsAwarded: awarded,
     );
 
-    await updateSalesTarget(updatedTarget);
+    await updateSalesTargetForApproval(updatedTarget);
 
     // Award points to team members if target is met
-    if (updatedTarget.isMet) {
+    if (updatedTarget.isMet && updatedTarget.pointsAwarded > 0) {
       await _awardPointsForTargetCompletion(updatedTarget);
     } else {
       // Target was not met - mark as missed with no points
@@ -950,7 +991,7 @@ class AppProvider with ChangeNotifier {
       collaborativeEmployeeIds: request.newTeamMemberIds!,
       collaborativeEmployeeNames: request.newTeamMemberNames!,
     );
-    await updateSalesTarget(updatedTarget);
+    await updateSalesTargetForApproval(updatedTarget);
   }
 
   Future<void> _awardPointsForTargetCompletion(SalesTarget target) async {
@@ -981,5 +1022,47 @@ class AppProvider with ChangeNotifier {
         target.id,
       );
     }
+  }
+
+  int getPointsForEffectivePercent(double effectivePercent) {
+    print('DEBUG: Calculating points for ${effectivePercent}%');
+    print('DEBUG: Custom rules entries: ${_pointsRules.entries.length}');
+
+    if (_pointsRules.entries.isNotEmpty) {
+      final sorted = [..._pointsRules.entries]..sort((a, b) =>
+          b.thresholdPercent.compareTo(a.thresholdPercent)); // Sort descending
+      print(
+          'DEBUG: Sorted rules: ${sorted.map((e) => '${e.thresholdPercent}% -> ${e.points}pts').join(', ')}');
+
+      for (final e in sorted) {
+        print(
+            'DEBUG: Checking rule ${e.thresholdPercent}% -> ${e.points}pts (effective: ${effectivePercent}%)');
+        if (effectivePercent >= e.thresholdPercent) {
+          print('DEBUG: Matched rule ${e.thresholdPercent}% -> ${e.points}pts');
+          return e.points; // Return the first (highest) threshold that matches
+        }
+      }
+      print('DEBUG: No custom rule matched, returning 0');
+      return 0; // No threshold met
+    }
+
+    print(
+        'DEBUG: Using legacy rules - 200%: ${_pointsRules.pointsForDoubleTarget}, 110%: ${_pointsRules.pointsForTenPercentAbove}, 100%: ${_pointsRules.pointsForMet}');
+    if (effectivePercent >= 200.0) {
+      print(
+          'DEBUG: Using 200% rule: ${_pointsRules.pointsForDoubleTarget} points');
+      return _pointsRules.pointsForDoubleTarget;
+    }
+    if (effectivePercent >= 110.0) {
+      print(
+          'DEBUG: Using 110% rule: ${_pointsRules.pointsForTenPercentAbove} points');
+      return _pointsRules.pointsForTenPercentAbove;
+    }
+    if (effectivePercent >= 100.0) {
+      print('DEBUG: Using 100% rule: ${_pointsRules.pointsForMet} points');
+      return _pointsRules.pointsForMet;
+    }
+    print('DEBUG: No rule matched, returning 0');
+    return 0;
   }
 }

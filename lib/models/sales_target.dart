@@ -84,7 +84,7 @@ class SalesTarget {
       targetAmount: json['targetAmount'].toDouble(),
       actualAmount: json['actualAmount']?.toDouble() ?? 0.0,
       isMet: json['isMet'] ?? false,
-      status: json['status'] != null 
+      status: json['status'] != null
           ? TargetStatus.values.firstWhere((e) => e.name == json['status'])
           : TargetStatus.pending,
       percentageAboveTarget: json['percentageAboveTarget']?.toDouble() ?? 0.0,
@@ -167,10 +167,9 @@ class SalesTarget {
         ? ((actualAmount - targetAmount) / targetAmount) * 100
         : 0.0;
 
-    // Award points if target is met and exceeded by 10% or more
-    final points = (isTargetMet && percentageAbove >= 10.0)
-        ? (percentageAbove / 10).floor() * 10 // 10 points per 10% above target
-        : 0;
+    // Use the new points calculation logic from AppProvider
+    // This will be overridden by AppProvider when it calls _getPointsForEffectivePercent
+    final points = 0; // Will be calculated by AppProvider
 
     // Determine status based on target completion
     final newStatus = isTargetMet ? TargetStatus.met : TargetStatus.missed;

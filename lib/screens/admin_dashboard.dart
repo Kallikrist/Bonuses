@@ -8,6 +8,7 @@ import '../models/points_transaction.dart';
 import '../models/user.dart';
 import '../models/workplace.dart';
 import '../models/approval_request.dart';
+import '../models/points_rules.dart';
 import '../services/storage_service.dart';
 import '../widgets/profile_header_widget.dart';
 import '../widgets/target_card_widget.dart';
@@ -1496,12 +1497,15 @@ class _AdminDashboardState extends State<AdminDashboard> {
             TextButton(
               onPressed: () async {
                 final points = int.tryParse(pointsController.text);
+                print(
+                    'DEBUG: UI - Entered points: $points, Action: $selectedAction');
                 if (points != null && points > 0) {
                   Navigator.pop(context);
 
                   // Calculate the points change (positive for add, negative for remove)
                   final pointsChange =
                       selectedAction == 'add' ? points : -points;
+                  print('DEBUG: UI - Calculated pointsChange: $pointsChange');
                   final description = selectedAction == 'add'
                       ? 'Admin added $points points'
                       : 'Admin removed $points points';
@@ -2161,6 +2165,20 @@ class _AdminDashboardState extends State<AdminDashboard> {
                     'Manage Targets',
                     'Edit targets, set team leaders, and modify assignments',
                     () => _showTargetsManagement(appProvider),
+                  ),
+                  _buildSettingsItem(
+                    Icons.rule,
+                    'Points Rules',
+                    'Configure how many points are awarded for different target achievements',
+                    () {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (context) =>
+                              PointsRulesScreen(appProvider: appProvider),
+                        ),
+                      );
+                    },
                   ),
                   _buildSettingsItemWithBadge(
                     Icons.approval,
@@ -3681,8 +3699,20 @@ class _AdminDashboardState extends State<AdminDashboard> {
                 // Recalculate status based on actual vs target amount
                 final updatedTarget = baseUpdatedTarget.calculateResults();
 
-                // Update the target
-                await appProvider.updateSalesTarget(updatedTarget);
+                // If the target is met and has points, recalculate points using the rules
+                if (updatedTarget.isMet && updatedTarget.actualAmount > 0) {
+                  final effectivePercent = (updatedTarget.actualAmount /
+                          updatedTarget.targetAmount) *
+                      100;
+                  final calculatedPoints = appProvider
+                      .getPointsForEffectivePercent(effectivePercent);
+                  final finalUpdatedTarget =
+                      updatedTarget.copyWith(pointsAwarded: calculatedPoints);
+                  await appProvider.updateSalesTarget(finalUpdatedTarget);
+                } else {
+                  // Update the target
+                  await appProvider.updateSalesTarget(updatedTarget);
+                }
                 Navigator.pop(context);
 
                 // Show appropriate feedback based on status change
@@ -4837,12 +4867,15 @@ class _EmployeeProfileScreenState extends State<EmployeeProfileScreen> {
             TextButton(
               onPressed: () async {
                 final points = int.tryParse(pointsController.text);
+                print(
+                    'DEBUG: UI - Entered points: $points, Action: $selectedAction');
                 if (points != null && points > 0) {
                   Navigator.pop(context);
 
                   // Calculate the points change (positive for add, negative for remove)
                   final pointsChange =
                       selectedAction == 'add' ? points : -points;
+                  print('DEBUG: UI - Calculated pointsChange: $pointsChange');
                   final description = selectedAction == 'add'
                       ? 'Admin added $points points'
                       : 'Admin removed $points points';
@@ -5764,5 +5797,293 @@ class _StoreProfileScreenState extends State<StoreProfileScreen> {
       print('Error loading store analytics: $e');
       return {};
     }
+  }
+
+  void _showPointsRulesDialog() {
+    showDialog(
+      context: context,
+      builder: (ctx) {
+        return AlertDialog(
+          title: const Text('Configure Points Rules'),
+          content:
+              const Text('Points Rules configuration dialog is now working!'),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(),
+              child: const Text('Close'),
+            ),
+          ],
+        );
+      },
+    );
+  }
+}
+
+class PointsRulesScreen extends StatefulWidget {
+  final AppProvider appProvider;
+
+  const PointsRulesScreen({required this.appProvider, super.key});
+
+  @override
+  State<PointsRulesScreen> createState() => _PointsRulesScreenState();
+}
+
+class _PointsRulesScreenState extends State<PointsRulesScreen> {
+  late TextEditingController percentController;
+  late TextEditingController pointsController;
+
+  int? editingIndex;
+
+  @override
+  void initState() {
+    super.initState();
+    percentController = TextEditingController();
+    pointsController = TextEditingController();
+  }
+
+  @override
+  void dispose() {
+    percentController.dispose();
+    pointsController.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Consumer<AppProvider>(
+      builder: (context, appProvider, child) {
+        final rules = appProvider.pointsRules;
+
+        return Scaffold(
+          appBar: AppBar(
+            title: const Text('Configure Points Rules'),
+            backgroundColor: Colors.blue[600],
+            foregroundColor: Colors.white,
+            leading: IconButton(
+              icon: const Icon(Icons.arrow_back),
+              onPressed: () => Navigator.of(context).pop(),
+            ),
+          ),
+          body: SingleChildScrollView(
+            padding: const EdgeInsets.all(16),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                // Custom Rules Section
+                Text(
+                  'Custom Rules',
+                  style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                        fontWeight: FontWeight.bold,
+                        color: Colors.blue[700],
+                      ),
+                ),
+                const SizedBox(height: 12),
+                // Add new custom rule
+                Card(
+                  child: Padding(
+                    padding: const EdgeInsets.all(16),
+                    child: Column(
+                      children: [
+                        Text(
+                          'Add New Rule',
+                          style:
+                              Theme.of(context).textTheme.titleMedium?.copyWith(
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                        ),
+                        const SizedBox(height: 12),
+                        Row(
+                          children: [
+                            Expanded(
+                              child: TextField(
+                                controller: percentController,
+                                keyboardType:
+                                    const TextInputType.numberWithOptions(
+                                        decimal: true),
+                                decoration: const InputDecoration(
+                                  labelText: 'Custom threshold % (e.g. 125)',
+                                  border: OutlineInputBorder(),
+                                ),
+                              ),
+                            ),
+                            const SizedBox(width: 12),
+                            Expanded(
+                              child: TextField(
+                                controller: pointsController,
+                                keyboardType: TextInputType.number,
+                                decoration: const InputDecoration(
+                                  labelText: 'Points (e.g. 25)',
+                                  border: OutlineInputBorder(),
+                                ),
+                              ),
+                            ),
+                            const SizedBox(width: 12),
+                            ElevatedButton(
+                              onPressed: () {
+                                final p = double.tryParse(
+                                    percentController.text.trim());
+                                final pts =
+                                    int.tryParse(pointsController.text.trim());
+                                if (p != null && pts != null) {
+                                  final updatedEntries =
+                                      List<PointsRuleEntry>.from(rules.entries)
+                                        ..add(PointsRuleEntry(
+                                            thresholdPercent: p, points: pts))
+                                        ..sort((a, b) => a.thresholdPercent
+                                            .compareTo(b.thresholdPercent));
+                                  appProvider.updatePointsRules(
+                                    appProvider.pointsRules
+                                        .copyWith(entries: updatedEntries),
+                                  );
+                                  percentController.clear();
+                                  pointsController.clear();
+                                  ScaffoldMessenger.of(context).showSnackBar(
+                                    const SnackBar(
+                                        content: Text(
+                                            'Custom rule added successfully!')),
+                                  );
+                                }
+                              },
+                              child: const Text('Add Rule'),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 16),
+                        Align(
+                          alignment: Alignment.centerLeft,
+                          child: Text(
+                            'Existing rules',
+                            style: Theme.of(context)
+                                .textTheme
+                                .bodySmall
+                                ?.copyWith(fontWeight: FontWeight.bold),
+                          ),
+                        ),
+                        const SizedBox(height: 8),
+                        if (rules.entries.isEmpty)
+                          const Text('No custom rules added yet.')
+                        else
+                          ...rules.entries.asMap().entries.map((entry) {
+                            final i = entry.key;
+                            final e = entry.value;
+                            final isEditing = editingIndex == i;
+
+                            return Column(
+                              children: [
+                                Row(
+                                  children: [
+                                    Expanded(
+                                      child: isEditing
+                                          ? TextField(
+                                              controller: TextEditingController(
+                                                  text: e.thresholdPercent
+                                                      .toStringAsFixed(0)),
+                                              keyboardType: const TextInputType
+                                                  .numberWithOptions(
+                                                  decimal: true),
+                                              onChanged: (value) {
+                                                final newPercent =
+                                                    double.tryParse(value);
+                                                if (newPercent != null) {
+                                                  final updatedEntries = List<
+                                                          PointsRuleEntry>.from(
+                                                      rules.entries);
+                                                  updatedEntries[i] =
+                                                      PointsRuleEntry(
+                                                    thresholdPercent:
+                                                        newPercent,
+                                                    points: e.points,
+                                                  );
+                                                  appProvider.updatePointsRules(
+                                                    appProvider.pointsRules
+                                                        .copyWith(
+                                                            entries:
+                                                                updatedEntries),
+                                                  );
+                                                }
+                                              },
+                                            )
+                                          : Text(
+                                              '${e.thresholdPercent.toStringAsFixed(0)}% → ${e.points} pts',
+                                              style: Theme.of(context)
+                                                  .textTheme
+                                                  .bodySmall,
+                                            ),
+                                    ),
+                                    if (isEditing)
+                                      Expanded(
+                                        child: TextField(
+                                          controller: TextEditingController(
+                                              text: e.points.toString()),
+                                          keyboardType: TextInputType.number,
+                                          onChanged: (value) {
+                                            final newPoints =
+                                                int.tryParse(value);
+                                            if (newPoints != null) {
+                                              final updatedEntries =
+                                                  List<PointsRuleEntry>.from(
+                                                      rules.entries);
+                                              updatedEntries[i] =
+                                                  PointsRuleEntry(
+                                                thresholdPercent:
+                                                    e.thresholdPercent,
+                                                points: newPoints,
+                                              );
+                                              appProvider.updatePointsRules(
+                                                appProvider.pointsRules
+                                                    .copyWith(
+                                                        entries:
+                                                            updatedEntries),
+                                              );
+                                            }
+                                          },
+                                        ),
+                                      ),
+                                    IconButton(
+                                      icon: Icon(
+                                          isEditing ? Icons.check : Icons.edit,
+                                          size: 18),
+                                      tooltip: isEditing ? 'Save' : 'Edit',
+                                      onPressed: () {
+                                        setState(() {
+                                          editingIndex = isEditing ? null : i;
+                                        });
+                                      },
+                                    ),
+                                    IconButton(
+                                      icon: const Icon(Icons.delete, size: 18),
+                                      tooltip: 'Remove',
+                                      onPressed: () {
+                                        final updated =
+                                            List<PointsRuleEntry>.from(
+                                                rules.entries)
+                                              ..removeAt(i);
+                                        appProvider.updatePointsRules(
+                                          appProvider.pointsRules
+                                              .copyWith(entries: updated),
+                                        );
+                                        ScaffoldMessenger.of(context)
+                                            .showSnackBar(
+                                          const SnackBar(
+                                              content: Text(
+                                                  'Rule deleted successfully!')),
+                                        );
+                                      },
+                                    )
+                                  ],
+                                ),
+                              ],
+                            );
+                          }).toList(),
+                      ],
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        );
+      },
+    );
   }
 }
