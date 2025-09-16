@@ -199,52 +199,57 @@ class _AdminDashboardState extends State<AdminDashboard> {
   }
 
   Widget _buildEmployeesTab(AppProvider appProvider) {
-    return FutureBuilder<List<User>>(
-      future: appProvider.getUsers(),
-      builder: (context, snapshot) {
-        if (snapshot.connectionState == ConnectionState.waiting) {
-          return const Center(child: CircularProgressIndicator());
-        }
-        if (snapshot.hasError) {
-          return Center(child: Text('Error: ${snapshot.error}'));
-        }
-        if (!snapshot.hasData || snapshot.data!.isEmpty) {
-          return const Center(child: Text('No employees found'));
-        }
+    return Consumer<AppProvider>(
+      builder: (context, provider, child) {
+        return FutureBuilder<List<User>>(
+          future: provider.getUsers(),
+          builder: (context, snapshot) {
+            if (snapshot.connectionState == ConnectionState.waiting) {
+              return const Center(child: CircularProgressIndicator());
+            }
+            if (snapshot.hasError) {
+              return Center(child: Text('Error: ${snapshot.error}'));
+            }
+            if (!snapshot.hasData || snapshot.data!.isEmpty) {
+              return const Center(child: Text('No employees found'));
+            }
 
-        final employees =
-            snapshot.data!.where((u) => u.role == UserRole.employee).toList();
+            final employees = snapshot.data!
+                .where((u) => u.role == UserRole.employee)
+                .toList();
 
-        return ListView.builder(
-          padding: const EdgeInsets.all(16),
-          itemCount: employees.length,
-          itemBuilder: (context, index) {
-            final employee = employees[index];
-            return Card(
-              child: ListTile(
-                leading: CircleAvatar(
-                  child: Text(employee.name[0].toUpperCase()),
-                ),
-                title: Text(employee.name),
-                subtitle: Text(employee.email),
-                trailing: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    IconButton(
-                      icon: const Icon(Icons.visibility),
-                      onPressed: () => _navigateToEmployeeProfile(
-                          context, employee, appProvider),
-                      tooltip: 'View Profile',
+            return ListView.builder(
+              padding: const EdgeInsets.all(16),
+              itemCount: employees.length,
+              itemBuilder: (context, index) {
+                final employee = employees[index];
+                return Card(
+                  child: ListTile(
+                    leading: CircleAvatar(
+                      child: Text(employee.name[0].toUpperCase()),
                     ),
-                    IconButton(
-                      icon: const Icon(Icons.edit),
-                      onPressed: () => _showEditEmployeeDialog(
-                          context, employee, appProvider),
-                      tooltip: 'Quick Edit',
+                    title: Text(employee.name),
+                    subtitle: Text(employee.email),
+                    trailing: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        IconButton(
+                          icon: const Icon(Icons.visibility),
+                          onPressed: () => _navigateToEmployeeProfile(
+                              context, employee, provider),
+                          tooltip: 'View Profile',
+                        ),
+                        IconButton(
+                          icon: const Icon(Icons.edit),
+                          onPressed: () => _showEditEmployeeDialog(
+                              context, employee, provider),
+                          tooltip: 'Quick Edit',
+                        ),
+                      ],
                     ),
-                  ],
-                ),
-              ),
+                  ),
+                );
+              },
             );
           },
         );
@@ -1405,15 +1410,47 @@ class _AdminDashboardState extends State<AdminDashboard> {
   }
 
   void _updateEmployeeField(BuildContext context, User employee, String field,
-      String newValue, AppProvider appProvider) {
-    // This would update the employee field in the database
-    // For now, just show a success message
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text('$field updated successfully'),
-        backgroundColor: Colors.green,
-      ),
-    );
+      String newValue, AppProvider appProvider) async {
+    try {
+      User updatedEmployee;
+
+      switch (field) {
+        case 'name':
+          updatedEmployee = employee.copyWith(name: newValue);
+          break;
+        case 'email':
+          updatedEmployee = employee.copyWith(email: newValue);
+          break;
+        case 'phoneNumber':
+          updatedEmployee = employee.copyWith(phoneNumber: newValue);
+          break;
+        default:
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('Unknown field: $field'),
+              backgroundColor: Colors.red,
+            ),
+          );
+          return;
+      }
+
+      // Update the employee in the database
+      await appProvider.updateUser(updatedEmployee);
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('$field updated successfully'),
+          backgroundColor: Colors.green,
+        ),
+      );
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Error updating $field: $e'),
+          backgroundColor: Colors.red,
+        ),
+      );
+    }
   }
 
   void _showResetPasswordDialog(
@@ -4520,11 +4557,23 @@ class _EmployeeProfileScreenState extends State<EmployeeProfileScreen> {
                         'Full Name',
                         currentEmployee.name,
                         () => _showEditFieldDialog('Name', currentEmployee.name,
-                            (newValue) {
-                          setState(() {
-                            currentEmployee =
+                            (newValue) async {
+                          try {
+                            final updatedEmployee =
                                 currentEmployee.copyWith(name: newValue);
-                          });
+                            await widget.appProvider
+                                .updateUser(updatedEmployee);
+                            setState(() {
+                              currentEmployee = updatedEmployee;
+                            });
+                          } catch (e) {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              SnackBar(
+                                content: Text('Error updating name: $e'),
+                                backgroundColor: Colors.red,
+                              ),
+                            );
+                          }
                         }),
                       ),
                       _buildProfileField(
@@ -4532,11 +4581,23 @@ class _EmployeeProfileScreenState extends State<EmployeeProfileScreen> {
                         'Email Address',
                         currentEmployee.email,
                         () => _showEditFieldDialog(
-                            'Email', currentEmployee.email, (newValue) {
-                          setState(() {
-                            currentEmployee =
+                            'Email', currentEmployee.email, (newValue) async {
+                          try {
+                            final updatedEmployee =
                                 currentEmployee.copyWith(email: newValue);
-                          });
+                            await widget.appProvider
+                                .updateUser(updatedEmployee);
+                            setState(() {
+                              currentEmployee = updatedEmployee;
+                            });
+                          } catch (e) {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              SnackBar(
+                                content: Text('Error updating email: $e'),
+                                backgroundColor: Colors.red,
+                              ),
+                            );
+                          }
                         }),
                       ),
                       _buildProfileField(
@@ -4545,11 +4606,23 @@ class _EmployeeProfileScreenState extends State<EmployeeProfileScreen> {
                         currentEmployee.phoneNumber ?? 'Not set',
                         () => _showEditFieldDialog(
                             'Phone Number', currentEmployee.phoneNumber ?? '',
-                            (newValue) {
-                          setState(() {
-                            currentEmployee =
+                            (newValue) async {
+                          try {
+                            final updatedEmployee =
                                 currentEmployee.copyWith(phoneNumber: newValue);
-                          });
+                            await widget.appProvider
+                                .updateUser(updatedEmployee);
+                            setState(() {
+                              currentEmployee = updatedEmployee;
+                            });
+                          } catch (e) {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              SnackBar(
+                                content: Text('Error updating phone: $e'),
+                                backgroundColor: Colors.red,
+                              ),
+                            );
+                          }
                         }),
                       ),
                     ],
