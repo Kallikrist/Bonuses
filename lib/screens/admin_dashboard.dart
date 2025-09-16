@@ -2469,8 +2469,19 @@ class _AdminDashboardState extends State<AdminDashboard> {
                 'Name',
                 user.name,
                 () => _showEditFieldDialog(context, 'Name', user.name,
-                    (newValue) {
-                  // Update name logic here
+                    (newValue) async {
+                  try {
+                    final updatedUser = user.copyWith(name: newValue);
+                    await appProvider.updateUser(updatedUser);
+                    // The UI will update automatically due to Consumer<AppProvider>
+                  } catch (e) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(
+                        content: Text('Error updating name: $e'),
+                        backgroundColor: Colors.red,
+                      ),
+                    );
+                  }
                 }),
               ),
               _buildProfileField(
@@ -2478,8 +2489,19 @@ class _AdminDashboardState extends State<AdminDashboard> {
                 'Email',
                 user.email,
                 () => _showEditFieldDialog(context, 'Email', user.email,
-                    (newValue) {
-                  // Update email logic here
+                    (newValue) async {
+                  try {
+                    final updatedUser = user.copyWith(email: newValue);
+                    await appProvider.updateUser(updatedUser);
+                    // The UI will update automatically due to Consumer<AppProvider>
+                  } catch (e) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(
+                        content: Text('Error updating email: $e'),
+                        backgroundColor: Colors.red,
+                      ),
+                    );
+                  }
                 }),
               ),
               _buildProfileField(
@@ -2488,8 +2510,19 @@ class _AdminDashboardState extends State<AdminDashboard> {
                 user.phoneNumber ?? 'Not set',
                 () => _showEditFieldDialog(
                     context, 'Phone Number', user.phoneNumber ?? '',
-                    (newValue) {
-                  // Update phone logic here
+                    (newValue) async {
+                  try {
+                    final updatedUser = user.copyWith(phoneNumber: newValue);
+                    await appProvider.updateUser(updatedUser);
+                    // The UI will update automatically due to Consumer<AppProvider>
+                  } catch (e) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(
+                        content: Text('Error updating phone: $e'),
+                        backgroundColor: Colors.red,
+                      ),
+                    );
+                  }
                 }),
               ),
             ],
