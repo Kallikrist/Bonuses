@@ -651,6 +651,12 @@ class AppProvider with ChangeNotifier {
     notifyListeners();
   }
 
+  Future<void> deleteBonus(String bonusId) async {
+    await StorageService.deleteBonus(bonusId);
+    _bonuses.removeWhere((b) => b.id == bonusId);
+    notifyListeners();
+  }
+
   List<SalesTarget> getTodaysTargets() {
     final today = DateTime.now();
     return _salesTargets.where((target) {
@@ -743,9 +749,11 @@ class AppProvider with ChangeNotifier {
       return false;
     }
 
-    if (user.totalPoints < bonus.pointsRequired) {
+    // Use getUserTotalPoints for accurate point calculation from transactions
+    final currentPoints = getUserTotalPoints(userId);
+    if (currentPoints < bonus.pointsRequired) {
       print(
-          'DEBUG: Insufficient points. User has ${user.totalPoints}, needs ${bonus.pointsRequired}');
+          'DEBUG: Insufficient points. User has $currentPoints, needs ${bonus.pointsRequired}');
       return false;
     }
 
@@ -777,15 +785,10 @@ class AppProvider with ChangeNotifier {
     await StorageService.addPointsTransaction(pointsTransaction);
     _pointsTransactions.add(pointsTransaction);
 
-    // Update user's total points
-    final updatedUser = user.copyWith(
-      totalPoints: user.totalPoints - bonus.pointsRequired,
-    );
-    _currentUser = updatedUser;
-    await StorageService.updateUser(updatedUser);
+    // Points are now calculated from transactions, so no need to update user.totalPoints directly
+    final newTotalPoints = getUserTotalPoints(userId);
 
-    print(
-        'DEBUG: Bonus redeemed successfully. User points: ${updatedUser.totalPoints}');
+    print('DEBUG: Bonus redeemed successfully. User points: $newTotalPoints');
     notifyListeners();
     return true;
   }

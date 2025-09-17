@@ -704,24 +704,318 @@ class _EmployeeDashboardState extends State<EmployeeDashboard> {
 
   Widget _buildBonusesTab(List<Bonus> availableBonuses,
       List<Bonus> redeemedBonuses, String userId, int userPoints) {
-    return DefaultTabController(
-      length: 2,
+    return SingleChildScrollView(
       child: Column(
         children: [
-          TabBar(
-            tabs: const [
-              Tab(text: 'Available'),
-              Tab(text: 'Redeemed'),
-            ],
-          ),
-          Expanded(
-            child: TabBarView(
+          // Points Summary Card
+          Container(
+            margin: const EdgeInsets.all(16),
+            padding: const EdgeInsets.all(20),
+            decoration: BoxDecoration(
+              gradient: LinearGradient(
+                colors: [Colors.purple.shade400, Colors.purple.shade600],
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+              ),
+              borderRadius: BorderRadius.circular(16),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.purple.withOpacity(0.3),
+                  blurRadius: 10,
+                  offset: const Offset(0, 4),
+                ),
+              ],
+            ),
+            child: Row(
               children: [
-                _buildAvailableBonuses(availableBonuses, userPoints, userId),
-                _buildRedeemedBonuses(redeemedBonuses),
+                Container(
+                  padding: const EdgeInsets.all(16),
+                  decoration: BoxDecoration(
+                    color: Colors.white.withOpacity(0.2),
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: const Icon(
+                    Icons.stars,
+                    color: Colors.white,
+                    size: 32,
+                  ),
+                ),
+                const SizedBox(width: 16),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const Text(
+                        'Your Points',
+                        style: TextStyle(
+                          color: Colors.white70,
+                          fontSize: 16,
+                        ),
+                      ),
+                      Text(
+                        '$userPoints',
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontSize: 32,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                  decoration: BoxDecoration(
+                    color: Colors.white.withOpacity(0.2),
+                    borderRadius: BorderRadius.circular(20),
+                  ),
+                  child: Text(
+                    '${redeemedBonuses.length} claimed',
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontWeight: FontWeight.w500,
+                    ),
+                  ),
+                ),
               ],
             ),
           ),
+
+          // Available Bonuses Section
+          Container(
+            margin: const EdgeInsets.symmetric(horizontal: 16),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text(
+                  'Available Bonuses',
+                  style: TextStyle(
+                    fontSize: 20,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+                const SizedBox(height: 12),
+                ...availableBonuses.map((bonus) => _buildSimpleBonusCard(
+                      bonus, userPoints, userId, false)),
+              ],
+            ),
+          ),
+
+          const SizedBox(height: 24),
+
+          // Claimed Bonuses Section
+          Container(
+            margin: const EdgeInsets.symmetric(horizontal: 16),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text(
+                  'Your Claimed Bonuses',
+                  style: TextStyle(
+                    fontSize: 20,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+                const SizedBox(height: 12),
+                redeemedBonuses.isEmpty
+                    ? Container(
+                        padding: const EdgeInsets.all(32),
+                        decoration: BoxDecoration(
+                          color: Colors.grey.shade100,
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        child: const Center(
+                          child: Column(
+                            children: [
+                              Icon(Icons.card_giftcard, 
+                                   size: 48, color: Colors.grey),
+                              SizedBox(height: 12),
+                              Text(
+                                'No bonuses claimed yet',
+                                style: TextStyle(
+                                  fontSize: 16,
+                                  color: Colors.grey,
+                                ),
+                              ),
+                              SizedBox(height: 4),
+                              Text(
+                                'Start earning points to claim bonuses!',
+                                style: TextStyle(color: Colors.grey),
+                              ),
+                            ],
+                          ),
+                        ),
+                      )
+                    : Column(
+                        children: redeemedBonuses.map((bonus) => 
+                            _buildSimpleBonusCard(bonus, userPoints, userId, true))
+                            .toList(),
+                      ),
+              ],
+            ),
+          ),
+
+          const SizedBox(height: 32),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildSimpleBonusCard(Bonus bonus, int userPoints, String userId, bool isRedeemed) {
+    final canRedeem = !isRedeemed && userPoints >= bonus.pointsRequired;
+    final pointsNeeded = bonus.pointsRequired - userPoints;
+
+    return Container(
+      margin: const EdgeInsets.only(bottom: 12),
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(
+          color: isRedeemed 
+              ? Colors.green.withOpacity(0.3)
+              : canRedeem 
+                  ? Colors.purple.withOpacity(0.3)
+                  : Colors.grey.withOpacity(0.3),
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.05),
+            blurRadius: 8,
+            offset: const Offset(0, 2),
+          ),
+        ],
+      ),
+      child: Row(
+        children: [
+          // Icon
+          Container(
+            padding: const EdgeInsets.all(12),
+            decoration: BoxDecoration(
+              color: isRedeemed 
+                  ? Colors.green.withOpacity(0.1)
+                  : canRedeem 
+                      ? Colors.purple.withOpacity(0.1)
+                      : Colors.grey.withOpacity(0.1),
+              borderRadius: BorderRadius.circular(10),
+            ),
+            child: Icon(
+              isRedeemed ? Icons.check_circle : Icons.card_giftcard,
+              color: isRedeemed 
+                  ? Colors.green
+                  : canRedeem 
+                      ? Colors.purple
+                      : Colors.grey,
+              size: 24,
+            ),
+          ),
+          const SizedBox(width: 16),
+          
+          // Content
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  bonus.name,
+                  style: const TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  bonus.description,
+                  style: TextStyle(
+                    color: Colors.grey.shade600,
+                    fontSize: 14,
+                  ),
+                ),
+                const SizedBox(height: 8),
+                Row(
+                  children: [
+                    Icon(Icons.stars, size: 16, color: Colors.orange),
+                    const SizedBox(width: 4),
+                    Text(
+                      '${bonus.pointsRequired} points',
+                      style: const TextStyle(
+                        fontWeight: FontWeight.w500,
+                        fontSize: 14,
+                      ),
+                    ),
+                    if (isRedeemed) ...[
+                      const SizedBox(width: 12),
+                      Icon(Icons.check, size: 16, color: Colors.green),
+                      const SizedBox(width: 4),
+                      Text(
+                        'Claimed',
+                        style: TextStyle(
+                          color: Colors.green,
+                          fontWeight: FontWeight.w500,
+                          fontSize: 14,
+                        ),
+                      ),
+                    ],
+                  ],
+                ),
+              ],
+            ),
+          ),
+          
+          // Action Button or Status
+          if (isRedeemed)
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+              decoration: BoxDecoration(
+                color: Colors.green.withOpacity(0.1),
+                borderRadius: BorderRadius.circular(16),
+              ),
+              child: const Text(
+                'Claimed',
+                style: TextStyle(
+                  color: Colors.green,
+                  fontWeight: FontWeight.bold,
+                  fontSize: 12,
+                ),
+              ),
+            )
+          else if (canRedeem)
+            ElevatedButton(
+              onPressed: () => _redeemBonus(context, bonus, userId),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Colors.purple,
+                foregroundColor: Colors.white,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+              ),
+              child: const Text(
+                'Claim',
+                style: TextStyle(fontWeight: FontWeight.bold),
+              ),
+            )
+          else
+            Column(
+              crossAxisAlignment: CrossAxisAlignment.end,
+              children: [
+                Text(
+                  'Need $pointsNeeded',
+                  style: TextStyle(
+                    color: Colors.grey.shade600,
+                    fontSize: 12,
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
+                Text(
+                  'more points',
+                  style: TextStyle(
+                    color: Colors.grey.shade600,
+                    fontSize: 12,
+                  ),
+                ),
+              ],
+            ),
         ],
       ),
     );

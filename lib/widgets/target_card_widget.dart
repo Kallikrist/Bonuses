@@ -37,8 +37,9 @@ class TargetCard extends StatelessWidget {
         ? (target.actualAmount / target.targetAmount * 100).round()
         : 0;
     final isOverTarget = target.actualAmount > target.targetAmount;
-    final isApproved =
-        target.isApproved || target.status == TargetStatus.approved;
+    final isApproved = target.isApproved ||
+        target.status == TargetStatus.approved ||
+        target.status == TargetStatus.met;
     final isMet = target.isMet;
     final percentageAbove = target.percentageAboveTarget;
 
@@ -510,29 +511,37 @@ class TargetCard extends StatelessWidget {
                                 ),
                               )
                             : target.status == TargetStatus.submitted
-                                ? Container(
-                                    padding: const EdgeInsets.symmetric(
-                                        horizontal: 12, vertical: 8),
-                                    decoration: BoxDecoration(
-                                      color: Colors.blue[100],
-                                      borderRadius: BorderRadius.circular(8),
-                                      border: Border.all(color: Colors.blue),
-                                    ),
-                                    child: Row(
-                                      mainAxisAlignment:
-                                          MainAxisAlignment.center,
-                                      children: [
-                                        Icon(Icons.upload,
-                                            color: Colors.blue[700], size: 16),
-                                        const SizedBox(width: 8),
-                                        Text(
-                                          'Submitted for Approval',
-                                          style: TextStyle(
-                                            color: Colors.blue[700],
-                                            fontWeight: FontWeight.bold,
+                                ? GestureDetector(
+                                    onTap: isAdminView
+                                        ? () => _quickApproveTarget(target)
+                                        : null,
+                                    child: Container(
+                                      padding: const EdgeInsets.symmetric(
+                                          horizontal: 12, vertical: 8),
+                                      decoration: BoxDecoration(
+                                        color: Colors.blue[100],
+                                        borderRadius: BorderRadius.circular(8),
+                                        border: Border.all(color: Colors.blue),
+                                      ),
+                                      child: Row(
+                                        mainAxisAlignment:
+                                            MainAxisAlignment.center,
+                                        children: [
+                                          Icon(Icons.upload,
+                                              color: Colors.blue[700],
+                                              size: 16),
+                                          const SizedBox(width: 8),
+                                          Text(
+                                            isAdminView
+                                                ? 'Tap to Approve'
+                                                : 'Submitted for Approval',
+                                            style: TextStyle(
+                                              color: Colors.blue[700],
+                                              fontWeight: FontWeight.bold,
+                                            ),
                                           ),
-                                        ),
-                                      ],
+                                        ],
+                                      ),
                                     ),
                                   )
                                 : target.status == TargetStatus.missed
@@ -644,27 +653,32 @@ class TargetCard extends StatelessWidget {
                   ),
                 ),
               ] else if (target.status == TargetStatus.submitted) ...[
-                Container(
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                  decoration: BoxDecoration(
-                    color: Colors.blue[100],
-                    borderRadius: BorderRadius.circular(8),
-                    border: Border.all(color: Colors.blue),
-                  ),
-                  child: Row(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      Icon(Icons.upload, color: Colors.blue[700], size: 16),
-                      const SizedBox(width: 8),
-                      Text(
-                        'Submitted for Approval',
-                        style: TextStyle(
-                          color: Colors.blue[700],
-                          fontWeight: FontWeight.bold,
+                GestureDetector(
+                  onTap: isAdminView ? () => _quickApproveTarget(target) : null,
+                  child: Container(
+                    padding:
+                        const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                    decoration: BoxDecoration(
+                      color: Colors.blue[100],
+                      borderRadius: BorderRadius.circular(8),
+                      border: Border.all(color: Colors.blue),
+                    ),
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Icon(Icons.upload, color: Colors.blue[700], size: 16),
+                        const SizedBox(width: 8),
+                        Text(
+                          isAdminView
+                              ? 'Tap to Approve'
+                              : 'Submitted for Approval',
+                          style: TextStyle(
+                            color: Colors.blue[700],
+                            fontWeight: FontWeight.bold,
+                          ),
                         ),
-                      ),
-                    ],
+                      ],
+                    ),
                   ),
                 ),
               ],
@@ -734,5 +748,53 @@ class TargetCard extends StatelessWidget {
       ),
       minHeight: 8,
     );
+  }
+
+  void _quickApproveTarget(SalesTarget target) async {
+    if (!isAdminView) return;
+
+    try {
+      // Find the pending approval request for this target
+      final pendingRequest = appProvider.approvalRequests.firstWhere(
+        (request) =>
+            request.targetId == target.id &&
+            request.status == ApprovalStatus.pending,
+        orElse: () => throw Exception('No pending approval request found'),
+      );
+
+      // Use the existing approval system
+      await appProvider.approveRequest(pendingRequest);
+
+      print('DEBUG: Target ${target.id} approved via quick approve');
+    } catch (e) {
+      print('Error quick approving target: $e');
+      // If no approval request exists, this might be a direct admin edit
+      // In that case, we should still approve the target directly
+      if (e.toString().contains('No pending approval request found')) {
+        try {
+          final effectivePercent = target.targetAmount > 0
+              ? (target.actualAmount / target.targetAmount) * 100
+              : 0.0;
+
+          final pointsAwarded = effectivePercent >= 100
+              ? appProvider.getPointsForEffectivePercent(effectivePercent)
+              : 0;
+
+          final approvedTarget = target.copyWith(
+            status: TargetStatus.approved,
+            isApproved: true,
+            approvedBy: appProvider.currentUser?.id,
+            approvedAt: DateTime.now(),
+            pointsAwarded: pointsAwarded,
+            isMet: target.actualAmount >= target.targetAmount,
+          );
+
+          await appProvider.updateSalesTarget(approvedTarget);
+          print('DEBUG: Target approved directly (no approval request)');
+        } catch (directError) {
+          print('Error in direct approval: $directError');
+        }
+      }
+    }
   }
 }

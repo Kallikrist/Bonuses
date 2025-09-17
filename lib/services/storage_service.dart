@@ -204,6 +204,12 @@ class StorageService {
     }
   }
 
+  static Future<void> deleteBonus(String bonusId) async {
+    final bonuses = await getBonuses();
+    bonuses.removeWhere((b) => b.id == bonusId);
+    await saveBonuses(bonuses);
+  }
+
   // Workplace management
   static Future<List<Workplace>> getWorkplaces() async {
     final prefs = await _prefs;

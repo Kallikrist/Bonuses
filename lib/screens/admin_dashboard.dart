@@ -12,6 +12,7 @@ import '../models/points_rules.dart';
 import '../services/storage_service.dart';
 import '../widgets/profile_header_widget.dart';
 import '../widgets/target_card_widget.dart';
+import 'import_bonuses_screen.dart';
 
 class EmployeePerformance {
   final String employeeId;
@@ -1827,9 +1828,13 @@ class _AdminDashboardState extends State<AdminDashboard> {
       ),
       ActionButton(
         icon: Icons.card_giftcard,
-        label: 'Bonuses',
+        label: 'Import Bonuses',
         color: Colors.purple,
-        onTap: () => setState(() => _selectedIndex = 1),
+        onTap: () => Navigator.of(context).push(
+          MaterialPageRoute(
+            builder: (context) => ImportBonusesScreen(appProvider: appProvider),
+          ),
+        ),
       ),
       ActionButton(
         icon: Icons.settings,
@@ -2717,9 +2722,11 @@ class _AdminDashboardState extends State<AdminDashboard> {
         : 0;
     final isOverTarget = target.actualAmount > target.targetAmount;
 
-    // Check if target is approved
+    // Check if target is approved or met
     final isApproved =
-        target.isApproved || target.status == TargetStatus.approved;
+        target.isApproved || 
+        target.status == TargetStatus.approved ||
+        target.status == TargetStatus.met;
 
     return Card(
       margin: const EdgeInsets.only(bottom: 8),
@@ -3776,8 +3783,15 @@ class _AdminDashboardState extends State<AdminDashboard> {
                       100;
                   final calculatedPoints = appProvider
                       .getPointsForEffectivePercent(effectivePercent);
-                  final finalUpdatedTarget =
-                      updatedTarget.copyWith(pointsAwarded: calculatedPoints);
+                  
+                  // When admin directly sets a met target, mark it as approved
+                  final finalUpdatedTarget = updatedTarget.copyWith(
+                    pointsAwarded: calculatedPoints,
+                    status: TargetStatus.approved,
+                    isApproved: true,
+                    approvedBy: appProvider.currentUser?.id,
+                    approvedAt: DateTime.now(),
+                  );
                   await appProvider.updateSalesTarget(finalUpdatedTarget);
                 } else {
                   // Update the target
@@ -5934,6 +5948,7 @@ class _StoreProfileScreenState extends State<StoreProfileScreen> {
       },
     );
   }
+
 }
 
 class PointsRulesScreen extends StatefulWidget {
@@ -6203,4 +6218,5 @@ class _PointsRulesScreenState extends State<PointsRulesScreen> {
       },
     );
   }
+
 }
