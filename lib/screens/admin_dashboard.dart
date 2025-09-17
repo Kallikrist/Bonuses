@@ -177,22 +177,86 @@ class _AdminDashboardState extends State<AdminDashboard> {
               ),
             )
           else
-            ...todaysTargets.map((target) => TargetCard(
-                  target: target,
-                  appProvider: appProvider,
-                  isAdminView: true,
-                  onEdit: () =>
-                      _showEditTargetDialog(context, target, appProvider),
-                  onDelete: () =>
-                      _showDeleteTargetDialog(context, target, appProvider),
-                  onQuickApprove: () => _showQuickApproveDialog(
-                      context,
-                      appProvider.approvalRequests
-                          .where((request) =>
-                              request.targetId == target.id &&
-                              request.status == ApprovalStatus.pending)
-                          .toList(),
-                      appProvider),
+            ...todaysTargets.map((target) => Dismissible(
+                  key: Key('target_${target.id}'),
+                  direction: DismissDirection.endToStart,
+                  background: Container(
+                    alignment: Alignment.centerRight,
+                    padding: const EdgeInsets.only(right: 20),
+                    decoration: BoxDecoration(
+                      color: Colors.red,
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: const Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Icon(
+                          Icons.delete,
+                          color: Colors.white,
+                          size: 28,
+                        ),
+                        SizedBox(height: 4),
+                        Text(
+                          'Delete',
+                          style: TextStyle(
+                            color: Colors.white,
+                            fontWeight: FontWeight.bold,
+                            fontSize: 12,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  confirmDismiss: (direction) async {
+                    // Use existing delete dialog
+                    bool? shouldDelete = false;
+                    await showDialog(
+                      context: context,
+                      builder: (context) => AlertDialog(
+                        title: const Text('Delete Target'),
+                        content: Text('Are you sure you want to delete this target for \$${target.targetAmount.toStringAsFixed(0)}?'),
+                        actions: [
+                          TextButton(
+                            onPressed: () => Navigator.pop(context),
+                            child: const Text('Cancel'),
+                          ),
+                          ElevatedButton(
+                            onPressed: () {
+                              shouldDelete = true;
+                              Navigator.pop(context);
+                            },
+                            style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
+                            child: const Text('Delete', style: TextStyle(color: Colors.white)),
+                          ),
+                        ],
+                      ),
+                    );
+                    return shouldDelete;
+                  },
+                  onDismissed: (direction) async {
+                    await appProvider.deleteSalesTarget(target.id);
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(
+                        content: Text('Target deleted successfully'),
+                        backgroundColor: Colors.green,
+                      ),
+                    );
+                  },
+                  child: TargetCard(
+                    target: target,
+                    appProvider: appProvider,
+                    isAdminView: true,
+                    onEdit: () =>
+                        _showEditTargetDialog(context, target, appProvider),
+                    onQuickApprove: () => _showQuickApproveDialog(
+                        context,
+                        appProvider.approvalRequests
+                            .where((request) =>
+                                request.targetId == target.id &&
+                                request.status == ApprovalStatus.pending)
+                            .toList(),
+                        appProvider),
+                  ),
                 )),
         ],
       ),
@@ -3773,8 +3837,19 @@ class _AdminDashboardState extends State<AdminDashboard> {
                       teamMembers.map((u) => u.name).toList(),
                 );
 
-                // Recalculate status based on actual vs target amount
-                final updatedTarget = baseUpdatedTarget.calculateResults();
+                // Only recalculate status if actual amount changed
+                final actualAmountChanged = actualAmount != target.actualAmount;
+                final targetAmountChanged = targetAmount != target.targetAmount;
+                
+                SalesTarget updatedTarget;
+                if (actualAmountChanged) {
+                  // Only recalculate status when actual sales amount changes
+                  updatedTarget = baseUpdatedTarget.calculateResults();
+                } else {
+                  // Keep existing status if actual amount didn't change
+                  // This prevents marking targets as "missed" just for changing target amount or other details
+                  updatedTarget = baseUpdatedTarget;
+                }
 
                 // If the target is met and has points, recalculate points using the rules
                 if (updatedTarget.isMet && updatedTarget.actualAmount > 0) {
@@ -3800,15 +3875,26 @@ class _AdminDashboardState extends State<AdminDashboard> {
                 Navigator.pop(context);
 
                 // Show appropriate feedback based on status change
-                String message = 'Target updated successfully';
+                String message;
                 Color backgroundColor = Colors.green;
 
-                if (updatedTarget.status == TargetStatus.missed) {
-                  message =
-                      'Target updated and marked as missed (below target)';
+                if (!actualAmountChanged && !targetAmountChanged) {
+                  message = 'Target details updated (no status change)';
+                  backgroundColor = Colors.blue;
+                } else if (targetAmountChanged && !actualAmountChanged) {
+                  message = 'Target amount updated (status preserved)';
+                  backgroundColor = Colors.blue;
+                } else if (actualAmountChanged && updatedTarget.status == TargetStatus.missed) {
+                  message = 'Sales updated and marked as missed (below target)';
                   backgroundColor = Colors.orange;
-                } else if (updatedTarget.status == TargetStatus.met) {
-                  message = 'Target updated and marked as completed';
+                } else if (actualAmountChanged && updatedTarget.status == TargetStatus.met) {
+                  message = 'Sales updated and marked as completed';
+                  backgroundColor = Colors.green;
+                } else if (updatedTarget.status == TargetStatus.approved) {
+                  message = 'Target updated and approved';
+                  backgroundColor = Colors.green;
+                } else {
+                  message = 'Target updated successfully';
                   backgroundColor = Colors.green;
                 }
 
@@ -3835,6 +3921,14 @@ class _AdminDashboardState extends State<AdminDashboard> {
                 );
               },
               child: const Text('Update'),
+            ),
+            TextButton(
+              onPressed: () {
+                Navigator.pop(context);
+                _showDeleteTargetDialog(context, target, appProvider);
+              },
+              style: TextButton.styleFrom(foregroundColor: Colors.red),
+              child: const Text('Delete Target'),
             ),
           ],
         ),
@@ -5947,6 +6041,82 @@ class _StoreProfileScreenState extends State<StoreProfileScreen> {
         );
       },
     );
+  }
+
+  // Swipe-to-delete helper methods
+  Future<bool?> _showDeleteConfirmDialog(BuildContext context, SalesTarget target) async {
+    return await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Delete Target'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text('Are you sure you want to delete this target?'),
+            const SizedBox(height: 12),
+            Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: Colors.grey.shade100,
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text('Target: \$${target.targetAmount.toStringAsFixed(0)}'),
+                  Text('Employee: ${target.assignedEmployeeName ?? 'Unassigned'}'),
+                  Text('Date: ${DateFormat('MMM dd, yyyy').format(target.date)}'),
+                ],
+              ),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('Cancel'),
+          ),
+          ElevatedButton(
+            onPressed: () => Navigator.pop(context, true),
+            style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
+            child: const Text('Delete', style: TextStyle(color: Colors.white)),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _deleteTarget(SalesTarget target, AppProvider appProvider) async {
+    try {
+      await appProvider.deleteSalesTarget(target.id);
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Target for \$${target.targetAmount.toStringAsFixed(0)} deleted'),
+          backgroundColor: Colors.green,
+          action: SnackBarAction(
+            label: 'Undo',
+            textColor: Colors.white,
+            onPressed: () {
+              // TODO: Implement undo functionality if needed
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(
+                  content: Text('Undo not yet implemented'),
+                  backgroundColor: Colors.orange,
+                ),
+              );
+            },
+          ),
+        ),
+      );
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Error deleting target: $e'),
+          backgroundColor: Colors.red,
+        ),
+      );
+    }
   }
 
 }
