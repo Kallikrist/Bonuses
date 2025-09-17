@@ -3837,16 +3837,23 @@ class _AdminDashboardState extends State<AdminDashboard> {
                       teamMembers.map((u) => u.name).toList(),
                 );
 
-                // Only recalculate status if actual amount changed
+                // Smart status calculation logic
                 final actualAmountChanged = actualAmount != target.actualAmount;
                 final targetAmountChanged = targetAmount != target.targetAmount;
                 
                 SalesTarget updatedTarget;
-                if (actualAmountChanged) {
-                  // Only recalculate status when actual sales amount changes
+                if (actualAmountChanged && actualAmount > 0) {
+                  // Only recalculate status when actual sales amount changes AND there's actual activity
                   updatedTarget = baseUpdatedTarget.calculateResults();
+                } else if (actualAmountChanged && actualAmount == 0) {
+                  // If sales are reset to 0, set back to pending (target not started)
+                  updatedTarget = baseUpdatedTarget.copyWith(
+                    status: TargetStatus.pending,
+                    isMet: false,
+                    pointsAwarded: 0,
+                  );
                 } else {
-                  // Keep existing status if actual amount didn't change
+                  // Keep existing status if actual amount didn't change or other details changed
                   // This prevents marking targets as "missed" just for changing target amount or other details
                   updatedTarget = baseUpdatedTarget;
                 }
@@ -3883,6 +3890,9 @@ class _AdminDashboardState extends State<AdminDashboard> {
                   backgroundColor = Colors.blue;
                 } else if (targetAmountChanged && !actualAmountChanged) {
                   message = 'Target amount updated (status preserved)';
+                  backgroundColor = Colors.blue;
+                } else if (actualAmountChanged && actualAmount == 0) {
+                  message = 'Sales reset - target back to pending';
                   backgroundColor = Colors.blue;
                 } else if (actualAmountChanged && updatedTarget.status == TargetStatus.missed) {
                   message = 'Sales updated and marked as missed (below target)';
