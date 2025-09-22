@@ -995,6 +995,7 @@ class _EmployeeDashboardState extends State<EmployeeDashboard> {
   Widget _buildSimpleBonusCard(Bonus bonus, int userPoints, String userId, bool isRedeemed) {
     final canRedeem = !isRedeemed && userPoints >= bonus.pointsRequired;
     final pointsNeeded = bonus.pointsRequired - userPoints;
+    final progress = (userPoints / bonus.pointsRequired).clamp(0.0, 1.0);
 
     return Container(
       margin: const EdgeInsets.only(bottom: 12),
@@ -1019,25 +1020,40 @@ class _EmployeeDashboardState extends State<EmployeeDashboard> {
       ),
       child: Row(
         children: [
-          // Icon
-          Container(
-            padding: const EdgeInsets.all(12),
-            decoration: BoxDecoration(
-              color: isRedeemed 
-                  ? Colors.green.withOpacity(0.1)
-                  : canRedeem 
-                      ? Colors.purple.withOpacity(0.1)
-                      : Colors.grey.withOpacity(0.1),
-              borderRadius: BorderRadius.circular(10),
-            ),
-            child: Icon(
-              isRedeemed ? Icons.check_circle : Icons.card_giftcard,
-              color: isRedeemed 
-                  ? Colors.green
-                  : canRedeem 
-                      ? Colors.purple
-                      : Colors.grey,
-              size: 24,
+          // Circular progress indicator
+          SizedBox(
+            width: 48,
+            height: 48,
+            child: Stack(
+              alignment: Alignment.center,
+              children: [
+                SizedBox(
+                  width: 48,
+                  height: 48,
+                  child: CircularProgressIndicator(
+                    value: isRedeemed ? 1.0 : progress,
+                    strokeWidth: 6,
+                    color: isRedeemed
+                        ? Colors.green
+                        : canRedeem
+                            ? Colors.purple
+                            : Colors.grey,
+                    backgroundColor: Colors.grey.withOpacity(0.15),
+                  ),
+                ),
+                Text(
+                  isRedeemed ? '100%' : '${(progress * 100).floor()}%',
+                  style: TextStyle(
+                    fontSize: 11,
+                    fontWeight: FontWeight.bold,
+                    color: isRedeemed
+                        ? Colors.green
+                        : canRedeem
+                            ? Colors.purple
+                            : Colors.grey[700],
+                  ),
+                ),
+              ],
             ),
           ),
           const SizedBox(width: 16),
@@ -1074,6 +1090,16 @@ class _EmployeeDashboardState extends State<EmployeeDashboard> {
                         fontSize: 14,
                       ),
                     ),
+                    if (!isRedeemed) ...[
+                      const SizedBox(width: 8),
+                      Text(
+                        '${userPoints.clamp(0, bonus.pointsRequired)} / ${bonus.pointsRequired}',
+                        style: TextStyle(
+                          color: Colors.grey.shade600,
+                          fontSize: 12,
+                        ),
+                      ),
+                    ],
                     if (isRedeemed) ...[
                       const SizedBox(width: 12),
                       Icon(Icons.check, size: 16, color: Colors.green),

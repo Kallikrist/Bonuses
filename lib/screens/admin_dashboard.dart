@@ -226,6 +226,7 @@ class _AdminDashboardState extends State<AdminDashboard> {
       int userPoints, String userId, AppProvider appProvider) {
     final canRedeem = userPoints >= bonus.pointsRequired;
     final pointsNeeded = bonus.pointsRequired - userPoints;
+    final progress = (userPoints / bonus.pointsRequired).clamp(0.0, 1.0);
 
     return Container(
       margin: const EdgeInsets.only(bottom: 12),
@@ -248,18 +249,31 @@ class _AdminDashboardState extends State<AdminDashboard> {
       ),
       child: Row(
         children: [
-          Container(
-            padding: const EdgeInsets.all(12),
-            decoration: BoxDecoration(
-              color: canRedeem
-                  ? Colors.purple.withOpacity(0.1)
-                  : Colors.grey.withOpacity(0.1),
-              borderRadius: BorderRadius.circular(10),
-            ),
-            child: Icon(
-              Icons.card_giftcard,
-              color: canRedeem ? Colors.purple : Colors.grey,
-              size: 24,
+          SizedBox(
+            width: 48,
+            height: 48,
+            child: Stack(
+              alignment: Alignment.center,
+              children: [
+                SizedBox(
+                  width: 48,
+                  height: 48,
+                  child: CircularProgressIndicator(
+                    value: progress,
+                    strokeWidth: 6,
+                    color: canRedeem ? Colors.purple : Colors.grey,
+                    backgroundColor: Colors.grey.withOpacity(0.15),
+                  ),
+                ),
+                Text(
+                  '${(progress * 100).floor()}%',
+                  style: TextStyle(
+                    fontSize: 11,
+                    fontWeight: FontWeight.bold,
+                    color: canRedeem ? Colors.purple : Colors.grey[700],
+                  ),
+                ),
+              ],
             ),
           ),
           const SizedBox(width: 16),
@@ -292,6 +306,14 @@ class _AdminDashboardState extends State<AdminDashboard> {
                       style: const TextStyle(
                         fontWeight: FontWeight.w500,
                         fontSize: 14,
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    Text(
+                      '${userPoints.clamp(0, bonus.pointsRequired)} / ${bonus.pointsRequired}',
+                      style: TextStyle(
+                        color: Colors.grey.shade600,
+                        fontSize: 12,
                       ),
                     ),
                   ],
