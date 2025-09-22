@@ -2127,6 +2127,8 @@ class _AdminDashboardState extends State<AdminDashboard> {
     final user = appProvider.currentUser!;
     final availableBonuses =
         allBonuses.where((b) => b.status == BonusStatus.available).toList();
+    final redeemedBonuses =
+        allBonuses.where((b) => b.status == BonusStatus.redeemed).toList();
 
     return SingleChildScrollView(
       padding: const EdgeInsets.all(16),
@@ -2451,6 +2453,83 @@ class _AdminDashboardState extends State<AdminDashboard> {
                           icon: const Icon(Icons.edit),
                           onPressed: () =>
                               _showEditBonusDialog(context, bonus),
+                        ),
+                      ],
+                    ),
+                  ),
+                )),
+
+          const SizedBox(height: 24),
+          Row(
+            children: [
+              Icon(Icons.history, color: Colors.orange[600]),
+              const SizedBox(width: 8),
+              Text(
+                'Redeemed Bonuses',
+                style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                      fontWeight: FontWeight.bold,
+                    ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          if (redeemedBonuses.isEmpty)
+            Card(
+              child: Padding(
+                padding: const EdgeInsets.all(16),
+                child: Row(
+                  children: [
+                    Icon(Icons.card_giftcard, color: Colors.grey[400]),
+                    const SizedBox(width: 12),
+                    Text(
+                      'No redeemed bonuses yet',
+                      style: TextStyle(color: Colors.grey[600]),
+                    ),
+                  ],
+                ),
+              ),
+            )
+          else
+            ...redeemedBonuses.map((bonus) => Card(
+                  child: ListTile(
+                    leading: Icon(
+                      Icons.card_giftcard,
+                      color: Colors.orange[600],
+                    ),
+                    title: Text(bonus.name),
+                    subtitle: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(bonus.description),
+                        const SizedBox(height: 4),
+                        Row(
+                          children: [
+                            Icon(Icons.stars, size: 16, color: Colors.amber[600]),
+                            const SizedBox(width: 4),
+                            Text(
+                              '${bonus.pointsRequired} points',
+                              style: TextStyle(
+                                color: Colors.amber[600],
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
+                            const SizedBox(width: 8),
+                            Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                              decoration: BoxDecoration(
+                                color: Colors.orange[100],
+                                borderRadius: BorderRadius.circular(12),
+                              ),
+                              child: Text(
+                                'CLAIMED',
+                                style: TextStyle(
+                                  color: Colors.orange[700],
+                                  fontSize: 10,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
+                            ),
+                          ],
                         ),
                       ],
                     ),
