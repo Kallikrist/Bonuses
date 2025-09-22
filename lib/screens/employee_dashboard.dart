@@ -19,6 +19,7 @@ class EmployeeDashboard extends StatefulWidget {
 
 class _EmployeeDashboardState extends State<EmployeeDashboard> {
   int _selectedIndex = 0;
+  DateTime _selectedDate = DateTime.now();
 
   Widget _buildTargetsTab(AppProvider appProvider, List<SalesTarget> targets) {
     return ListView.builder(
@@ -166,6 +167,13 @@ class _EmployeeDashboardState extends State<EmployeeDashboard> {
         final user = appProvider.currentUser!;
         final userPoints = appProvider.getUserTotalPoints(user.id);
         final todaysTargets = appProvider.getTodaysTargetsForEmployee(user.id);
+        final selectedDateTargets = appProvider.salesTargets.where((target) {
+          return target.date.year == _selectedDate.year &&
+                 target.date.month == _selectedDate.month &&
+                 target.date.day == _selectedDate.day &&
+                 (target.assignedEmployeeId == user.id ||
+                  target.collaborativeEmployeeIds.contains(user.id));
+        }).toList();
         final allTargets = appProvider.salesTargets;
         final allTransactions = appProvider.pointsTransactions;
         final availableBonuses = appProvider.getAvailableBonuses();
@@ -200,7 +208,7 @@ class _EmployeeDashboardState extends State<EmployeeDashboard> {
                   index: _selectedIndex,
                   children: [
                     _buildOverviewTab(
-                        userPoints, todaysTargets, user.id, appProvider),
+                        userPoints, selectedDateTargets, user.id, appProvider),
                     _buildTargetsTab(appProvider, allTargets),
                     _buildBonusesTab(
                         availableBonuses, redeemedBonuses, user.id, userPoints),
@@ -252,13 +260,104 @@ class _EmployeeDashboardState extends State<EmployeeDashboard> {
     );
   }
 
-  Widget _buildOverviewTab(int userPoints, List<SalesTarget> todaysTargets,
+  Widget _buildOverviewTab(int userPoints, List<SalesTarget> selectedDateTargets,
       String userId, AppProvider appProvider) {
+    final isToday = _selectedDate.year == DateTime.now().year &&
+                   _selectedDate.month == DateTime.now().month &&
+                   _selectedDate.day == DateTime.now().day;
+                   
     return SingleChildScrollView(
       padding: const EdgeInsets.all(16),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
+          // Date Navigation Card
+          Card(
+            color: Colors.blue.shade50,
+            child: Padding(
+              padding: const EdgeInsets.all(16),
+              child: Column(
+                children: [
+                  Row(
+                    children: [
+                      Icon(Icons.calendar_today, color: Colors.blue.shade700),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              isToday ? 'Today\'s Targets' : 'Targets for Selected Date',
+                              style: TextStyle(
+                                fontSize: 16,
+                                fontWeight: FontWeight.bold,
+                                color: Colors.blue.shade700,
+                              ),
+                            ),
+                            Text(
+                              DateFormat('EEEE, MMM dd, yyyy').format(_selectedDate),
+                              style: TextStyle(
+                                color: Colors.blue.shade600,
+                                fontSize: 14,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 12),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                    children: [
+                      ElevatedButton.icon(
+                        onPressed: () {
+                          setState(() {
+                            _selectedDate = _selectedDate.subtract(const Duration(days: 1));
+                          });
+                        },
+                        icon: const Icon(Icons.chevron_left, size: 16),
+                        label: const Text('Previous'),
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: Colors.blue.shade100,
+                          foregroundColor: Colors.blue.shade700,
+                          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                        ),
+                      ),
+                      ElevatedButton(
+                        onPressed: () {
+                          setState(() {
+                            _selectedDate = DateTime.now();
+                          });
+                        },
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: isToday ? Colors.blue.shade700 : Colors.blue.shade100,
+                          foregroundColor: isToday ? Colors.white : Colors.blue.shade700,
+                          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                        ),
+                        child: const Text('Today'),
+                      ),
+                      ElevatedButton.icon(
+                        onPressed: () {
+                          setState(() {
+                            _selectedDate = _selectedDate.add(const Duration(days: 1));
+                          });
+                        },
+                        icon: const Icon(Icons.chevron_right, size: 16),
+                        label: const Text('Next'),
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: Colors.blue.shade100,
+                          foregroundColor: Colors.blue.shade700,
+                          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+          ),
+          const SizedBox(height: 16),
           Card(
             child: Padding(
               padding: const EdgeInsets.all(16),
@@ -283,16 +382,16 @@ class _EmployeeDashboardState extends State<EmployeeDashboard> {
           ),
           const SizedBox(height: 16),
           Text(
-            'Today\'s Sales Targets',
+            isToday ? 'Today\'s Sales Targets' : 'Sales Targets - ${DateFormat('MMM dd').format(_selectedDate)}',
             style: Theme.of(context).textTheme.titleLarge,
           ),
           const SizedBox(height: 8),
-          if (todaysTargets.isEmpty)
+          if (selectedDateTargets.isEmpty)
             Card(
               child: Padding(
                 padding: const EdgeInsets.all(16),
                 child: Text(
-                  'No sales targets set for today',
+                  isToday ? 'No sales targets set for today' : 'No sales targets for selected date',
                   style: Theme.of(context).textTheme.bodyMedium?.copyWith(
                         color: Colors.grey[600],
                       ),
@@ -300,7 +399,7 @@ class _EmployeeDashboardState extends State<EmployeeDashboard> {
               ),
             )
           else
-            ...todaysTargets.map((target) => TargetCard(
+            ...selectedDateTargets.map((target) => TargetCard(
                   target: target,
                   appProvider: appProvider,
                   currentUserId: userId,

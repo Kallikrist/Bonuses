@@ -4,6 +4,7 @@ import 'package:provider/provider.dart';
 import '../models/sales_target.dart';
 import '../models/user.dart';
 import '../models/workplace.dart';
+import '../models/approval_request.dart';
 import '../providers/app_provider.dart';
 
 class CalendarPage extends StatefulWidget {
@@ -84,17 +85,8 @@ class _CalendarPageState extends State<CalendarPage> {
               ],
             ),
           ),
-          // Only show the plus button for admins
-          floatingActionButton: appProvider.isAdmin
-              ? FloatingActionButton(
-                  onPressed: () => _showAddTargetDialog(context),
-                  backgroundColor: const Color(0xFF007AFF),
-                  child: const Icon(
-                    Icons.add,
-                    color: Colors.white,
-                  ),
-                )
-              : null,
+          // Floating action buttons for admins
+          floatingActionButton: appProvider.isAdmin ? _buildAdminFABs(context, appProvider) : null,
           floatingActionButtonLocation: FloatingActionButtonLocation.endFloat,
         );
       },
@@ -700,6 +692,151 @@ class _CalendarPageState extends State<CalendarPage> {
       ),
     );
   }
+
+  Widget _buildAdminFABs(BuildContext context, AppProvider appProvider) {
+    // Get targets for the selected date
+    final selectedDateTargets = _getSalesTargetsForDate(_selectedDate, widget.salesTargets ?? []);
+    
+    // Find met targets that need approval
+    final metTargetsToApprove = selectedDateTargets.where((target) => 
+      target.actualAmount >= target.targetAmount &&  // Met the target
+      !target.isApproved && 
+      target.status != TargetStatus.approved &&
+      target.actualAmount > 0
+    ).toList();
+
+    // If there are met targets to approve, show both buttons
+    if (metTargetsToApprove.isNotEmpty) {
+      return Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          // Approve All button
+          FloatingActionButton.extended(
+            onPressed: () => _approveAllMetTargets(context, metTargetsToApprove, appProvider),
+            backgroundColor: Colors.green,
+            foregroundColor: Colors.white,
+            icon: const Icon(Icons.check_circle),
+            label: Text('Approve All (${metTargetsToApprove.length})'),
+            heroTag: "approve_all",
+          ),
+          const SizedBox(height: 12),
+          // Add Target button
+          FloatingActionButton(
+            onPressed: () => _showAddTargetDialog(context),
+            backgroundColor: const Color(0xFF007AFF),
+            heroTag: "add_target",
+            child: const Icon(
+              Icons.add,
+              color: Colors.white,
+            ),
+          ),
+        ],
+      );
+    } else {
+      // Only show Add Target button
+      return FloatingActionButton(
+        onPressed: () => _showAddTargetDialog(context),
+        backgroundColor: const Color(0xFF007AFF),
+        child: const Icon(
+          Icons.add,
+          color: Colors.white,
+        ),
+      );
+    }
+  }
+
+  void _approveAllMetTargets(BuildContext context, List<SalesTarget> targets, AppProvider appProvider) async {
+    if (targets.isEmpty) return;
+
+    // Show confirmation dialog
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Approve All Met Targets'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text('This will approve ${targets.length} met targets for ${DateFormat('MMM dd, yyyy').format(_selectedDate)}:'),
+            const SizedBox(height: 12),
+            Container(
+              constraints: const BoxConstraints(maxHeight: 200),
+              child: SingleChildScrollView(
+                child: Column(
+                  children: targets.map((target) => Container(
+                    margin: const EdgeInsets.only(bottom: 8),
+                    padding: const EdgeInsets.all(8),
+                    decoration: BoxDecoration(
+                      color: Colors.green.shade50,
+                      borderRadius: BorderRadius.circular(8),
+                      border: Border.all(color: Colors.green.shade200),
+                    ),
+                    child: Row(
+                      children: [
+                        Icon(Icons.check_circle, color: Colors.green, size: 16),
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: Text(
+                            '${target.assignedEmployeeName ?? 'Unassigned'}: \$${target.actualAmount.toStringAsFixed(0)}/\$${target.targetAmount.toStringAsFixed(0)}',
+                            style: const TextStyle(fontSize: 12),
+                          ),
+                        ),
+                      ],
+                    ),
+                  )).toList(),
+                ),
+              ),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('Cancel'),
+          ),
+          ElevatedButton(
+            onPressed: () => Navigator.pop(context, true),
+            style: ElevatedButton.styleFrom(backgroundColor: Colors.green),
+            child: const Text('Approve All', style: TextStyle(color: Colors.white)),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed != true) return;
+
+    try {
+      int approvedCount = 0;
+
+      for (final target in targets) {
+        // Find pending approval request for this target
+        final pendingRequest = appProvider.approvalRequests.firstWhere(
+          (request) => request.targetId == target.id && 
+                       request.status == ApprovalStatus.pending,
+          orElse: () => throw Exception('No pending approval request found for ${target.id}'),
+        );
+
+        // Use the existing approval system
+        await appProvider.approveRequest(pendingRequest);
+        approvedCount++;
+      }
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Successfully approved $approvedCount targets!'),
+          backgroundColor: Colors.green,
+        ),
+      );
+
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Error approving targets: $e'),
+          backgroundColor: Colors.red,
+        ),
+      );
+    }
+  }
 }
 
 class AddTargetDialog extends StatefulWidget {
@@ -1179,4 +1316,5 @@ class _MultiSelectDialogState extends State<MultiSelectDialog> {
       ],
     );
   }
+
 }

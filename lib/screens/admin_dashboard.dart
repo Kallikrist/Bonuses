@@ -44,6 +44,7 @@ class AdminDashboard extends StatefulWidget {
 class _AdminDashboardState extends State<AdminDashboard> {
   int _selectedIndex = 0;
   String _selectedTimePeriod = 'all';
+  DateTime _selectedDate = DateTime.now();
 
   @override
   Widget build(BuildContext context) {
@@ -51,6 +52,11 @@ class _AdminDashboardState extends State<AdminDashboard> {
       builder: (context, appProvider, child) {
         final user = appProvider.currentUser!;
         final todaysTargets = appProvider.getTodaysTargets();
+        final selectedDateTargets = appProvider.salesTargets.where((target) {
+          return target.date.year == _selectedDate.year &&
+              target.date.month == _selectedDate.month &&
+              target.date.day == _selectedDate.day;
+        }).toList();
         final allTargets = appProvider.salesTargets;
         final allBonuses = appProvider.bonuses;
         final allTransactions = appProvider.pointsTransactions;
@@ -80,11 +86,108 @@ class _AdminDashboardState extends State<AdminDashboard> {
               ),
               // Main Content
               Expanded(
-                child: _getCurrentTab(_selectedIndex, todaysTargets, allTargets,
-                    allTransactions, appProvider, allBonuses),
+                child: _getCurrentTab(_selectedIndex, selectedDateTargets,
+                    allTargets, allTransactions, appProvider, allBonuses),
               ),
             ],
           ),
+          floatingActionButton: _selectedIndex == 0 &&
+                  selectedDateTargets.any((target) =>
+                      target.actualAmount >=
+                          target.targetAmount && // Met the target
+                      !target.isApproved &&
+                      target.status != TargetStatus.approved &&
+                      target.actualAmount > 0)
+              ? FloatingActionButton.extended(
+                  onPressed: () async {
+                    final metTargets = selectedDateTargets
+                        .where((target) =>
+                            target.actualAmount >=
+                                target.targetAmount && // Met the target
+                            !target.isApproved &&
+                            target.status != TargetStatus.approved &&
+                            target.actualAmount > 0)
+                        .toList();
+
+                    // Debug output
+                    print(
+                        'DEBUG: Selected date: ${DateFormat('MMM dd, yyyy').format(_selectedDate)}');
+                    print(
+                        'DEBUG: Total targets for date: ${selectedDateTargets.length}');
+                    for (final target in selectedDateTargets) {
+                      print(
+                          'DEBUG: Target ${target.id} - isMet: ${target.isMet}, isApproved: ${target.isApproved}, status: ${target.status}, actual: ${target.actualAmount}');
+                    }
+                    print(
+                        'DEBUG: Met targets to approve: ${metTargets.length}');
+
+                    if (metTargets.isEmpty) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(
+                          content: Text('No met targets available to approve'),
+                          backgroundColor: Colors.orange,
+                        ),
+                      );
+                      return;
+                    }
+
+                    // Show confirmation dialog
+                    final confirmed = await showDialog<bool>(
+                      context: context,
+                      builder: (context) => AlertDialog(
+                        title: const Text('Approve All Met Targets'),
+                        content: Text(
+                            'This will approve ${metTargets.length} met targets. Continue?'),
+                        actions: [
+                          TextButton(
+                            onPressed: () => Navigator.pop(context, false),
+                            child: const Text('Cancel'),
+                          ),
+                          ElevatedButton(
+                            onPressed: () => Navigator.pop(context, true),
+                            style: ElevatedButton.styleFrom(
+                                backgroundColor: Colors.green),
+                            child: const Text('Approve All',
+                                style: TextStyle(color: Colors.white)),
+                          ),
+                        ],
+                      ),
+                    );
+
+                    if (confirmed != true) return;
+
+                    // Approve each target
+                    for (final target in metTargets) {
+                      try {
+                        final pendingRequest =
+                            appProvider.approvalRequests.firstWhere(
+                          (request) =>
+                              request.targetId == target.id &&
+                              request.status == ApprovalStatus.pending,
+                          orElse: () => throw Exception('No pending request'),
+                        );
+                        await appProvider.approveRequest(pendingRequest);
+                      } catch (e) {
+                        print('Error approving target ${target.id}: $e');
+                      }
+                    }
+
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(
+                        content: Text('Approved ${metTargets.length} targets!'),
+                        backgroundColor: Colors.green,
+                      ),
+                    );
+                  },
+                  backgroundColor: Colors.green,
+                  foregroundColor: Colors.white,
+                  icon: const Icon(Icons.check_circle),
+                  label: Text(
+                      'Approve All (${selectedDateTargets.where((target) => target.actualAmount >= target.targetAmount && // Met the target
+                          !target.isApproved && target.status != TargetStatus.approved && target.actualAmount > 0).length}/${selectedDateTargets.length})'),
+                  tooltip: 'Approve all met targets',
+                )
+              : null,
           bottomNavigationBar: Container(
             decoration: BoxDecoration(
               color: Colors.grey[100],
@@ -120,15 +223,15 @@ class _AdminDashboardState extends State<AdminDashboard> {
 
   Widget _getCurrentTab(
       int index,
-      List<SalesTarget> todaysTargets,
+      List<SalesTarget> selectedDateTargets,
       List<SalesTarget> allTargets,
       List<PointsTransaction> allTransactions,
       AppProvider appProvider,
       List<Bonus> allBonuses) {
     switch (index) {
       case 0:
-        return _buildDashboardTab(todaysTargets, allTargets, allTransactions,
-            appProvider, allBonuses);
+        return _buildDashboardTab(selectedDateTargets, allTargets,
+            allTransactions, appProvider, allBonuses);
       case 1:
         return _buildBonusesTab(appProvider, allBonuses);
       case 2:
@@ -137,47 +240,149 @@ class _AdminDashboardState extends State<AdminDashboard> {
       case 3:
         return _buildProfileTab(appProvider);
       default:
-        return _buildDashboardTab(todaysTargets, allTargets, allTransactions,
-            appProvider, allBonuses);
+        return _buildDashboardTab(selectedDateTargets, allTargets,
+            allTransactions, appProvider, allBonuses);
     }
   }
 
   Widget _buildDashboardTab(
-      List<SalesTarget> todaysTargets,
+      List<SalesTarget> selectedDateTargets,
       List<SalesTarget> allTargets,
       List<PointsTransaction> allTransactions,
       AppProvider appProvider,
       List<Bonus> allBonuses) {
+    final isToday = _selectedDate.year == DateTime.now().year &&
+        _selectedDate.month == DateTime.now().month &&
+        _selectedDate.day == DateTime.now().day;
+
     return SingleChildScrollView(
       padding: const EdgeInsets.all(16),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
+          // Date Selector
+          Card(
+            color: Colors.blue.shade50,
+            child: Padding(
+              padding: const EdgeInsets.all(16),
+              child: Row(
+                children: [
+                  Icon(Icons.calendar_today, color: Colors.blue.shade700),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          isToday
+                              ? 'Today\'s Targets'
+                              : 'Targets for Selected Date',
+                          style: TextStyle(
+                            fontSize: 16,
+                            fontWeight: FontWeight.bold,
+                            color: Colors.blue.shade700,
+                          ),
+                        ),
+                        Text(
+                          DateFormat('EEEE, MMM dd, yyyy')
+                              .format(_selectedDate),
+                          style: TextStyle(
+                            color: Colors.blue.shade600,
+                            fontSize: 14,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      IconButton(
+                        onPressed: () {
+                          setState(() {
+                            _selectedDate =
+                                _selectedDate.subtract(const Duration(days: 1));
+                          });
+                        },
+                        icon: const Icon(Icons.chevron_left),
+                        tooltip: 'Previous Day',
+                        style: IconButton.styleFrom(
+                          backgroundColor: Colors.blue.shade100,
+                          foregroundColor: Colors.blue.shade700,
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      ElevatedButton(
+                        onPressed: () {
+                          setState(() {
+                            _selectedDate = DateTime.now();
+                          });
+                        },
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: isToday
+                              ? Colors.blue.shade700
+                              : Colors.blue.shade100,
+                          foregroundColor:
+                              isToday ? Colors.white : Colors.blue.shade700,
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 12, vertical: 8),
+                        ),
+                        child: const Text('Today'),
+                      ),
+                      const SizedBox(width: 8),
+                      IconButton(
+                        onPressed: () {
+                          setState(() {
+                            _selectedDate =
+                                _selectedDate.add(const Duration(days: 1));
+                          });
+                        },
+                        icon: const Icon(Icons.chevron_right),
+                        tooltip: 'Next Day',
+                        style: IconButton.styleFrom(
+                          backgroundColor: Colors.blue.shade100,
+                          foregroundColor: Colors.blue.shade700,
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+          ),
+          const SizedBox(height: 16),
+
           // Auto-processed targets feedback
           if (appProvider.autoProcessedTargets.isNotEmpty) ...[
             _buildAutoProcessedTargetsCard(appProvider),
             const SizedBox(height: 16),
           ],
-          // Analytics Section
-          _buildAnalyticsSection(todaysTargets, allTargets, allTransactions,
-              allBonuses, appProvider),
-          const SizedBox(height: 24),
+          // Analytics Section (only show for today)
+          if (isToday) ...[
+            _buildAnalyticsSection(selectedDateTargets, allTargets,
+                allTransactions, allBonuses, appProvider),
+            const SizedBox(height: 24),
+          ],
           Text(
-            'Today\'s Targets',
+            isToday
+                ? 'Today\'s Targets'
+                : 'Targets for ${DateFormat('MMM dd').format(_selectedDate)}',
             style: Theme.of(context).textTheme.headlineSmall?.copyWith(
                   fontWeight: FontWeight.bold,
                 ),
           ),
           const SizedBox(height: 16),
-          if (todaysTargets.isEmpty)
-            const Card(
+          if (selectedDateTargets.isEmpty)
+            Card(
               child: Padding(
-                padding: EdgeInsets.all(16),
-                child: Text('No targets for today'),
+                padding: const EdgeInsets.all(16),
+                child: Text(isToday
+                    ? 'No targets for today'
+                    : 'No targets for selected date'),
               ),
             )
           else
-            ...todaysTargets.map((target) => Dismissible(
+            ...selectedDateTargets.map((target) => Dismissible(
                   key: Key('target_${target.id}'),
                   direction: DismissDirection.endToStart,
                   background: Container(
@@ -214,7 +419,8 @@ class _AdminDashboardState extends State<AdminDashboard> {
                       context: context,
                       builder: (context) => AlertDialog(
                         title: const Text('Delete Target'),
-                        content: Text('Are you sure you want to delete this target for \$${target.targetAmount.toStringAsFixed(0)}?'),
+                        content: Text(
+                            'Are you sure you want to delete this target for \$${target.targetAmount.toStringAsFixed(0)}?'),
                         actions: [
                           TextButton(
                             onPressed: () => Navigator.pop(context),
@@ -225,8 +431,10 @@ class _AdminDashboardState extends State<AdminDashboard> {
                               shouldDelete = true;
                               Navigator.pop(context);
                             },
-                            style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
-                            child: const Text('Delete', style: TextStyle(color: Colors.white)),
+                            style: ElevatedButton.styleFrom(
+                                backgroundColor: Colors.red),
+                            child: const Text('Delete',
+                                style: TextStyle(color: Colors.white)),
                           ),
                         ],
                       ),
@@ -2787,8 +2995,7 @@ class _AdminDashboardState extends State<AdminDashboard> {
     final isOverTarget = target.actualAmount > target.targetAmount;
 
     // Check if target is approved or met
-    final isApproved =
-        target.isApproved || 
+    final isApproved = target.isApproved ||
         target.status == TargetStatus.approved ||
         target.status == TargetStatus.met;
 
@@ -3840,7 +4047,7 @@ class _AdminDashboardState extends State<AdminDashboard> {
                 // Smart status calculation logic
                 final actualAmountChanged = actualAmount != target.actualAmount;
                 final targetAmountChanged = targetAmount != target.targetAmount;
-                
+
                 SalesTarget updatedTarget;
                 if (actualAmountChanged && actualAmount > 0) {
                   // Only recalculate status when actual sales amount changes AND there's actual activity
@@ -3865,7 +4072,7 @@ class _AdminDashboardState extends State<AdminDashboard> {
                       100;
                   final calculatedPoints = appProvider
                       .getPointsForEffectivePercent(effectivePercent);
-                  
+
                   // When admin directly sets a met target, mark it as approved
                   final finalUpdatedTarget = updatedTarget.copyWith(
                     pointsAwarded: calculatedPoints,
@@ -3894,10 +4101,12 @@ class _AdminDashboardState extends State<AdminDashboard> {
                 } else if (actualAmountChanged && actualAmount == 0) {
                   message = 'Sales reset - target back to pending';
                   backgroundColor = Colors.blue;
-                } else if (actualAmountChanged && updatedTarget.status == TargetStatus.missed) {
+                } else if (actualAmountChanged &&
+                    updatedTarget.status == TargetStatus.missed) {
                   message = 'Sales updated and marked as missed (below target)';
                   backgroundColor = Colors.orange;
-                } else if (actualAmountChanged && updatedTarget.status == TargetStatus.met) {
+                } else if (actualAmountChanged &&
+                    updatedTarget.status == TargetStatus.met) {
                   message = 'Sales updated and marked as completed';
                   backgroundColor = Colors.green;
                 } else if (updatedTarget.status == TargetStatus.approved) {
@@ -6054,7 +6263,8 @@ class _StoreProfileScreenState extends State<StoreProfileScreen> {
   }
 
   // Swipe-to-delete helper methods
-  Future<bool?> _showDeleteConfirmDialog(BuildContext context, SalesTarget target) async {
+  Future<bool?> _showDeleteConfirmDialog(
+      BuildContext context, SalesTarget target) async {
     return await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
@@ -6075,8 +6285,10 @@ class _StoreProfileScreenState extends State<StoreProfileScreen> {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text('Target: \$${target.targetAmount.toStringAsFixed(0)}'),
-                  Text('Employee: ${target.assignedEmployeeName ?? 'Unassigned'}'),
-                  Text('Date: ${DateFormat('MMM dd, yyyy').format(target.date)}'),
+                  Text(
+                      'Employee: ${target.assignedEmployeeName ?? 'Unassigned'}'),
+                  Text(
+                      'Date: ${DateFormat('MMM dd, yyyy').format(target.date)}'),
                 ],
               ),
             ),
@@ -6102,7 +6314,8 @@ class _StoreProfileScreenState extends State<StoreProfileScreen> {
       await appProvider.deleteSalesTarget(target.id);
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text('Target for \$${target.targetAmount.toStringAsFixed(0)} deleted'),
+          content: Text(
+              'Target for \$${target.targetAmount.toStringAsFixed(0)} deleted'),
           backgroundColor: Colors.green,
           action: SnackBarAction(
             label: 'Undo',
@@ -6128,7 +6341,6 @@ class _StoreProfileScreenState extends State<StoreProfileScreen> {
       );
     }
   }
-
 }
 
 class PointsRulesScreen extends StatefulWidget {
@@ -6398,5 +6610,4 @@ class _PointsRulesScreenState extends State<PointsRulesScreen> {
       },
     );
   }
-
 }
