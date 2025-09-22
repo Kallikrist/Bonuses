@@ -768,6 +768,47 @@ class _AdminDashboardState extends State<AdminDashboard> {
                               context, employee, provider),
                           tooltip: 'Quick Edit',
                         ),
+                        IconButton(
+                          icon: const Icon(Icons.delete, color: Colors.red),
+                          tooltip: 'Remove Employee',
+                          onPressed: () async {
+                            final confirmed = await showDialog<bool>(
+                              context: context,
+                              builder: (context) => AlertDialog(
+                                title: const Text('Remove Employee'),
+                                content: Text(
+                                    'Are you sure you want to remove ${employee.name}? This cannot be undone.'),
+                                actions: [
+                                  TextButton(
+                                    onPressed: () => Navigator.pop(context, false),
+                                    child: const Text('Cancel'),
+                                  ),
+                                  ElevatedButton(
+                                    onPressed: () => Navigator.pop(context, true),
+                                    style: ElevatedButton.styleFrom(
+                                      backgroundColor: Colors.red,
+                                      foregroundColor: Colors.white,
+                                    ),
+                                    child: const Text('Remove'),
+                                  ),
+                                ],
+                              ),
+                            );
+
+                            if (confirmed == true) {
+                              await provider.deleteUser(employee.id);
+                              if (context.mounted) {
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  SnackBar(
+                                    content: Text('Removed ${employee.name}'),
+                                    backgroundColor: Colors.green,
+                                  ),
+                                );
+                              }
+                              setState(() {});
+                            }
+                          },
+                        ),
                       ],
                     ),
                   ),
