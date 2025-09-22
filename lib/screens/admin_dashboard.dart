@@ -45,6 +45,7 @@ class _AdminDashboardState extends State<AdminDashboard> {
   int _selectedIndex = 0;
   String _selectedTimePeriod = 'all';
   DateTime _selectedDate = DateTime.now();
+  bool _showAvailableBonuses = true; // toggle between available and redeemed
 
   @override
   Widget build(BuildContext context) {
@@ -2228,7 +2229,7 @@ class _AdminDashboardState extends State<AdminDashboard> {
           ),
           const SizedBox(height: 16),
 
-          // Bonuses Summary Card
+          // Toggle and summary
           Card(
             child: Padding(
               padding: const EdgeInsets.all(16),
@@ -2239,28 +2240,67 @@ class _AdminDashboardState extends State<AdminDashboard> {
                     children: [
                       Icon(Icons.card_giftcard, color: Colors.purple[600]),
                       const SizedBox(width: 8),
-                      Text(
-                        'Available Bonuses',
-                        style:
-                            Theme.of(context).textTheme.titleMedium?.copyWith(
-                                  fontWeight: FontWeight.bold,
-                                ),
+                      Expanded(
+                        child: Text(
+                          _showAvailableBonuses
+                              ? 'Available Bonuses'
+                              : 'Redeemed Bonuses',
+                          style: Theme.of(context)
+                              .textTheme
+                              .titleMedium
+                              ?.copyWith(
+                                fontWeight: FontWeight.bold,
+                              ),
+                        ),
+                      ),
+                      Container(
+                        padding: const EdgeInsets.all(4),
+                        decoration: BoxDecoration(
+                          color: Colors.purple[50],
+                          borderRadius: BorderRadius.circular(20),
+                        ),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            ChoiceChip(
+                              label: const Text('Available'),
+                              selected: _showAvailableBonuses,
+                              onSelected: (v) => setState(() {
+                                _showAvailableBonuses = true;
+                              }),
+                            ),
+                            const SizedBox(width: 8),
+                            ChoiceChip(
+                              label: const Text('Redeemed'),
+                              selected: !_showAvailableBonuses,
+                              onSelected: (v) => setState(() {
+                                _showAvailableBonuses = false;
+                              }),
+                            ),
+                          ],
+                        ),
                       ),
                     ],
                   ),
                   const SizedBox(height: 16),
-                  Text(
-                    'Available: ${availableBonuses.length}',
-                    style: Theme.of(context).textTheme.titleLarge,
-                  ),
+                  if (_showAvailableBonuses)
+                    Text(
+                      'Available: ${availableBonuses.length}',
+                      style: Theme.of(context).textTheme.titleLarge,
+                    )
+                  else
+                    Text(
+                      'Redeemed: ${redeemedByCurrentUser.length}',
+                      style: Theme.of(context).textTheme.titleLarge,
+                    ),
                 ],
               ),
             ),
           ),
           const SizedBox(height: 16),
 
-          // Bonuses List
-          if (availableBonuses.isEmpty)
+          // Bonuses List (toggle)
+          if (_showAvailableBonuses && availableBonuses.isEmpty)
             Card(
               child: Padding(
                 padding: const EdgeInsets.all(32),
@@ -2293,7 +2333,7 @@ class _AdminDashboardState extends State<AdminDashboard> {
                 ),
               ),
             )
-          else
+          else if (_showAvailableBonuses)
             ...availableBonuses.map((bonus) => Card(
                   child: ListTile(
                     leading: Stack(
@@ -2461,22 +2501,7 @@ class _AdminDashboardState extends State<AdminDashboard> {
                     ),
                   ),
                 )),
-
-          const SizedBox(height: 24),
-          Row(
-            children: [
-              Icon(Icons.history, color: Colors.orange[600]),
-              const SizedBox(width: 8),
-              Text(
-                'Redeemed Bonuses',
-                style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                      fontWeight: FontWeight.bold,
-                    ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 12),
-          if (redeemedByCurrentUser.isEmpty)
+          if (!_showAvailableBonuses && redeemedByCurrentUser.isEmpty)
             Card(
               child: Padding(
                 padding: const EdgeInsets.all(16),
@@ -2492,7 +2517,7 @@ class _AdminDashboardState extends State<AdminDashboard> {
                 ),
               ),
             )
-          else
+          else if (!_showAvailableBonuses)
             ...redeemedByCurrentUser.map((t) => Card(
                   child: ListTile(
                     leading: Icon(
