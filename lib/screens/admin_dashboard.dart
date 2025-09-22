@@ -2392,9 +2392,67 @@ class _AdminDashboardState extends State<AdminDashboard> {
                         ),
                       ],
                     ),
-                    trailing: IconButton(
-                      icon: const Icon(Icons.edit),
-                      onPressed: () => _showEditBonusDialog(context, bonus),
+                    trailing: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        if (bonus.status == BonusStatus.available)
+                          Builder(
+                            builder: (context) {
+                              final currentPoints =
+                                  appProvider.getUserTotalPoints(user.id);
+                              final canClaim =
+                                  currentPoints >= bonus.pointsRequired;
+                              if (canClaim)
+                                return ElevatedButton(
+                                  onPressed: () async {
+                                    final success = await appProvider
+                                        .redeemBonus(bonus.id, user.id);
+                                    if (!context.mounted) return;
+                                    if (success) {
+                                      ScaffoldMessenger.of(context).showSnackBar(
+                                        SnackBar(
+                                          content:
+                                              Text('Claimed "${bonus.name}"'),
+                                          backgroundColor: Colors.green,
+                                        ),
+                                      );
+                                    } else {
+                                      ScaffoldMessenger.of(context).showSnackBar(
+                                        const SnackBar(
+                                          content: Text(
+                                              'Insufficient points to claim'),
+                                          backgroundColor: Colors.orange,
+                                        ),
+                                      );
+                                    }
+                                  },
+                                  style: ElevatedButton.styleFrom(
+                                    backgroundColor: Colors.purple,
+                                    foregroundColor: Colors.white,
+                                    padding: const EdgeInsets.symmetric(
+                                        horizontal: 12, vertical: 8),
+                                  ),
+                                  child: const Text('Claim'),
+                                );
+                              return Padding(
+                                padding: const EdgeInsets.only(right: 8.0),
+                                child: Text(
+                                  'Need ${bonus.pointsRequired - currentPoints}',
+                                  style: TextStyle(
+                                    color: Colors.grey[600],
+                                    fontSize: 12,
+                                    fontWeight: FontWeight.w500,
+                                  ),
+                                ),
+                              );
+                            },
+                          ),
+                        IconButton(
+                          icon: const Icon(Icons.edit),
+                          onPressed: () =>
+                              _showEditBonusDialog(context, bonus),
+                        ),
+                      ],
                     ),
                   ),
                 )),
