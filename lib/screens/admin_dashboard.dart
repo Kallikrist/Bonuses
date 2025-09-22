@@ -2127,8 +2127,11 @@ class _AdminDashboardState extends State<AdminDashboard> {
     final user = appProvider.currentUser!;
     final availableBonuses =
         allBonuses.where((b) => b.status == BonusStatus.available).toList();
-    final redeemedBonuses =
-        allBonuses.where((b) => b.status == BonusStatus.redeemed).toList();
+    final redeemedByCurrentUser = appProvider.pointsTransactions
+        .where((t) =>
+            t.userId == user.id && t.type == PointsTransactionType.redeemed)
+        .toList()
+      ..sort((a, b) => b.date.compareTo(a.date));
 
     return SingleChildScrollView(
       padding: const EdgeInsets.all(16),
@@ -2473,7 +2476,7 @@ class _AdminDashboardState extends State<AdminDashboard> {
             ],
           ),
           const SizedBox(height: 12),
-          if (redeemedBonuses.isEmpty)
+          if (redeemedByCurrentUser.isEmpty)
             Card(
               child: Padding(
                 padding: const EdgeInsets.all(16),
@@ -2490,24 +2493,23 @@ class _AdminDashboardState extends State<AdminDashboard> {
               ),
             )
           else
-            ...redeemedBonuses.map((bonus) => Card(
+            ...redeemedByCurrentUser.map((t) => Card(
                   child: ListTile(
                     leading: Icon(
                       Icons.card_giftcard,
                       color: Colors.orange[600],
                     ),
-                    title: Text(bonus.name),
+                    title: Text(t.description),
                     subtitle: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Text(bonus.description),
                         const SizedBox(height: 4),
                         Row(
                           children: [
                             Icon(Icons.stars, size: 16, color: Colors.amber[600]),
                             const SizedBox(width: 4),
                             Text(
-                              '${bonus.pointsRequired} points',
+                              '${t.points.abs()} points',
                               style: TextStyle(
                                 color: Colors.amber[600],
                                 fontWeight: FontWeight.w600,
@@ -2527,6 +2529,14 @@ class _AdminDashboardState extends State<AdminDashboard> {
                                   fontSize: 10,
                                   fontWeight: FontWeight.bold,
                                 ),
+                              ),
+                            ),
+                            const SizedBox(width: 8),
+                            Text(
+                              DateFormat('MMM dd, yyyy').format(t.date),
+                              style: TextStyle(
+                                color: Colors.grey[600],
+                                fontSize: 12,
                               ),
                             ),
                           ],
