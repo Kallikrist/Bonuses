@@ -360,6 +360,95 @@ class _AdminDashboardState extends State<AdminDashboard> {
     );
   }
 
+  Widget _buildAdminSimpleRedeemedCard(
+      BuildContext context, PointsTransaction t) {
+    return Container(
+      margin: const EdgeInsets.only(bottom: 12),
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: Colors.green.withOpacity(0.3)),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.05),
+            blurRadius: 8,
+            offset: const Offset(0, 2),
+          ),
+        ],
+      ),
+      child: Row(
+        children: [
+          Container(
+            padding: const EdgeInsets.all(12),
+            decoration: BoxDecoration(
+              color: Colors.green.withOpacity(0.1),
+              borderRadius: BorderRadius.circular(10),
+            ),
+            child: const Icon(
+              Icons.check_circle,
+              color: Colors.green,
+              size: 24,
+            ),
+          ),
+          const SizedBox(width: 16),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  t.description,
+                  style: const TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+                const SizedBox(height: 4),
+                Row(
+                  children: [
+                    Icon(Icons.stars, size: 16, color: Colors.orange),
+                    const SizedBox(width: 4),
+                    Text(
+                      '${t.points.abs()} points',
+                      style: const TextStyle(
+                        fontWeight: FontWeight.w500,
+                        fontSize: 14,
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    Text(
+                      DateFormat('MMM dd, yyyy').format(t.date),
+                      style: TextStyle(
+                        color: Colors.grey.shade600,
+                        fontSize: 12,
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+          Container(
+            padding:
+                const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+            decoration: BoxDecoration(
+              color: Colors.green.withOpacity(0.1),
+              borderRadius: BorderRadius.circular(16),
+            ),
+            child: const Text(
+              'Claimed',
+              style: TextStyle(
+                color: Colors.green,
+                fontWeight: FontWeight.bold,
+                fontSize: 12,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
   Widget _getCurrentTab(
       int index,
       List<SalesTarget> selectedDateTargets,
@@ -2496,58 +2585,9 @@ class _AdminDashboardState extends State<AdminDashboard> {
               ),
             )
           else if (!_showAvailableBonuses)
-            ...redeemedByCurrentUser.map((t) => Card(
-                  child: ListTile(
-                    leading: Icon(
-                      Icons.card_giftcard,
-                      color: Colors.orange[600],
-                    ),
-                    title: Text(t.description),
-                    subtitle: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        const SizedBox(height: 4),
-                        Row(
-                          children: [
-                            Icon(Icons.stars, size: 16, color: Colors.amber[600]),
-                            const SizedBox(width: 4),
-                            Text(
-                              '${t.points.abs()} points',
-                              style: TextStyle(
-                                color: Colors.amber[600],
-                                fontWeight: FontWeight.w600,
-                              ),
-                            ),
-                            const SizedBox(width: 8),
-                            Container(
-                              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-                              decoration: BoxDecoration(
-                                color: Colors.orange[100],
-                                borderRadius: BorderRadius.circular(12),
-                              ),
-                              child: Text(
-                                'CLAIMED',
-                                style: TextStyle(
-                                  color: Colors.orange[700],
-                                  fontSize: 10,
-                                  fontWeight: FontWeight.bold,
-                                ),
-                              ),
-                            ),
-                            const SizedBox(width: 8),
-                            Text(
-                              DateFormat('MMM dd, yyyy').format(t.date),
-                              style: TextStyle(
-                                color: Colors.grey[600],
-                                fontSize: 12,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ],
-                    ),
-                  ),
-                )),
+            ...redeemedByCurrentUser
+                .map((t) => _buildAdminSimpleRedeemedCard(context, t))
+                .toList(),
         ],
       ),
     );
