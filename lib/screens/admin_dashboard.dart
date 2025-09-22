@@ -2125,6 +2125,8 @@ class _AdminDashboardState extends State<AdminDashboard> {
 
   Widget _buildBonusesTab(AppProvider appProvider, List<Bonus> allBonuses) {
     final user = appProvider.currentUser!;
+    final availableBonuses =
+        allBonuses.where((b) => b.status == BonusStatus.available).toList();
 
     return SingleChildScrollView(
       padding: const EdgeInsets.all(16),
@@ -2243,24 +2245,8 @@ class _AdminDashboardState extends State<AdminDashboard> {
                   ),
                   const SizedBox(height: 16),
                   Text(
-                    'Total Bonuses: ${allBonuses.length}',
+                    'Available: ${availableBonuses.length}',
                     style: Theme.of(context).textTheme.titleLarge,
-                  ),
-                  const SizedBox(height: 8),
-                  Text(
-                    'Available: ${allBonuses.where((b) => b.status == BonusStatus.available).length}',
-                    style: TextStyle(
-                      color: Colors.green[600],
-                      fontWeight: FontWeight.w600,
-                    ),
-                  ),
-                  const SizedBox(height: 4),
-                  Text(
-                    'Redeemed: ${allBonuses.where((b) => b.status == BonusStatus.redeemed).length}',
-                    style: TextStyle(
-                      color: Colors.orange[600],
-                      fontWeight: FontWeight.w600,
-                    ),
                   ),
                 ],
               ),
@@ -2269,7 +2255,7 @@ class _AdminDashboardState extends State<AdminDashboard> {
           const SizedBox(height: 16),
 
           // Bonuses List
-          if (allBonuses.isEmpty)
+          if (availableBonuses.isEmpty)
             Card(
               child: Padding(
                 padding: const EdgeInsets.all(32),
@@ -2303,7 +2289,7 @@ class _AdminDashboardState extends State<AdminDashboard> {
               ),
             )
           else
-            ...allBonuses.map((bonus) => Card(
+            ...availableBonuses.map((bonus) => Card(
                   child: ListTile(
                     leading: Stack(
                       children: [
