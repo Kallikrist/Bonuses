@@ -222,6 +222,144 @@ class _AdminDashboardState extends State<AdminDashboard> {
     );
   }
 
+  Widget _buildAdminSimpleBonusCard(BuildContext context, Bonus bonus,
+      int userPoints, String userId, AppProvider appProvider) {
+    final canRedeem = userPoints >= bonus.pointsRequired;
+    final pointsNeeded = bonus.pointsRequired - userPoints;
+
+    return Container(
+      margin: const EdgeInsets.only(bottom: 12),
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(
+          color: canRedeem
+              ? Colors.purple.withOpacity(0.3)
+              : Colors.grey.withOpacity(0.3),
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.05),
+            blurRadius: 8,
+            offset: const Offset(0, 2),
+          ),
+        ],
+      ),
+      child: Row(
+        children: [
+          Container(
+            padding: const EdgeInsets.all(12),
+            decoration: BoxDecoration(
+              color: canRedeem
+                  ? Colors.purple.withOpacity(0.1)
+                  : Colors.grey.withOpacity(0.1),
+              borderRadius: BorderRadius.circular(10),
+            ),
+            child: Icon(
+              Icons.card_giftcard,
+              color: canRedeem ? Colors.purple : Colors.grey,
+              size: 24,
+            ),
+          ),
+          const SizedBox(width: 16),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  bonus.name,
+                  style: const TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  bonus.description,
+                  style: TextStyle(
+                    color: Colors.grey.shade600,
+                    fontSize: 14,
+                  ),
+                ),
+                const SizedBox(height: 8),
+                Row(
+                  children: [
+                    Icon(Icons.stars, size: 16, color: Colors.orange),
+                    const SizedBox(width: 4),
+                    Text(
+                      '${bonus.pointsRequired} points',
+                      style: const TextStyle(
+                        fontWeight: FontWeight.w500,
+                        fontSize: 14,
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+          if (canRedeem)
+            ElevatedButton(
+              onPressed: () async {
+                final success = await appProvider.redeemBonus(bonus.id, userId);
+                if (!context.mounted) return;
+                if (success) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(
+                      content: Text('Claimed "${bonus.name}"'),
+                      backgroundColor: Colors.green,
+                    ),
+                  );
+                } else {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(
+                      content: Text('Insufficient points to claim'),
+                      backgroundColor: Colors.orange,
+                    ),
+                  );
+                }
+              },
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Colors.purple,
+                foregroundColor: Colors.white,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+              ),
+              child: const Text(
+                'Claim',
+                style: TextStyle(fontWeight: FontWeight.bold),
+              ),
+            )
+          else
+            Column(
+              crossAxisAlignment: CrossAxisAlignment.end,
+              children: [
+                Text(
+                  'Need $pointsNeeded',
+                  style: TextStyle(
+                    color: Colors.grey.shade600,
+                    fontSize: 12,
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
+                Text(
+                  'more points',
+                  style: TextStyle(
+                    color: Colors.grey.shade600,
+                    fontSize: 12,
+                  ),
+                ),
+              ],
+            ),
+        ],
+      ),
+    );
+  }
+
   Widget _getCurrentTab(
       int index,
       List<SalesTarget> selectedDateTargets,
@@ -2334,172 +2472,12 @@ class _AdminDashboardState extends State<AdminDashboard> {
               ),
             )
           else if (_showAvailableBonuses)
-            ...availableBonuses.map((bonus) => Card(
-                  child: ListTile(
-                    leading: Stack(
-                      children: [
-                        Icon(
-                          Icons.card_giftcard,
-                          color: bonus.status == BonusStatus.available
-                              ? Colors.green[600]
-                              : bonus.status == BonusStatus.redeemed
-                                  ? Colors.orange[600]
-                                  : Colors.grey[600],
-                        ),
-                        if (bonus.status == BonusStatus.available &&
-                            user.totalPoints >= bonus.pointsRequired)
-                          Positioned(
-                            right: 0,
-                            bottom: 0,
-                            child: Container(
-                              width: 12,
-                              height: 12,
-                              decoration: BoxDecoration(
-                                color: Colors.green[600],
-                                shape: BoxShape.circle,
-                                border:
-                                    Border.all(color: Colors.white, width: 1),
-                              ),
-                            ),
-                          ),
-                      ],
-                    ),
-                    title: Text(bonus.name),
-                    subtitle: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(bonus.description),
-                        const SizedBox(height: 4),
-                        Row(
-                          children: [
-                            Icon(Icons.stars,
-                                size: 16, color: Colors.amber[600]),
-                            const SizedBox(width: 4),
-                            Text(
-                              '${bonus.pointsRequired} points',
-                              style: TextStyle(
-                                color: Colors.amber[600],
-                                fontWeight: FontWeight.w600,
-                              ),
-                            ),
-                            const SizedBox(width: 8),
-                            if (bonus.status == BonusStatus.available)
-                              Container(
-                                padding: const EdgeInsets.symmetric(
-                                    horizontal: 6, vertical: 2),
-                                decoration: BoxDecoration(
-                                  color:
-                                      user.totalPoints >= bonus.pointsRequired
-                                          ? Colors.green[100]
-                                          : Colors.red[100],
-                                  borderRadius: BorderRadius.circular(8),
-                                ),
-                                child: Text(
-                                  user.totalPoints >= bonus.pointsRequired
-                                      ? 'Affordable'
-                                      : 'Not enough points',
-                                  style: TextStyle(
-                                    color:
-                                        user.totalPoints >= bonus.pointsRequired
-                                            ? Colors.green[700]
-                                            : Colors.red[700],
-                                    fontSize: 9,
-                                    fontWeight: FontWeight.bold,
-                                  ),
-                                ),
-                              ),
-                            const SizedBox(width: 8),
-                            Container(
-                              padding: const EdgeInsets.symmetric(
-                                  horizontal: 8, vertical: 2),
-                              decoration: BoxDecoration(
-                                color: bonus.status == BonusStatus.available
-                                    ? Colors.green[100]
-                                    : bonus.status == BonusStatus.redeemed
-                                        ? Colors.orange[100]
-                                        : Colors.grey[100],
-                                borderRadius: BorderRadius.circular(12),
-                              ),
-                              child: Text(
-                                bonus.status.name.toUpperCase(),
-                                style: TextStyle(
-                                  color: bonus.status == BonusStatus.available
-                                      ? Colors.green[700]
-                                      : bonus.status == BonusStatus.redeemed
-                                          ? Colors.orange[700]
-                                          : Colors.grey[700],
-                                  fontSize: 10,
-                                  fontWeight: FontWeight.bold,
-                                ),
-                              ),
-                            ),
-                          ],
-                        ),
-                      ],
-                    ),
-                    trailing: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        if (bonus.status == BonusStatus.available)
-                          Builder(
-                            builder: (context) {
-                              final currentPoints =
-                                  appProvider.getUserTotalPoints(user.id);
-                              final canClaim =
-                                  currentPoints >= bonus.pointsRequired;
-                              if (canClaim)
-                                return ElevatedButton(
-                                  onPressed: () async {
-                                    final success = await appProvider
-                                        .redeemBonus(bonus.id, user.id);
-                                    if (!context.mounted) return;
-                                    if (success) {
-                                      ScaffoldMessenger.of(context).showSnackBar(
-                                        SnackBar(
-                                          content:
-                                              Text('Claimed "${bonus.name}"'),
-                                          backgroundColor: Colors.green,
-                                        ),
-                                      );
-                                    } else {
-                                      ScaffoldMessenger.of(context).showSnackBar(
-                                        const SnackBar(
-                                          content: Text(
-                                              'Insufficient points to claim'),
-                                          backgroundColor: Colors.orange,
-                                        ),
-                                      );
-                                    }
-                                  },
-                                  style: ElevatedButton.styleFrom(
-                                    backgroundColor: Colors.purple,
-                                    foregroundColor: Colors.white,
-                                    padding: const EdgeInsets.symmetric(
-                                        horizontal: 12, vertical: 8),
-                                  ),
-                                  child: const Text('Claim'),
-                                );
-                              return Padding(
-                                padding: const EdgeInsets.only(right: 8.0),
-                                child: Text(
-                                  'Need ${bonus.pointsRequired - currentPoints}',
-                                  style: TextStyle(
-                                    color: Colors.grey[600],
-                                    fontSize: 12,
-                                    fontWeight: FontWeight.w500,
-                                  ),
-                                ),
-                              );
-                            },
-                          ),
-                        IconButton(
-                          icon: const Icon(Icons.edit),
-                          onPressed: () =>
-                              _showEditBonusDialog(context, bonus),
-                        ),
-                      ],
-                    ),
-                  ),
+            ...availableBonuses.map((bonus) => _buildAdminSimpleBonusCard(
+                  context,
+                  bonus,
+                  appProvider.getUserTotalPoints(user.id),
+                  user.id,
+                  appProvider,
                 )),
           if (!_showAvailableBonuses && redeemedByCurrentUser.isEmpty)
             Card(
