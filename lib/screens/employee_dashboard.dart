@@ -20,6 +20,7 @@ class EmployeeDashboard extends StatefulWidget {
 class _EmployeeDashboardState extends State<EmployeeDashboard> {
   int _selectedIndex = 0;
   DateTime _selectedDate = DateTime.now();
+  bool _showAvailableBonuses = true; // toggle between available and redeemed
 
   Widget _buildTargetsTab(AppProvider appProvider, List<SalesTarget> targets) {
     return ListView.builder(
@@ -880,42 +881,73 @@ class _EmployeeDashboardState extends State<EmployeeDashboard> {
             ),
           ),
 
-          // Available Bonuses Section
+          // Toggle header
           Container(
             margin: const EdgeInsets.symmetric(horizontal: 16),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
+            child: Row(
               children: [
-                const Text(
-                  'Available Bonuses',
-                  style: TextStyle(
-                    fontSize: 20,
-                    fontWeight: FontWeight.bold,
+                Expanded(
+                  child: Text(
+                    _showAvailableBonuses ? 'Available Bonuses' : 'Your Claimed Bonuses',
+                    style: const TextStyle(
+                      fontSize: 20,
+                      fontWeight: FontWeight.bold,
+                    ),
                   ),
                 ),
-                const SizedBox(height: 12),
-                ...availableBonuses.map((bonus) => _buildSimpleBonusCard(
-                      bonus, userPoints, userId, false)),
+                Container(
+                  padding: const EdgeInsets.all(4),
+                  decoration: BoxDecoration(
+                    color: Colors.purple.shade50,
+                    borderRadius: BorderRadius.circular(20),
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      ChoiceChip(
+                        label: const Text('Available'),
+                        selected: _showAvailableBonuses,
+                        onSelected: (v) => setState(() => _showAvailableBonuses = true),
+                      ),
+                      const SizedBox(width: 8),
+                      ChoiceChip(
+                        label: const Text('Redeemed'),
+                        selected: !_showAvailableBonuses,
+                        onSelected: (v) => setState(() => _showAvailableBonuses = false),
+                      ),
+                    ],
+                  ),
+                ),
               ],
             ),
           ),
 
-          const SizedBox(height: 24),
+          const SizedBox(height: 12),
 
-          // Claimed Bonuses Section
-          Container(
+          // Available Bonuses Section (toggle)
+          if (_showAvailableBonuses)
+            Container(
             margin: const EdgeInsets.symmetric(horizontal: 16),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const Text(
-                  'Your Claimed Bonuses',
-                  style: TextStyle(
-                    fontSize: 20,
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-                const SizedBox(height: 12),
+                  const SizedBox(height: 12),
+                ...availableBonuses.map((bonus) => _buildSimpleBonusCard(
+                      bonus, userPoints, userId, false)),
+              ],
+            ),
+            ),
+
+          if (_showAvailableBonuses) const SizedBox(height: 24),
+
+          // Claimed Bonuses Section (toggle)
+          if (!_showAvailableBonuses)
+            Container(
+            margin: const EdgeInsets.symmetric(horizontal: 16),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                  const SizedBox(height: 12),
                 redeemedBonuses.isEmpty
                     ? Container(
                         padding: const EdgeInsets.all(32),
@@ -952,7 +984,7 @@ class _EmployeeDashboardState extends State<EmployeeDashboard> {
                       ),
               ],
             ),
-          ),
+            ),
 
           const SizedBox(height: 32),
         ],
