@@ -863,15 +863,25 @@ class _EmployeeDashboardState extends State<EmployeeDashboard> {
                     ],
                   ),
                 ),
-                // Claimable / total circle
+                // Claimable / total circle with overflow support (>100%)
                 Builder(builder: (context) {
                   final totalAvailable = availableBonuses.length;
                   final claimableCount = availableBonuses
                       .where((b) => userPoints >= b.pointsRequired)
                       .length;
-                  final progress = totalAvailable == 0
+                  // Progress based on cheapest bonus threshold
+                  final cheapestRequired = availableBonuses.isEmpty
+                      ? 0
+                      : availableBonuses
+                          .map((b) => b.pointsRequired)
+                          .reduce((a, b) => a < b ? a : b);
+                  final rawProgress = cheapestRequired == 0
                       ? 0.0
-                      : (claimableCount / totalAvailable).clamp(0.0, 1.0);
+                      : userPoints / cheapestRequired;
+                  final baseProgress = rawProgress.clamp(0.0, 1.0);
+                  final overflowProgress = (rawProgress - 1.0) > 0
+                      ? (rawProgress - 1.0).clamp(0.0, 1.0)
+                      : 0.0;
                   return Container(
                     width: 56,
                     height: 56,
@@ -886,12 +896,24 @@ class _EmployeeDashboardState extends State<EmployeeDashboard> {
                           width: 48,
                           height: 48,
                           child: CircularProgressIndicator(
-                            value: progress,
+                            value: baseProgress,
                             strokeWidth: 5,
                             color: Colors.white,
                             backgroundColor: Colors.white.withOpacity(0.25),
                           ),
                         ),
+                        if (overflowProgress > 0)
+                          SizedBox(
+                            width: 40,
+                            height: 40,
+                            child: CircularProgressIndicator(
+                              value: overflowProgress,
+                              strokeWidth: 4,
+                              color: Colors.white70,
+                              backgroundColor:
+                                  Colors.white.withOpacity(0.15),
+                            ),
+                          ),
                         Text(
                           '$claimableCount/$totalAvailable',
                           style: const TextStyle(
