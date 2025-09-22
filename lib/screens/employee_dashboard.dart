@@ -863,20 +863,47 @@ class _EmployeeDashboardState extends State<EmployeeDashboard> {
                     ],
                   ),
                 ),
-                Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                  decoration: BoxDecoration(
-                    color: Colors.white.withOpacity(0.2),
-                    borderRadius: BorderRadius.circular(20),
-                  ),
-                  child: Text(
-                    '${redeemedBonuses.length} claimed',
-                    style: const TextStyle(
-                      color: Colors.white,
-                      fontWeight: FontWeight.w500,
+                // Claimable / total circle
+                Builder(builder: (context) {
+                  final totalAvailable = availableBonuses.length;
+                  final claimableCount = availableBonuses
+                      .where((b) => userPoints >= b.pointsRequired)
+                      .length;
+                  final progress = totalAvailable == 0
+                      ? 0.0
+                      : (claimableCount / totalAvailable).clamp(0.0, 1.0);
+                  return Container(
+                    width: 56,
+                    height: 56,
+                    decoration: BoxDecoration(
+                      color: Colors.white.withOpacity(0.15),
+                      shape: BoxShape.circle,
                     ),
-                  ),
-                ),
+                    child: Stack(
+                      alignment: Alignment.center,
+                      children: [
+                        SizedBox(
+                          width: 48,
+                          height: 48,
+                          child: CircularProgressIndicator(
+                            value: progress,
+                            strokeWidth: 5,
+                            color: Colors.white,
+                            backgroundColor: Colors.white.withOpacity(0.25),
+                          ),
+                        ),
+                        Text(
+                          '$claimableCount/$totalAvailable',
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontWeight: FontWeight.bold,
+                            fontSize: 12,
+                          ),
+                        ),
+                      ],
+                    ),
+                  );
+                }),
               ],
             ),
           ),
