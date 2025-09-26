@@ -1330,6 +1330,34 @@ class _EmployeeDashboardState extends State<EmployeeDashboard> {
                     ),
                   ),
                 ],
+                if (bonus.secretCode != null) ...[
+                  const SizedBox(height: 4),
+                  Container(
+                    padding:
+                        const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                    decoration: BoxDecoration(
+                      color: Colors.orange.shade50,
+                      border: Border.all(color: Colors.orange.shade200),
+                      borderRadius: BorderRadius.circular(4),
+                    ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(Icons.security,
+                            size: 16, color: Colors.orange.shade700),
+                        const SizedBox(width: 4),
+                        Text(
+                          'Secret Code: ${bonus.secretCode}',
+                          style: TextStyle(
+                            color: Colors.orange.shade700,
+                            fontWeight: FontWeight.bold,
+                            fontSize: 12,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
               ],
             ),
             trailing: Text(
