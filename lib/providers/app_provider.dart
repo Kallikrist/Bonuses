@@ -435,23 +435,47 @@ class AppProvider with ChangeNotifier {
     print('DEBUG: Previous team: ${target.collaborativeEmployeeNames}');
     print('DEBUG: New team: $newTeamMemberNames');
 
-    // Create approval request for team change
-    final approvalRequest = ApprovalRequest(
-      id: DateTime.now().millisecondsSinceEpoch.toString(),
-      targetId: targetId,
-      submittedBy: employeeId,
-      submittedByName: user.name,
-      type: ApprovalRequestType.teamChange,
-      status: ApprovalStatus.pending,
-      submittedAt: DateTime.now(),
-      newTeamMemberIds: newTeamMemberIds,
-      newTeamMemberNames: newTeamMemberNames,
-      previousTeamMemberIds: target.collaborativeEmployeeIds,
-      previousTeamMemberNames: target.collaborativeEmployeeNames,
-    );
+    // Check if the current user is the assigned employee for this target
+    if (target.assignedEmployeeId == user.id) {
+      // The assigned employee is adding team members - directly update the target
+      print('DEBUG: Assigned employee adding team members - updating target directly');
+      
+      final updatedTarget = target.copyWith(
+        collaborativeEmployeeIds: newTeamMemberIds,
+        collaborativeEmployeeNames: newTeamMemberNames,
+      );
 
-    await addApprovalRequest(approvalRequest);
-    print('DEBUG: Team change approval request created and submitted');
+      await StorageService.updateSalesTarget(updatedTarget);
+      
+      // Update the local list
+      final index = _salesTargets.indexWhere((t) => t.id == targetId);
+      if (index != -1) {
+        _salesTargets[index] = updatedTarget;
+      }
+
+      notifyListeners();
+      print('DEBUG: Target updated directly with new team members');
+    } else {
+      // Different user changing team - requires approval
+      print('DEBUG: Non-assigned user changing team - sending for approval');
+      
+      final approvalRequest = ApprovalRequest(
+        id: DateTime.now().millisecondsSinceEpoch.toString(),
+        targetId: targetId,
+        submittedBy: employeeId,
+        submittedByName: user.name,
+        type: ApprovalRequestType.teamChange,
+        status: ApprovalStatus.pending,
+        submittedAt: DateTime.now(),
+        newTeamMemberIds: newTeamMemberIds,
+        newTeamMemberNames: newTeamMemberNames,
+        previousTeamMemberIds: target.collaborativeEmployeeIds,
+        previousTeamMemberNames: target.collaborativeEmployeeNames,
+      );
+
+      await addApprovalRequest(approvalRequest);
+      print('DEBUG: Team change approval request created and submitted');
+    }
   }
 
   Future<void> approveSalesTarget(String targetId, String adminId) async {

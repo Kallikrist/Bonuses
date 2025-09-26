@@ -2160,29 +2160,40 @@ class _AddCollaboratorsDialogState extends State<_AddCollaboratorsDialog> {
           onPressed: () => Navigator.pop(context),
           child: const Text('Cancel'),
         ),
-        ElevatedButton(
-          onPressed: () {
-            print('DEBUG: Dialog Save - Selected IDs: $selectedEmployeeIds');
-            print(
-                'DEBUG: Dialog Save - Selected Names: $selectedEmployeeNames');
+        Consumer<AppProvider>(
+          builder: (context, appProvider, child) {
+            final user = appProvider.currentUser!;
+            final isAssignedEmployee = widget.target.assignedEmployeeId == user.id;
+            
+            return ElevatedButton(
+              onPressed: () {
+                print('DEBUG: Dialog Save - Selected IDs: $selectedEmployeeIds');
+                print(
+                    'DEBUG: Dialog Save - Selected Names: $selectedEmployeeNames');
 
-            final user = context.read<AppProvider>().currentUser!;
-            context.read<AppProvider>().submitTeamChange(
-                  widget.target.id,
-                  List<String>.from(selectedEmployeeIds),
-                  List<String>.from(selectedEmployeeNames),
-                  user.id,
+                context.read<AppProvider>().submitTeamChange(
+                      widget.target.id,
+                      List<String>.from(selectedEmployeeIds),
+                      List<String>.from(selectedEmployeeNames),
+                      user.id,
+                    );
+
+                Navigator.pop(context);
+                
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(
+                    content: Text(isAssignedEmployee 
+                      ? 'Team members updated successfully!' 
+                      : 'Team change submitted for admin approval!'),
+                    backgroundColor: isAssignedEmployee 
+                      ? Colors.green 
+                      : Colors.orange,
+                  ),
                 );
-
-            Navigator.pop(context);
-            ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(
-                content: Text('Team change submitted for admin approval!'),
-                backgroundColor: Colors.orange,
-              ),
+              },
+              child: Text(isAssignedEmployee ? 'Done' : 'Submit for Approval'),
             );
           },
-          child: const Text('Submit for Approval'),
         ),
       ],
     );
