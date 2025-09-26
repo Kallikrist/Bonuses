@@ -2617,6 +2617,18 @@ class _AdminDashboardState extends State<AdminDashboard> {
                     () => _showTargetsManagement(appProvider),
                   ),
                   _buildSettingsItem(
+                    Icons.view_list,
+                    'Manage Targets 2',
+                    'View all targets in a new dedicated window',
+                    () => Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (context) =>
+                            TargetListScreen(appProvider: appProvider),
+                      ),
+                    ),
+                  ),
+                  _buildSettingsItem(
                     Icons.rule,
                     'Points Rules',
                     'Configure how many points are awarded for different target achievements',
@@ -4452,8 +4464,8 @@ class _AdminDashboardState extends State<AdminDashboard> {
       AppProvider appProvider, List<SalesTarget> selectedDateTargets) {
     // Only show FAB if there are pending sales submissions requiring approval
     final pendingSalesSubmissions = appProvider.approvalRequests
-        .where((request) => 
-            request.status == ApprovalStatus.pending && 
+        .where((request) =>
+            request.status == ApprovalStatus.pending &&
             request.type == ApprovalRequestType.salesSubmission)
         .toList();
 
@@ -4468,7 +4480,6 @@ class _AdminDashboardState extends State<AdminDashboard> {
             !target.isApproved &&
             target.status != TargetStatus.approved &&
             target.actualAmount > 0)) {
-      
       final metTargets = selectedDateTargets
           .where((target) =>
               target.actualAmount >= target.targetAmount &&
@@ -4480,7 +4491,7 @@ class _AdminDashboardState extends State<AdminDashboard> {
       // Check which targets have corresponding pending sales submissions
       final metTargetsWithSubmissions = metTargets.where((target) {
         return appProvider.approvalRequests.any((request) =>
-            request.targetId == target.id && 
+            request.targetId == target.id &&
             request.status == ApprovalStatus.pending &&
             request.type == ApprovalRequestType.salesSubmission);
       }).toList();
@@ -4490,9 +4501,12 @@ class _AdminDashboardState extends State<AdminDashboard> {
         return FloatingActionButton.extended(
           onPressed: () async {
             // Debug output
-            print('DEBUG: Selected date: ${DateFormat('MMM dd, yyyy').format(_selectedDate)}');
-            print('DEBUG: Total targets for date: ${selectedDateTargets.length}');
-            print('DEBUG: Met targets with submissions: ${metTargetsWithSubmissions.length}');
+            print(
+                'DEBUG: Selected date: ${DateFormat('MMM dd, yyyy').format(_selectedDate)}');
+            print(
+                'DEBUG: Total targets for date: ${selectedDateTargets.length}');
+            print(
+                'DEBUG: Met targets with submissions: ${metTargetsWithSubmissions.length}');
 
             // No confirmation dialog - approve immediately
 
@@ -4504,18 +4518,22 @@ class _AdminDashboardState extends State<AdminDashboard> {
                       request.targetId == target.id &&
                       request.status == ApprovalStatus.pending &&
                       request.type == ApprovalRequestType.salesSubmission,
-                  orElse: () => throw Exception('No pending sales submission request'),
+                  orElse: () =>
+                      throw Exception('No pending sales submission request'),
                 );
                 await appProvider.approveRequest(pendingRequest);
-                print('DEBUG: Approved sales submission for target ${target.id}');
+                print(
+                    'DEBUG: Approved sales submission for target ${target.id}');
               } catch (e) {
-                print('Error approving sales submission for target ${target.id}: $e');
+                print(
+                    'Error approving sales submission for target ${target.id}: $e');
               }
             }
 
             ScaffoldMessenger.of(context).showSnackBar(
               SnackBar(
-                content: Text('Approved ${metTargetsWithSubmissions.length} sales submissions!'),
+                content: Text(
+                    'Approved ${metTargetsWithSubmissions.length} sales submissions!'),
                 backgroundColor: Colors.green,
               ),
             );
@@ -4542,7 +4560,8 @@ class _AdminDashboardState extends State<AdminDashboard> {
 
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
-              content: Text('${pendingSalesSubmissions.length} sales submissions approved!'),
+              content: Text(
+                  '${pendingSalesSubmissions.length} sales submissions approved!'),
               backgroundColor: Colors.green,
             ),
           );
@@ -7120,6 +7139,542 @@ class _PointsRulesScreenState extends State<PointsRulesScreen> {
           ),
         );
       },
+    );
+  }
+}
+
+// TargetListScreen - A new screen to manage targets with selection functionality
+class TargetListScreen extends StatefulWidget {
+  final AppProvider appProvider;
+
+  const TargetListScreen({super.key, required this.appProvider});
+
+  @override
+  State<TargetListScreen> createState() => _TargetListScreenState();
+}
+
+class _TargetListScreenState extends State<TargetListScreen> {
+  Set<String> _selectedTargetIds = <String>{};
+  bool _isSelectionMode = false;
+  List<String> _allTargetIds = [];
+
+  void _toggleSelectionMode() {
+    setState(() {
+      _isSelectionMode = !_isSelectionMode;
+      if (!_isSelectionMode) {
+        _selectedTargetIds.clear();
+      }
+    });
+  }
+
+  void _selectAllTargets() {
+    setState(() {
+      _selectedTargetIds = _allTargetIds.toSet();
+    });
+  }
+
+  void _deselectAllTargets() {
+    setState(() {
+      _selectedTargetIds.clear();
+    });
+  }
+
+  void _toggleSelectAll() {
+    if (_selectedTargetIds.length == _allTargetIds.length &&
+        _allTargetIds.isNotEmpty) {
+      _deselectAllTargets();
+    } else {
+      _selectAllTargets();
+    }
+  }
+
+  void _toggleTargetSelection(String targetId) {
+    setState(() {
+      if (_selectedTargetIds.contains(targetId)) {
+        _selectedTargetIds.remove(targetId);
+      } else {
+        _selectedTargetIds.add(targetId);
+      }
+    });
+  }
+
+  void _showDeleteSelectedDialog() {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Delete Selected Targets'),
+        content: Text(
+          'Are you sure you want to delete ${_selectedTargetIds.length} selected targets? This action cannot be undone.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Cancel'),
+          ),
+          ElevatedButton(
+            onPressed: () async {
+              final selectedCount = _selectedTargetIds.length;
+
+              try {
+                // Delete selected targets
+                for (String targetId in List.from(_selectedTargetIds)) {
+                  await widget.appProvider.deleteSalesTarget(targetId);
+                }
+
+                Navigator.pop(context);
+                _toggleSelectionMode(); // Exit selection mode
+
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(
+                    content:
+                        Text('$selectedCount targets deleted successfully'),
+                    backgroundColor: Colors.green,
+                  ),
+                );
+              } catch (e) {
+                Navigator.pop(context);
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(
+                    content: Text('Error deleting targets: $e'),
+                    backgroundColor: Colors.red,
+                  ),
+                );
+              }
+            },
+            style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
+            child: const Text(
+              'Delete',
+              style: TextStyle(color: Colors.white),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _showAddTargetDialog() {
+    final targetAmountController = TextEditingController();
+    User? selectedEmployee;
+    Workplace? selectedWorkplace;
+    DateTime? selectedDate;
+
+    showDialog(
+      context: context,
+      builder: (context) => StatefulBuilder(
+        builder: (context, setState) {
+          return AlertDialog(
+            title: const Text('Add Target'),
+            content: SingleChildScrollView(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  GestureDetector(
+                    onTap: () async {
+                      final pickedDate = await showDatePicker(
+                        context: context,
+                        initialDate: selectedDate ?? DateTime.now(),
+                        firstDate:
+                            DateTime.now().subtract(const Duration(days: 365)),
+                        lastDate: DateTime.now().add(const Duration(days: 365)),
+                      );
+                      if (pickedDate != null) {
+                        setState(() {
+                          selectedDate = pickedDate;
+                        });
+                      }
+                    },
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 12, vertical: 16),
+                      decoration: BoxDecoration(
+                        border: Border.all(color: Colors.grey.shade400),
+                        borderRadius: BorderRadius.circular(4),
+                      ),
+                      child: Row(
+                        children: [
+                          Icon(Icons.calendar_today,
+                              color: Colors.grey.shade600),
+                          const SizedBox(width: 8),
+                          Text(
+                            selectedDate != null
+                                ? "${selectedDate!.day}/${selectedDate!.month}/${selectedDate!.year}"
+                                : 'Select Date',
+                            style: TextStyle(
+                              color: selectedDate != null
+                                  ? Colors.black87
+                                  : Colors.grey.shade600,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                  TextField(
+                    controller: targetAmountController,
+                    decoration: const InputDecoration(
+                      labelText: 'Target Amount',
+                    ),
+                    keyboardType: TextInputType.number,
+                  ),
+                  const SizedBox(height: 16),
+                  FutureBuilder<List<User>>(
+                    future: widget.appProvider.getUsers(),
+                    builder: (context, snapshot) {
+                      if (snapshot.hasError) {
+                        return Container(
+                          padding: const EdgeInsets.all(8.0),
+                          child: Text(
+                            'Error loading users: ${snapshot.error}',
+                            style: const TextStyle(color: Colors.red),
+                          ),
+                        );
+                      }
+                      if (snapshot.hasData) {
+                        final allUsers = snapshot.data!;
+                        // Filter to show both employees and admins for assignment
+                        final users = allUsers
+                            .where((u) =>
+                                u.role == UserRole.employee ||
+                                u.role == UserRole.admin)
+                            .toList();
+
+                        // Ensure selectedEmployee matches exactly one item in the filtered list
+                        final validSelectedEmployee = selectedEmployee !=
+                                    null &&
+                                users.any(
+                                    (user) => user.id == selectedEmployee!.id)
+                            ? users.firstWhere(
+                                (user) => user.id == selectedEmployee!.id)
+                            : null;
+
+                        return DropdownButtonFormField<User>(
+                          value: validSelectedEmployee,
+                          decoration:
+                              const InputDecoration(labelText: 'Employee'),
+                          items: users
+                              .map((user) => DropdownMenuItem(
+                                    value: user,
+                                    child: Text(
+                                        '${user.name} (${user.role.name})'),
+                                  ))
+                              .toList(),
+                          onChanged: (User? user) =>
+                              setState(() => selectedEmployee = user),
+                        );
+                      }
+                      return Container(
+                        padding: const EdgeInsets.all(8.0),
+                        child: const CircularProgressIndicator(),
+                      );
+                    },
+                  ),
+                  FutureBuilder<List<Workplace>>(
+                    future: widget.appProvider.getWorkplaces(),
+                    builder: (context, snapshot) {
+                      if (snapshot.hasError) {
+                        return Container(
+                          padding: const EdgeInsets.all(8.0),
+                          child: Text(
+                            'Error loading workplaces: ${snapshot.error}',
+                            style: const TextStyle(color: Colors.red),
+                          ),
+                        );
+                      }
+                      if (snapshot.hasData) {
+                        final workplaces = snapshot.data!;
+
+                        // Ensure selectedWorkplace matches exactly one item in the workplaces list
+                        final validSelectedWorkplace =
+                            selectedWorkplace != null &&
+                                    workplaces.any((workplace) =>
+                                        workplace.id == selectedWorkplace!.id)
+                                ? workplaces.firstWhere((workplace) =>
+                                    workplace.id == selectedWorkplace!.id)
+                                : null;
+
+                        return DropdownButtonFormField<Workplace>(
+                          value: validSelectedWorkplace,
+                          decoration:
+                              const InputDecoration(labelText: 'Workplace'),
+                          items: workplaces
+                              .map((workplace) => DropdownMenuItem(
+                                    value: workplace,
+                                    child: Text(workplace.name),
+                                  ))
+                              .toList(),
+                          onChanged: (Workplace? workplace) =>
+                              setState(() => selectedWorkplace = workplace),
+                        );
+                      }
+                      return Container(
+                        padding: const EdgeInsets.all(8.0),
+                        child: const CircularProgressIndicator(),
+                      );
+                    },
+                  ),
+                ],
+              ),
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(context),
+                child: const Text('Cancel'),
+              ),
+              ElevatedButton(
+                onPressed: () async {
+                  final currentUser = widget.appProvider.currentUser;
+                  if (selectedDate != null &&
+                      targetAmountController.text.isNotEmpty &&
+                      selectedEmployee != null &&
+                      selectedWorkplace != null &&
+                      currentUser != null) {
+                    final amount = double.tryParse(targetAmountController.text);
+
+                    if (amount != null) {
+                      final target = SalesTarget(
+                        id: DateTime.now().millisecondsSinceEpoch.toString(),
+                        date: selectedDate!,
+                        targetAmount: amount,
+                        createdAt: DateTime.now(),
+                        createdBy: currentUser.id,
+                        assignedEmployeeId: selectedEmployee!.id,
+                        assignedEmployeeName: selectedEmployee!.name,
+                        assignedWorkplaceId: selectedWorkplace!.id,
+                        assignedWorkplaceName: selectedWorkplace!.name,
+                      );
+
+                      await widget.appProvider.addSalesTarget(target);
+                      Navigator.pop(context);
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(
+                            content: Text('Target added successfully')),
+                      );
+                    }
+                  } else if (currentUser == null) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(
+                        content: Text('Error: No user logged in'),
+                        backgroundColor: Colors.red,
+                      ),
+                    );
+                  }
+                },
+                child: const Text('Add'),
+              ),
+            ],
+          );
+        },
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(
+        title: const Text('Targets List'),
+        backgroundColor: Colors.transparent,
+        elevation: 0,
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back),
+          onPressed: () => Navigator.pop(context),
+        ),
+        actions: [
+          _isSelectionMode
+              ? IconButton(
+                  icon: const Icon(Icons.close),
+                  onPressed: _toggleSelectionMode,
+                  tooltip: 'Cancel Selection',
+                )
+              : IconButton(
+                  icon: const Icon(Icons.checklist),
+                  onPressed: _toggleSelectionMode,
+                  tooltip: 'Select Targets',
+                ),
+        ],
+      ),
+      body: Consumer<AppProvider>(
+        builder: (context, provider, child) {
+          final targets = provider.salesTargets;
+
+          // Update target IDs for selection
+          _allTargetIds = targets.map((t) => t.id).toList();
+
+          return Column(
+            children: [
+              // Select All and selection count bar
+              if (_isSelectionMode)
+                Container(
+                  width: double.infinity,
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                  color: Colors.blue.shade50,
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      TextButton(
+                        onPressed: _toggleSelectAll,
+                        style: TextButton.styleFrom(
+                          foregroundColor: Colors.blue,
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 16, vertical: 8),
+                        ),
+                        child: Text(
+                          (_selectedTargetIds.length == _allTargetIds.length &&
+                                  _allTargetIds.isNotEmpty)
+                              ? 'Deselect All'
+                              : 'Select All',
+                          style: const TextStyle(
+                            fontSize: 16,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                      ),
+                      Text(
+                        '${_selectedTargetIds.length} Selected',
+                        style: TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.w600,
+                          color: Colors.blue.shade700,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              // Targets list
+              Expanded(
+                child: ListView.builder(
+                  padding: _isSelectionMode
+                      ? const EdgeInsets.symmetric(horizontal: 16, vertical: 8)
+                      : const EdgeInsets.all(16),
+                  itemCount: targets.length,
+                  itemBuilder: (context, index) {
+                    final target = targets[index];
+                    final isSelected = _selectedTargetIds.contains(target.id);
+
+                    return Card(
+                      color: isSelected ? Colors.blue.shade50 : Colors.white,
+                      margin: const EdgeInsets.only(bottom: 8),
+                      child: ListTile(
+                        onTap: () {
+                          if (_isSelectionMode) {
+                            _toggleTargetSelection(target.id);
+                          }
+                        },
+                        leading: CircleAvatar(
+                          backgroundColor: _getStatusColor(target.status),
+                          child: Icon(
+                            _getStatusIcon(target.status),
+                            color: Colors.white,
+                            size: 20,
+                          ),
+                        ),
+                        title: Text(
+                          target.assignedEmployeeName ?? 'No Employee',
+                          style: const TextStyle(fontWeight: FontWeight.bold),
+                        ),
+                        subtitle: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                                'Target: ${target.targetAmount.toStringAsFixed(0)}'),
+                            Text(
+                                'Actual: ${target.actualAmount.toStringAsFixed(0)}'),
+                            Text(
+                                'Workplace: ${target.assignedWorkplaceName ?? 'No Workplace'}'),
+                            Text('Status: ${_getStatusText(target.status)}'),
+                          ],
+                        ),
+                        trailing: _isSelectionMode
+                            ? ElevatedButton(
+                                onPressed: () =>
+                                    _toggleTargetSelection(target.id),
+                                style: ElevatedButton.styleFrom(
+                                  backgroundColor: isSelected
+                                      ? Colors.blue
+                                      : Colors.grey.shade300,
+                                  foregroundColor: isSelected
+                                      ? Colors.white
+                                      : Colors.black87,
+                                  minimumSize: const Size(40, 32),
+                                  padding: const EdgeInsets.symmetric(
+                                      horizontal: 12, vertical: 8),
+                                ),
+                                child: Text(
+                                  isSelected ? 'Selected' : 'Select',
+                                  style: const TextStyle(fontSize: 12),
+                                ),
+                              )
+                            : IconButton(
+                                icon: const Icon(Icons.arrow_forward_ios),
+                                onPressed: () => _navigateToTarget(target),
+                              ),
+                      ),
+                    );
+                  },
+                ),
+              ),
+            ],
+          );
+        },
+      ),
+      floatingActionButton:
+          _isSelectionMode == false || _selectedTargetIds.isEmpty
+              ? FloatingActionButton(
+                  onPressed: _showAddTargetDialog,
+                  backgroundColor: Colors.blue,
+                  foregroundColor: Colors.white,
+                  child: const Icon(Icons.add),
+                )
+              : FloatingActionButton(
+                  onPressed: _showDeleteSelectedDialog,
+                  backgroundColor: Colors.red,
+                  foregroundColor: Colors.white,
+                  child: const Icon(Icons.delete_forever),
+                ),
+    );
+  }
+
+  Color _getStatusColor(TargetStatus status) {
+    switch (status) {
+      case TargetStatus.pending:
+        return Colors.grey;
+      case TargetStatus.met:
+        return Colors.green;
+      case TargetStatus.missed:
+        return Colors.red;
+      case TargetStatus.submitted:
+        return Colors.orange;
+      case TargetStatus.approved:
+        return Colors.blue;
+    }
+  }
+
+  IconData _getStatusIcon(TargetStatus status) {
+    switch (status) {
+      case TargetStatus.pending:
+        return Icons.pending;
+      case TargetStatus.met:
+        return Icons.check_circle;
+      case TargetStatus.missed:
+        return Icons.cancel;
+      case TargetStatus.submitted:
+        return Icons.hourglass_empty;
+      case TargetStatus.approved:
+        return Icons.verified;
+    }
+  }
+
+  String _getStatusText(TargetStatus status) {
+    return status.name.toUpperCase();
+  }
+
+  void _navigateToTarget(SalesTarget target) {
+    // This would navigate to a detailed view of the target
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text('Target: ${target.assignedEmployeeName ?? "Unknown"}'),
+      ),
     );
   }
 }
