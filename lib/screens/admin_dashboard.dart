@@ -384,6 +384,15 @@ class _AdminDashboardState extends State<AdminDashboard> {
 
   Widget _buildAdminSimpleRedeemedCard(
       BuildContext context, PointsTransaction t) {
+    // Parse description to check if it contains a secret code
+    final secretCodeRegex = RegExp(r'Secret Code: (.+?)(?:\s*$)');
+    final secretCodeMatch = secretCodeRegex.firstMatch(t.description);
+    final hasSecretCode = secretCodeMatch != null;
+    final secretCode = secretCodeMatch?.group(1);
+     
+    // Clean description - remove the secret code part from end
+    final cleanedDescription = t.description.replaceAll(RegExp(r'\s*\(Secret Code: .+?\)$'), '');
+
     return Container(
       margin: const EdgeInsets.only(bottom: 12),
       padding: const EdgeInsets.all(16),
@@ -418,14 +427,16 @@ class _AdminDashboardState extends State<AdminDashboard> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
+                // Main bonus name
                 Text(
-                  t.description,
+                  cleanedDescription,
                   style: const TextStyle(
                     fontSize: 16,
                     fontWeight: FontWeight.bold,
                   ),
                 ),
                 const SizedBox(height: 4),
+                // Points info row
                 Row(
                   children: [
                     Icon(Icons.stars, size: 16, color: Colors.orange),
@@ -447,6 +458,35 @@ class _AdminDashboardState extends State<AdminDashboard> {
                     ),
                   ],
                 ),
+                // Secret code section
+                if (hasSecretCode) ...[
+                  const SizedBox(height: 8),
+                  Container(
+                    padding:
+                        const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                    decoration: BoxDecoration(
+                      color: Colors.orange.shade50,
+                      border: Border.all(color: Colors.orange.shade200),
+                      borderRadius: BorderRadius.circular(4),
+                    ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(Icons.security,
+                            size: 16, color: Colors.orange.shade700),
+                        const SizedBox(width: 4),
+                        Text(
+                          'Secret Code: $secretCode',
+                          style: TextStyle(
+                            color: Colors.orange.shade700,
+                            fontWeight: FontWeight.bold,
+                            fontSize: 12,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
               ],
             ),
           ),
