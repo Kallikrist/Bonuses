@@ -5388,11 +5388,14 @@ class _EmployeeProfileScreenState extends State<EmployeeProfileScreen> {
                           );
                         },
                       ),
-                      _buildProfileField(
-                        Icons.work,
-                        'Role',
-                        currentEmployee.role.name.toUpperCase(),
-                        null,
+                      Consumer<AppProvider>(
+                        builder: (context, provider, child) {
+                          return _buildRoleDropdownField(
+                            Icons.work,
+                            'Role',
+                            currentEmployee.role,
+                          );
+                        },
                       ),
                       _buildProfileField(
                         Icons.calendar_today,
@@ -5584,15 +5587,341 @@ class _EmployeeProfileScreenState extends State<EmployeeProfileScreen> {
   }
 
   void _showQuickEditDialog() {
+    UserRole selectedRole = currentEmployee.role;
+    
+    showDialog(
+      context: context,
+      builder: (context) => StatefulBuilder(
+        builder: (context, setState) => AlertDialog(
+          title: const Text('Edit User Role'),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text('Current role: ${_getRoleDisplayName(currentEmployee.role)}'),
+              const SizedBox(height: 16),
+              DropdownButtonFormField<UserRole>(
+                value: selectedRole,
+                decoration: const InputDecoration(
+                  labelText: 'New Role',
+                  border: OutlineInputBorder(),
+                ),
+                items: UserRole.values.map((role) {
+                  return DropdownMenuItem(
+                    value: role,
+                    child: Text(_getRoleDisplayName(role)),
+                  );
+                }).toList(),
+                onChanged: (value) {
+                  if (value != null) {
+                    setState(() {
+                      selectedRole = value;
+                    });
+                  }
+                },
+              ),
+              if (selectedRole != currentEmployee.role) ...[
+                const SizedBox(height: 16),
+                Container(
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: selectedRole == UserRole.admin 
+                        ? Colors.purple.shade50 
+                        : Colors.blue.shade50,
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: Row(
+                    children: [
+                      Icon(
+                        selectedRole == UserRole.admin 
+                            ? Icons.admin_panel_settings 
+                            : Icons.person,
+                        color: selectedRole == UserRole.admin 
+                            ? Colors.purple 
+                            : Colors.blue,
+                        size: 20,
+                      ),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: Text(
+                          'New permissions: ${_getRoleDescription(selectedRole)}',
+                          style: TextStyle(
+                            color: selectedRole == UserRole.admin 
+                                ? Colors.purple.shade700 
+                                : Colors.blue.shade700,
+                            fontWeight: FontWeight.w500,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: const Text('Cancel'),
+            ),
+            if (selectedRole != currentEmployee.role)
+              ElevatedButton(
+                onPressed: () async {
+                  try {
+                    Navigator.pop(context);
+                    
+                    // Update the employee's role
+                    final updatedEmployee = currentEmployee.copyWith(role: selectedRole);
+                    await widget.appProvider.updateUser(updatedEmployee);
+
+                    // Update the local currentEmployee instance
+                    setState(() {
+                      currentEmployee = updatedEmployee;
+                    });
+
+                    // Show success message
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(
+                        content: Text(
+                          '${currentEmployee.name} role changed to ${_getRoleDisplayName(selectedRole)}',
+                        ),
+                        backgroundColor: selectedRole == UserRole.admin 
+                            ? Colors.purple 
+                            : Colors.green,
+                      ),
+                    );
+                  } catch (e) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(
+                        content: Text('Error updating role: $e'),
+                        backgroundColor: Colors.red,
+                      ),
+                    );
+                  }
+                },
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: selectedRole == UserRole.admin 
+                      ? Colors.purple 
+                      : Colors.blue,
+                ),
+                child: Text(
+                  'Update Role',
+                  style: const TextStyle(color: Colors.white),
+                ),
+              ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  String _getRoleDisplayName(UserRole role) {
+    switch (role) {
+      case UserRole.admin:
+        return 'Administrator';
+      case UserRole.employee:
+        return 'Employee';
+    }
+  }
+
+  String _getRoleDescription(UserRole role) {
+    switch (role) {
+      case UserRole.admin:
+        return 'Full admin access - can manage all users, targets, bonuses, and system settings';
+      case UserRole.employee:
+        return 'Employee access - can view and update their own targets and redeem bonuses';
+    }
+  }
+
+  Widget _buildRoleDropdownField(
+      IconData icon, String label, UserRole currentRole) {
+    return Container(
+      margin: const EdgeInsets.only(bottom: 12),
+      child: InkWell(
+        onTap: null, // Let the dropdown handle the interaction
+        borderRadius: BorderRadius.circular(8),
+        child: Padding(
+          padding: const EdgeInsets.all(12),
+          child: Row(
+            children: [
+              Icon(icon, color: Colors.blue[600], size: 20),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      label,
+                      style: const TextStyle(
+                        fontSize: 12,
+                        color: Colors.grey,
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
+                    const SizedBox(height: 2),
+                    DropdownButtonHideUnderline(
+                      child: DropdownButton<UserRole>(
+                        value: currentRole,
+                        icon: Icon(Icons.arrow_drop_down, color: Colors.grey[400]),
+                        isExpanded: true,
+                        items: UserRole.values.map((role) {
+                          return DropdownMenuItem<UserRole>(
+                            value: role,
+                            child: Row(
+                              children: [
+                                Icon(
+                                  role == UserRole.admin 
+                                      ? Icons.admin_panel_settings 
+                                      : Icons.person,
+                                  size: 16,
+                                  color: role == UserRole.admin 
+                                      ? Colors.purple 
+                                      : Colors.blue,
+                                ),
+                                const SizedBox(width: 8),
+                                Text(
+                                  _getRoleDisplayName(role),
+                                  style: const TextStyle(
+                                    fontSize: 16,
+                                    fontWeight: FontWeight.w500,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          );
+                        }).toList(),
+                        onChanged: (UserRole? newRole) {
+                          if (newRole != null && newRole != currentRole) {
+                            // Show confirmation dialog when a different role is selected
+                            _showRoleChangeConfirmation(newRole);
+                          }
+                        },
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  void _showRoleChangeConfirmation(UserRole newRole) {
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text('Quick Edit'),
-        content: const Text('Quick edit functionality coming soon'),
+        title: const Text('Confirm Role Change'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Icon(
+                  currentEmployee.role == UserRole.admin 
+                      ? Icons.admin_panel_settings 
+                      : Icons.person,
+                  color: currentEmployee.role == UserRole.admin 
+                      ? Colors.purple 
+                      : Colors.blue,
+                  size: 20,
+                ),
+                const SizedBox(width: 8),
+                Text(_getRoleDisplayName(currentEmployee.role)),
+                const Text(' → '),
+                Icon(
+                  newRole == UserRole.admin 
+                      ? Icons.admin_panel_settings 
+                      : Icons.person,
+                  color: newRole == UserRole.admin 
+                      ? Colors.purple 
+                      : Colors.blue,
+                  size: 20,
+                ),
+                const SizedBox(width: 8),
+                Text(_getRoleDisplayName(newRole)),
+              ],
+            ),
+            const SizedBox(height: 16),
+            Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: newRole == UserRole.admin 
+                    ? Colors.purple.shade50 
+                    : Colors.blue.shade50,
+                borderRadius: BorderRadius.circular(8),
+                border: Border.all(
+                  color: newRole == UserRole.admin 
+                      ? Colors.purple.shade200 
+                      : Colors.blue.shade200,
+                ),
+              ),
+              child: Text(
+                _getRoleDescription(newRole),
+                style: TextStyle(
+                  color: newRole == UserRole.admin 
+                      ? Colors.purple.shade700 
+                      : Colors.blue.shade700,
+                  fontWeight: FontWeight.w500,
+                ),
+              ),
+            ),
+            const SizedBox(height: 16),
+            const Text(
+              'Are you sure you want to change this user\'s role? This will affect their permissions immediately.',
+              style: TextStyle(fontWeight: FontWeight.w500),
+            ),
+          ],
+        ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context),
-            child: const Text('Close'),
+            child: const Text('Cancel'),
+          ),
+          ElevatedButton(
+            onPressed: () async {
+              try {
+                Navigator.pop(context);
+                
+                // Update the employee's role
+                final updatedEmployee = currentEmployee.copyWith(role: newRole);
+                await widget.appProvider.updateUser(updatedEmployee);
+
+                // Update the local currentEmployee instance
+                setState(() {
+                  currentEmployee = updatedEmployee;
+                });
+
+                // Show success message
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(
+                    content: Text(
+                      '${currentEmployee.name} role changed to ${_getRoleDisplayName(newRole)} successfully',
+                    ),
+                    backgroundColor: newRole == UserRole.admin 
+                        ? Colors.purple 
+                        : Colors.green,
+                  ),
+                );
+              } catch (e) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(
+                    content: Text('Error updating role: $e'),
+                    backgroundColor: Colors.red,
+                  ),
+                );
+              }
+            },
+            style: ElevatedButton.styleFrom(
+              backgroundColor: newRole == UserRole.admin 
+                  ? Colors.purple 
+                  : Colors.blue,
+            ),
+            child: const Text(
+              'Confirm Role Change',
+              style: TextStyle(color: Colors.white),
+            ),
           ),
         ],
       ),
@@ -7018,299 +7347,95 @@ class _EmployeesListScreenState extends State<EmployeesListScreen> {
           onPressed: () => Navigator.pop(context),
         ),
       ),
-      body: FutureBuilder<List<User>>(
-        future: widget.appProvider.getUsers(),
-        builder: (context, snapshot) {
-          if (!snapshot.hasData) {
-            return const Center(child: CircularProgressIndicator());
-          }
+      body: Consumer<AppProvider>(
+        builder: (context, provider, child) {
+          // Force fresh data each time Consumer rebuilds  
+          return FutureBuilder<List<User>>(
+            key: ValueKey(provider.pointsTransactions.length), // Changes when points update
+            future: provider.getUsers(),
+            builder: (context, snapshot) {
+              if (!snapshot.hasData) {
+                return const Center(child: CircularProgressIndicator());
+              }
 
-          final employees = snapshot.data!
-              .where((u) => u.role == UserRole.employee || u.role == UserRole.admin)
-              .toList();
+              final employees = snapshot.data!
+                  .where((u) => u.role == UserRole.employee || u.role == UserRole.admin)
+                  .toList();
 
-          return ListView.builder(
-            padding: const EdgeInsets.all(16),
-            itemCount: employees.length,
-            itemBuilder: (context, index) {
-              final employee = employees[index];
-              final userPoints = widget.appProvider.getUserTotalPoints(employee.id);
-              return Card(
-                margin: const EdgeInsets.only(bottom: 8),
-                child: ListTile(
-                  onTap: () {
-                    // Navigate to employee profile/detail view
-                    Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                        builder: (context) => EmployeeProfileScreen(
-                          employee: employee,
-                          appProvider: widget.appProvider,
-                        ),
-                      ),
-                    );
-                  },
-                  leading: CircleAvatar(
-                    backgroundColor: employee.role == UserRole.admin 
-                        ? Colors.purple 
-                        : Colors.blue,
-                    child: Text(
-                      employee.name.isNotEmpty 
-                          ? employee.name[0].toUpperCase() 
-                          : 'E',
-                      style: const TextStyle(color: Colors.white),
-                    ),
-                  ),
-                  title: Text(employee.name),
-                  subtitle: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(employee.email),
-                      Text(
-                        employee.role == UserRole.admin 
-                            ? 'Admin • $userPoints points'
-                            : '$userPoints points',
-                        style: TextStyle(
-                          color: Colors.grey[600],
-                          fontSize: 12,
-                        ),
-                      ),
-                    ],
-                  ),
-                  trailing: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Icon(
-                        employee.role == UserRole.admin 
-                            ? Icons.admin_panel_settings 
-                            : Icons.person,
-                        color: employee.role == UserRole.admin 
+              return ListView.builder(
+                padding: const EdgeInsets.all(16),
+                itemCount: employees.length,
+                itemBuilder: (context, index) {
+                  final employee = employees[index];
+                  final userPoints = provider.getUserTotalPoints(employee.id);
+                  return Card(
+                    margin: const EdgeInsets.only(bottom: 8),
+                    child: ListTile(
+                      onTap: () {
+                        // Navigate to employee profile/detail view
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (context) => EmployeeProfileScreen(
+                              employee: employee,
+                              appProvider: provider,
+                            ),
+                          ),
+                        );
+                      },
+                      leading: CircleAvatar(
+                        backgroundColor: employee.role == UserRole.admin 
                             ? Colors.purple 
                             : Colors.blue,
+                        child: Text(
+                          employee.name.isNotEmpty 
+                              ? employee.name[0].toUpperCase() 
+                              : 'E',
+                          style: const TextStyle(color: Colors.white),
+                        ),
                       ),
-                      const SizedBox(width: 8),
-                      const Icon(
-                        Icons.arrow_forward_ios,
-                        size: 16,
-                        color: Colors.grey,
+                      title: Text(employee.name),
+                      subtitle: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(employee.email),
+                          Text(
+                            employee.role == UserRole.admin 
+                                ? 'Admin • $userPoints points'
+                                : '$userPoints points',
+                            style: TextStyle(
+                              color: Colors.grey[600],
+                              fontSize: 12,
+                            ),
+                          ),
+                        ],
                       ),
-                    ],
-                  ),
-                ),
+                      trailing: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(
+                            employee.role == UserRole.admin 
+                                ? Icons.admin_panel_settings 
+                                : Icons.person,
+                            color: employee.role == UserRole.admin 
+                                ? Colors.purple 
+                                : Colors.blue,
+                          ),
+                          const SizedBox(width: 8),
+                          const Icon(
+                            Icons.arrow_forward_ios,
+                            size: 16,
+                            color: Colors.grey,
+                          ),
+                        ],
+                      ),
+                    ),
+                  );
+                },
               );
             },
           );
         },
-      ),
-    );
-  }
-}
-
-class EmployeeProfileScreen extends StatefulWidget {
-  final User employee;
-  final AppProvider appProvider;
-
-  const EmployeeProfileScreen({
-    super.key,
-    required this.employee,
-    required this.appProvider,
-  });
-
-  @override
-  State<EmployeeProfileScreen> createState() => _EmployeeProfileScreenState();
-}
-
-class _EmployeeProfileScreenState extends State<EmployeeProfileScreen> {
-  @override
-  Widget build(BuildContext context) {
-    final userPoints = widget.appProvider.getUserTotalPoints(widget.employee.id);
-    final userTransactions = widget.appProvider.getUserPointsTransactions(widget.employee.id);
-    
-    return Scaffold(
-      appBar: AppBar(
-        title: Text(widget.employee.name),
-        backgroundColor: Colors.transparent,
-        elevation: 0,
-        leading: IconButton(
-          icon: const Icon(Icons.arrow_back),
-          onPressed: () => Navigator.pop(context),
-        ),
-      ),
-      body: SingleChildScrollView(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            // Profile Header
-            Card(
-              child: Padding(
-                padding: const EdgeInsets.all(20),
-                child: Row(
-                  children: [
-                    CircleAvatar(
-                      radius: 40,
-                      backgroundColor: widget.employee.role == UserRole.admin 
-                          ? Colors.purple 
-                          : Colors.blue,
-                      child: Text(
-                        widget.employee.name.isNotEmpty 
-                            ? widget.employee.name[0].toUpperCase() 
-                            : 'E',
-                        style: const TextStyle(
-                          color: Colors.white,
-                          fontSize: 24,
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
-                    ),
-                    const SizedBox(width: 20),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            widget.employee.name,
-                            style: const TextStyle(
-                              fontSize: 24,
-                              fontWeight: FontWeight.bold,
-                            ),
-                          ),
-                          const SizedBox(height: 4),
-                          Text(
-                            widget.employee.email,
-                            style: TextStyle(
-                              fontSize: 16,
-                              color: Colors.grey[600],
-                            ),
-                          ),
-                          const SizedBox(height: 8),
-                          Row(
-                            children: [
-                              Icon(
-                                widget.employee.role == UserRole.admin 
-                                    ? Icons.admin_panel_settings 
-                                    : Icons.person,
-                                color: widget.employee.role == UserRole.admin 
-                                    ? Colors.purple 
-                                    : Colors.blue,
-                                size: 20,
-                              ),
-                              const SizedBox(width: 4),
-                              Text(
-                                widget.employee.role == UserRole.admin ? 'Administrator' : 'Employee',
-                                style: TextStyle(
-                                  fontSize: 14,
-                                  color: widget.employee.role == UserRole.admin 
-                                      ? Colors.purple 
-                                      : Colors.blue,
-                                  fontWeight: FontWeight.w500,
-                                ),
-                              ),
-                            ],
-                          ),
-                        ],
-                      ),
-                    ),
-                    // Points Display
-                    Container(
-                      padding: const EdgeInsets.all(16),
-                      decoration: BoxDecoration(
-                        color: Colors.blue.shade50,
-                        borderRadius: BorderRadius.circular(12),
-                        border: Border.all(color: Colors.blue.shade200),
-                      ),
-                      child: Column(
-                        children: [
-                          const Text(
-                            'Points',
-                            style: TextStyle(
-                              fontSize: 12,
-                              color: Colors.grey,
-                            ),
-                          ),
-                          Text(
-                            '$userPoints',
-                            style: const TextStyle(
-                              fontSize: 24,
-                              fontWeight: FontWeight.bold,
-                              color: Colors.blue,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ),
-            
-            const SizedBox(height: 20),
-            
-            // Recent Activity Section
-            const Text(
-              'Recent Activity',
-              style: TextStyle(
-                fontSize: 20,
-                fontWeight: FontWeight.bold,
-              ),
-            ),
-            const SizedBox(height: 12),
-            
-            if (userTransactions.isEmpty)
-              Card(
-                child: Padding(
-                  padding: const EdgeInsets.all(20),
-                  child: Center(
-                    child: Column(
-                      children: [
-                        Icon(
-                          Icons.history,
-                          size: 48,
-                          color: Colors.grey[400],
-                        ),
-                        const SizedBox(height: 12),
-                        Text(
-                          'No activity yet',
-                          style: TextStyle(
-                            fontSize: 16,
-                            color: Colors.grey[600],
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
-              )
-            else
-              ...userTransactions.take(5).map((transaction) => Card(
-                margin: const EdgeInsets.only(bottom: 8),
-                child: ListTile(
-                  leading: CircleAvatar(
-                    backgroundColor: transaction.points > 0 
-                        ? Colors.green 
-                        : Colors.orange,
-                    child: Icon(
-                      transaction.points > 0 ? Icons.add : Icons.remove,
-                      color: Colors.white,
-                      size: 16,
-                    ),
-                  ),
-                  title: Text(transaction.description),
-                  subtitle: Text(
-                    DateFormat('MMM dd, yyyy - HH:mm').format(transaction.date),
-                    style: const TextStyle(fontSize: 12),
-                  ),
-                  trailing: Text(
-                    '${transaction.points > 0 ? '+' : ''}${transaction.points}',
-                    style: TextStyle(
-                      color: transaction.points > 0 ? Colors.green : Colors.orange,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                ),
-              )),
-          ],
-        ),
       ),
     );
   }
