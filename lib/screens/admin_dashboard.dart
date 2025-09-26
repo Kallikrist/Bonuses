@@ -92,103 +92,8 @@ class _AdminDashboardState extends State<AdminDashboard> {
               ),
             ],
           ),
-          floatingActionButton: _selectedIndex == 0 &&
-                  selectedDateTargets.any((target) =>
-                      target.actualAmount >=
-                          target.targetAmount && // Met the target
-                      !target.isApproved &&
-                      target.status != TargetStatus.approved &&
-                      target.actualAmount > 0)
-              ? FloatingActionButton.extended(
-                  onPressed: () async {
-                    final metTargets = selectedDateTargets
-                        .where((target) =>
-                            target.actualAmount >=
-                                target.targetAmount && // Met the target
-                            !target.isApproved &&
-                            target.status != TargetStatus.approved &&
-                            target.actualAmount > 0)
-                        .toList();
-
-                    // Debug output
-                    print(
-                        'DEBUG: Selected date: ${DateFormat('MMM dd, yyyy').format(_selectedDate)}');
-                    print(
-                        'DEBUG: Total targets for date: ${selectedDateTargets.length}');
-                    for (final target in selectedDateTargets) {
-                      print(
-                          'DEBUG: Target ${target.id} - isMet: ${target.isMet}, isApproved: ${target.isApproved}, status: ${target.status}, actual: ${target.actualAmount}');
-                    }
-                    print(
-                        'DEBUG: Met targets to approve: ${metTargets.length}');
-
-                    if (metTargets.isEmpty) {
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        const SnackBar(
-                          content: Text('No met targets available to approve'),
-                          backgroundColor: Colors.orange,
-                        ),
-                      );
-                      return;
-                    }
-
-                    // Show confirmation dialog
-                    final confirmed = await showDialog<bool>(
-                      context: context,
-                      builder: (context) => AlertDialog(
-                        title: const Text('Approve All Met Targets'),
-                        content: Text(
-                            'This will approve ${metTargets.length} met targets. Continue?'),
-                        actions: [
-                          TextButton(
-                            onPressed: () => Navigator.pop(context, false),
-                            child: const Text('Cancel'),
-                          ),
-                          ElevatedButton(
-                            onPressed: () => Navigator.pop(context, true),
-                            style: ElevatedButton.styleFrom(
-                                backgroundColor: Colors.green),
-                            child: const Text('Approve All',
-                                style: TextStyle(color: Colors.white)),
-                          ),
-                        ],
-                      ),
-                    );
-
-                    if (confirmed != true) return;
-
-                    // Approve each target
-                    for (final target in metTargets) {
-                      try {
-                        final pendingRequest =
-                            appProvider.approvalRequests.firstWhere(
-                          (request) =>
-                              request.targetId == target.id &&
-                              request.status == ApprovalStatus.pending,
-                          orElse: () => throw Exception('No pending request'),
-                        );
-                        await appProvider.approveRequest(pendingRequest);
-                      } catch (e) {
-                        print('Error approving target ${target.id}: $e');
-                      }
-                    }
-
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      SnackBar(
-                        content: Text('Approved ${metTargets.length} targets!'),
-                        backgroundColor: Colors.green,
-                      ),
-                    );
-                  },
-                  backgroundColor: Colors.green,
-                  foregroundColor: Colors.white,
-                  icon: const Icon(Icons.check_circle),
-                  label: Text(
-                      'Approve All (${selectedDateTargets.where((target) => target.actualAmount >= target.targetAmount && // Met the target
-                          !target.isApproved && target.status != TargetStatus.approved && target.actualAmount > 0).length}/${selectedDateTargets.length})'),
-                  tooltip: 'Approve all met targets',
-                )
-              : null,
+          floatingActionButton: _getFloatingActionButton(
+              context, appProvider, selectedDateTargets),
           bottomNavigationBar: Container(
             decoration: BoxDecoration(
               color: Colors.grey[100],
@@ -4541,6 +4446,161 @@ class _AdminDashboardState extends State<AdminDashboard> {
         ),
       ),
     );
+  }
+
+  Widget? _getFloatingActionButton(BuildContext context,
+      AppProvider appProvider, List<SalesTarget> selectedDateTargets) {
+    // Show approval button for met targets first, if any.
+    if (_selectedIndex == 0 &&
+        selectedDateTargets.any((target) =>
+            target.actualAmount >= target.targetAmount &&
+            !target.isApproved &&
+            target.status != TargetStatus.approved &&
+            target.actualAmount > 0)) {
+      return FloatingActionButton.extended(
+        onPressed: () async {
+          final metTargets = selectedDateTargets
+              .where((target) =>
+                  target.actualAmount >= target.targetAmount &&
+                  !target.isApproved &&
+                  target.status != TargetStatus.approved &&
+                  target.actualAmount > 0)
+              .toList();
+
+          // Debug output
+          print(
+              'DEBUG: Selected date: ${DateFormat('MMM dd, yyyy').format(_selectedDate)}');
+          print('DEBUG: Total targets for date: ${selectedDateTargets.length}');
+          for (final target in selectedDateTargets) {
+            print(
+                'DEBUG: Target ${target.id} - isMet: ${target.isMet}, isApproved: ${target.isApproved}, status: ${target.status}, actual: ${target.actualAmount}');
+          }
+          print('DEBUG: Met targets to approve: ${metTargets.length}');
+
+          if (metTargets.isEmpty) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(
+                content: Text('No met targets available to approve'),
+                backgroundColor: Colors.orange,
+              ),
+            );
+            return;
+          }
+
+          // Show confirmation dialog
+          final confirmed = await showDialog<bool>(
+            context: context,
+            builder: (context) => AlertDialog(
+              title: const Text('Approve All Met Targets'),
+              content: Text(
+                  'This will approve ${metTargets.length} met targets. Continue?'),
+              actions: [
+                TextButton(
+                    onPressed: () => Navigator.pop(context, false),
+                    child: const Text('Cancel')),
+                ElevatedButton(
+                  onPressed: () => Navigator.pop(context, true),
+                  style:
+                      ElevatedButton.styleFrom(backgroundColor: Colors.green),
+                  child: const Text('Approve All',
+                      style: TextStyle(color: Colors.white)),
+                ),
+              ],
+            ),
+          );
+
+          if (confirmed != true) return;
+
+          // Approve each target
+          for (final target in metTargets) {
+            try {
+              final pendingRequest = appProvider.approvalRequests.firstWhere(
+                (request) =>
+                    request.targetId == target.id &&
+                    request.status == ApprovalStatus.pending,
+                orElse: () => throw Exception('No pending request'),
+              );
+              await appProvider.approveRequest(pendingRequest);
+            } catch (e) {
+              print('Error approving target ${target.id}: $e');
+            }
+          }
+
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('Approved ${metTargets.length} targets!'),
+              backgroundColor: Colors.green,
+            ),
+          );
+        },
+        backgroundColor: Colors.green,
+        foregroundColor: Colors.white,
+        icon: const Icon(Icons.check_circle),
+        label: Text(
+            'Approve All (${selectedDateTargets.where((target) => target.actualAmount >= target.targetAmount && !target.isApproved && target.status != TargetStatus.approved && target.actualAmount > 0).length}/${selectedDateTargets.length})'),
+        tooltip: 'Approve all met targets',
+      );
+    }
+
+    // If there are any pending approvals, show approve all for approvals
+    if (_selectedIndex == 0) {
+      final pendingApprovalsCount = appProvider.approvalRequests
+          .where((request) => request.status == ApprovalStatus.pending)
+          .toList()
+          .length;
+
+      if (pendingApprovalsCount > 0) {
+        return FloatingActionButton.extended(
+          onPressed: () async {
+            final pendingApprovals = appProvider.approvalRequests
+                .where((request) => request.status == ApprovalStatus.pending)
+                .toList();
+
+            final confirmed = await showDialog<bool>(
+              context: context,
+              builder: (context) => AlertDialog(
+                title: const Text('Approve All'),
+                content: Text(
+                    'This will approve ${pendingApprovals.length} pending requests. Continue?'),
+                actions: [
+                  TextButton(
+                      onPressed: () => Navigator.pop(context, false),
+                      child: const Text('Cancel')),
+                  ElevatedButton(
+                    onPressed: () => Navigator.pop(context, true),
+                    style:
+                        ElevatedButton.styleFrom(backgroundColor: Colors.green),
+                    child: const Text('Approve All',
+                        style: TextStyle(color: Colors.white)),
+                  ),
+                ],
+              ),
+            );
+
+            if (confirmed != true) return;
+
+            // Approve all pending requests
+            for (final request in pendingApprovals) {
+              await appProvider.approveRequest(request);
+            }
+
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                content: Text('${pendingApprovals.length} approvals granted!'),
+                backgroundColor: Colors.green,
+              ),
+            );
+          },
+          backgroundColor: Colors.blue,
+          foregroundColor: Colors.white,
+          icon: const Icon(Icons.approval),
+          label: Text('Approve All Approvals ($pendingApprovalsCount)'),
+          tooltip: 'Approve all requested approvals',
+        );
+      }
+    }
+
+    return null;
   }
 
   Widget _buildApprovalsManagementTab(AppProvider appProvider) {
