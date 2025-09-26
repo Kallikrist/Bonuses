@@ -389,9 +389,10 @@ class _AdminDashboardState extends State<AdminDashboard> {
     final secretCodeMatch = secretCodeRegex.firstMatch(t.description);
     final hasSecretCode = secretCodeMatch != null;
     final secretCode = secretCodeMatch?.group(1);
-     
+
     // Clean description - remove the secret code part from end
-    final cleanedDescription = t.description.replaceAll(RegExp(r'\s*\(Secret Code: .+?\)$'), '');
+    final cleanedDescription =
+        t.description.replaceAll(RegExp(r'\s*\(Secret Code: .+?\)$'), '');
 
     return Container(
       margin: const EdgeInsets.only(bottom: 12),
@@ -491,8 +492,7 @@ class _AdminDashboardState extends State<AdminDashboard> {
             ),
           ),
           Container(
-            padding:
-                const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
             decoration: BoxDecoration(
               color: Colors.green.withOpacity(0.1),
               borderRadius: BorderRadius.circular(16),
@@ -758,106 +758,6 @@ class _AdminDashboardState extends State<AdminDashboard> {
                 )),
         ],
       ),
-    );
-  }
-
-  Widget _buildEmployeesTab(AppProvider appProvider) {
-    return Consumer<AppProvider>(
-      builder: (context, provider, child) {
-        return FutureBuilder<List<User>>(
-          future: provider.getUsers(),
-          builder: (context, snapshot) {
-            if (snapshot.connectionState == ConnectionState.waiting) {
-              return const Center(child: CircularProgressIndicator());
-            }
-            if (snapshot.hasError) {
-              return Center(child: Text('Error: ${snapshot.error}'));
-            }
-            if (!snapshot.hasData || snapshot.data!.isEmpty) {
-              return const Center(child: Text('No employees found'));
-            }
-
-            final employees = snapshot.data!
-                .where((u) => u.role == UserRole.employee || u.role == UserRole.admin)
-                .toList();
-
-            return ListView.builder(
-              padding: const EdgeInsets.all(16),
-              itemCount: employees.length,
-              itemBuilder: (context, index) {
-                final employee = employees[index];
-                return Card(
-                  child: ListTile(
-                    leading: CircleAvatar(
-                      child: Text(employee.name[0].toUpperCase()),
-                    ),
-                    title: Text(employee.name),
-                    subtitle: Text(employee.email),
-                    trailing: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        IconButton(
-                          icon: const Icon(Icons.visibility),
-                          onPressed: () => _navigateToEmployeeProfile(
-                              context, employee, provider),
-                          tooltip: 'View Profile',
-                        ),
-                        IconButton(
-                          icon: const Icon(Icons.edit),
-                          onPressed: () => _showEditEmployeeDialog(
-                              context, employee, provider),
-                          tooltip: 'Quick Edit',
-                        ),
-                        IconButton(
-                          icon: const Icon(Icons.delete, color: Colors.red),
-                          tooltip: 'Remove Employee',
-                          onPressed: () async {
-                            final confirmed = await showDialog<bool>(
-                              context: context,
-                              builder: (context) => AlertDialog(
-                                title: const Text('Remove Employee'),
-                                content: Text(
-                                    'Are you sure you want to remove ${employee.name}? This cannot be undone.'),
-                                actions: [
-                                  TextButton(
-                                    onPressed: () => Navigator.pop(context, false),
-                                    child: const Text('Cancel'),
-                                  ),
-                                  ElevatedButton(
-                                    onPressed: () => Navigator.pop(context, true),
-                                    style: ElevatedButton.styleFrom(
-                                      backgroundColor: Colors.red,
-                                      foregroundColor: Colors.white,
-                                    ),
-                                    child: const Text('Remove'),
-                                  ),
-                                ],
-                              ),
-                            );
-
-                            if (confirmed == true) {
-                              await provider.deleteUser(employee.id);
-                              if (context.mounted) {
-                                ScaffoldMessenger.of(context).showSnackBar(
-                                  SnackBar(
-                                    content: Text('Removed ${employee.name}'),
-                                    backgroundColor: Colors.green,
-                                  ),
-                                );
-                              }
-                              setState(() {});
-                            }
-                          },
-                        ),
-                      ],
-                    ),
-                  ),
-                );
-              },
-            );
-          },
-        );
-      },
     );
   }
 
@@ -2597,8 +2497,9 @@ class _AdminDashboardState extends State<AdminDashboard> {
                       : availableBonuses
                           .map((b) => b.pointsRequired)
                           .reduce((a, b) => a < b ? a : b);
-                  final rawProgress =
-                      cheapestRequired == 0 ? 0.0 : currentPoints / cheapestRequired;
+                  final rawProgress = cheapestRequired == 0
+                      ? 0.0
+                      : currentPoints / cheapestRequired;
                   final baseProgress = rawProgress.clamp(0.0, 1.0);
                   final overflowProgress = (rawProgress - 1.0) > 0
                       ? (rawProgress - 1.0).clamp(0.0, 1.0)
@@ -2631,8 +2532,7 @@ class _AdminDashboardState extends State<AdminDashboard> {
                               value: overflowProgress,
                               strokeWidth: 4,
                               color: Colors.white70,
-                              backgroundColor:
-                                  Colors.white.withOpacity(0.15),
+                              backgroundColor: Colors.white.withOpacity(0.15),
                             ),
                           ),
                         Text(
@@ -2668,12 +2568,10 @@ class _AdminDashboardState extends State<AdminDashboard> {
                           _showAvailableBonuses
                               ? 'Available Bonuses'
                               : 'Redeemed Bonuses',
-                          style: Theme.of(context)
-                              .textTheme
-                              .titleMedium
-                              ?.copyWith(
-                                fontWeight: FontWeight.bold,
-                              ),
+                          style:
+                              Theme.of(context).textTheme.titleMedium?.copyWith(
+                                    fontWeight: FontWeight.bold,
+                                  ),
                         ),
                       ),
                       Container(
@@ -2835,19 +2733,14 @@ class _AdminDashboardState extends State<AdminDashboard> {
                   ),
                   const SizedBox(height: 16),
                   _buildSettingsItem(
-                    Icons.people,
-                    'Manage Employees',
-                    'Add, edit, and manage employee accounts',
-                    () => _showEmployeesManagement(),
-                  ),
-                  _buildSettingsItem(
                     Icons.people_outline,
-                    'Employees 2',
+                    'Manage Employees',
                     'View all employees in a new dedicated window',
                     () => Navigator.push(
                       context,
                       MaterialPageRoute(
-                        builder: (context) => EmployeesListScreen(appProvider: appProvider),
+                        builder: (context) =>
+                            EmployeesListScreen(appProvider: appProvider),
                       ),
                     ),
                   ),
@@ -3713,41 +3606,6 @@ class _AdminDashboardState extends State<AdminDashboard> {
     );
   }
 
-  void _showEmployeesManagement() {
-    showDialog(
-      context: context,
-      builder: (context) => Dialog(
-        child: Container(
-          width: MediaQuery.of(context).size.width * 0.9,
-          height: MediaQuery.of(context).size.height * 0.8,
-          padding: const EdgeInsets.all(16),
-          child: Column(
-            children: [
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  const Text(
-                    'Manage Employees',
-                    style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
-                  ),
-                  IconButton(
-                    onPressed: () => Navigator.pop(context),
-                    icon: const Icon(Icons.close),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 16),
-              Expanded(
-                child: _buildEmployeesTab(
-                    Provider.of<AppProvider>(context, listen: false)),
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-
   void _showWorkplacesManagement() {
     showDialog(
       context: context,
@@ -3782,7 +3640,6 @@ class _AdminDashboardState extends State<AdminDashboard> {
       ),
     );
   }
-
 
   void _showTargetsManagement(AppProvider appProvider) {
     showDialog(
@@ -3959,7 +3816,9 @@ class _AdminDashboardState extends State<AdminDashboard> {
             appProvider.getUsers().then((users) {
               setState(() {
                 employees = users
-                    .where((user) => user.role == UserRole.employee || user.role == UserRole.admin)
+                    .where((user) =>
+                        user.role == UserRole.employee ||
+                        user.role == UserRole.admin)
                     .toList();
               });
             });
@@ -4246,7 +4105,9 @@ class _AdminDashboardState extends State<AdminDashboard> {
                   builder: (context, snapshot) {
                     if (snapshot.hasData) {
                       final employees = snapshot.data!
-                          .where((u) => u.role == UserRole.employee || u.role == UserRole.admin)
+                          .where((u) =>
+                              u.role == UserRole.employee ||
+                              u.role == UserRole.admin)
                           .toList();
                       return DropdownButtonFormField<String>(
                         value: selectedEmployeeId,
@@ -4318,7 +4179,9 @@ class _AdminDashboardState extends State<AdminDashboard> {
                   builder: (context, snapshot) {
                     if (snapshot.hasData) {
                       final employees = snapshot.data!
-                          .where((u) => u.role == UserRole.employee || u.role == UserRole.admin)
+                          .where((u) =>
+                              u.role == UserRole.employee ||
+                              u.role == UserRole.admin)
                           .toList();
                       return Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
@@ -5588,7 +5451,7 @@ class _EmployeeProfileScreenState extends State<EmployeeProfileScreen> {
 
   void _showQuickEditDialog() {
     UserRole selectedRole = currentEmployee.role;
-    
+
     showDialog(
       context: context,
       builder: (context) => StatefulBuilder(
@@ -5597,7 +5460,8 @@ class _EmployeeProfileScreenState extends State<EmployeeProfileScreen> {
           content: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              Text('Current role: ${_getRoleDisplayName(currentEmployee.role)}'),
+              Text(
+                  'Current role: ${_getRoleDisplayName(currentEmployee.role)}'),
               const SizedBox(height: 16),
               DropdownButtonFormField<UserRole>(
                 value: selectedRole,
@@ -5624,19 +5488,19 @@ class _EmployeeProfileScreenState extends State<EmployeeProfileScreen> {
                 Container(
                   padding: const EdgeInsets.all(12),
                   decoration: BoxDecoration(
-                    color: selectedRole == UserRole.admin 
-                        ? Colors.purple.shade50 
+                    color: selectedRole == UserRole.admin
+                        ? Colors.purple.shade50
                         : Colors.blue.shade50,
                     borderRadius: BorderRadius.circular(8),
                   ),
                   child: Row(
                     children: [
                       Icon(
-                        selectedRole == UserRole.admin 
-                            ? Icons.admin_panel_settings 
+                        selectedRole == UserRole.admin
+                            ? Icons.admin_panel_settings
                             : Icons.person,
-                        color: selectedRole == UserRole.admin 
-                            ? Colors.purple 
+                        color: selectedRole == UserRole.admin
+                            ? Colors.purple
                             : Colors.blue,
                         size: 20,
                       ),
@@ -5645,8 +5509,8 @@ class _EmployeeProfileScreenState extends State<EmployeeProfileScreen> {
                         child: Text(
                           'New permissions: ${_getRoleDescription(selectedRole)}',
                           style: TextStyle(
-                            color: selectedRole == UserRole.admin 
-                                ? Colors.purple.shade700 
+                            color: selectedRole == UserRole.admin
+                                ? Colors.purple.shade700
                                 : Colors.blue.shade700,
                             fontWeight: FontWeight.w500,
                           ),
@@ -5668,9 +5532,10 @@ class _EmployeeProfileScreenState extends State<EmployeeProfileScreen> {
                 onPressed: () async {
                   try {
                     Navigator.pop(context);
-                    
+
                     // Update the employee's role
-                    final updatedEmployee = currentEmployee.copyWith(role: selectedRole);
+                    final updatedEmployee =
+                        currentEmployee.copyWith(role: selectedRole);
                     await widget.appProvider.updateUser(updatedEmployee);
 
                     // Update the local currentEmployee instance
@@ -5684,8 +5549,8 @@ class _EmployeeProfileScreenState extends State<EmployeeProfileScreen> {
                         content: Text(
                           '${currentEmployee.name} role changed to ${_getRoleDisplayName(selectedRole)}',
                         ),
-                        backgroundColor: selectedRole == UserRole.admin 
-                            ? Colors.purple 
+                        backgroundColor: selectedRole == UserRole.admin
+                            ? Colors.purple
                             : Colors.green,
                       ),
                     );
@@ -5699,8 +5564,8 @@ class _EmployeeProfileScreenState extends State<EmployeeProfileScreen> {
                   }
                 },
                 style: ElevatedButton.styleFrom(
-                  backgroundColor: selectedRole == UserRole.admin 
-                      ? Colors.purple 
+                  backgroundColor: selectedRole == UserRole.admin
+                      ? Colors.purple
                       : Colors.blue,
                 ),
                 child: Text(
@@ -5761,7 +5626,8 @@ class _EmployeeProfileScreenState extends State<EmployeeProfileScreen> {
                     DropdownButtonHideUnderline(
                       child: DropdownButton<UserRole>(
                         value: currentRole,
-                        icon: Icon(Icons.arrow_drop_down, color: Colors.grey[400]),
+                        icon: Icon(Icons.arrow_drop_down,
+                            color: Colors.grey[400]),
                         isExpanded: true,
                         items: UserRole.values.map((role) {
                           return DropdownMenuItem<UserRole>(
@@ -5769,12 +5635,12 @@ class _EmployeeProfileScreenState extends State<EmployeeProfileScreen> {
                             child: Row(
                               children: [
                                 Icon(
-                                  role == UserRole.admin 
-                                      ? Icons.admin_panel_settings 
+                                  role == UserRole.admin
+                                      ? Icons.admin_panel_settings
                                       : Icons.person,
                                   size: 16,
-                                  color: role == UserRole.admin 
-                                      ? Colors.purple 
+                                  color: role == UserRole.admin
+                                      ? Colors.purple
                                       : Colors.blue,
                                 ),
                                 const SizedBox(width: 8),
@@ -5819,11 +5685,11 @@ class _EmployeeProfileScreenState extends State<EmployeeProfileScreen> {
             Row(
               children: [
                 Icon(
-                  currentEmployee.role == UserRole.admin 
-                      ? Icons.admin_panel_settings 
+                  currentEmployee.role == UserRole.admin
+                      ? Icons.admin_panel_settings
                       : Icons.person,
-                  color: currentEmployee.role == UserRole.admin 
-                      ? Colors.purple 
+                  color: currentEmployee.role == UserRole.admin
+                      ? Colors.purple
                       : Colors.blue,
                   size: 20,
                 ),
@@ -5831,12 +5697,11 @@ class _EmployeeProfileScreenState extends State<EmployeeProfileScreen> {
                 Text(_getRoleDisplayName(currentEmployee.role)),
                 const Text(' → '),
                 Icon(
-                  newRole == UserRole.admin 
-                      ? Icons.admin_panel_settings 
+                  newRole == UserRole.admin
+                      ? Icons.admin_panel_settings
                       : Icons.person,
-                  color: newRole == UserRole.admin 
-                      ? Colors.purple 
-                      : Colors.blue,
+                  color:
+                      newRole == UserRole.admin ? Colors.purple : Colors.blue,
                   size: 20,
                 ),
                 const SizedBox(width: 8),
@@ -5847,21 +5712,21 @@ class _EmployeeProfileScreenState extends State<EmployeeProfileScreen> {
             Container(
               padding: const EdgeInsets.all(12),
               decoration: BoxDecoration(
-                color: newRole == UserRole.admin 
-                    ? Colors.purple.shade50 
+                color: newRole == UserRole.admin
+                    ? Colors.purple.shade50
                     : Colors.blue.shade50,
                 borderRadius: BorderRadius.circular(8),
                 border: Border.all(
-                  color: newRole == UserRole.admin 
-                      ? Colors.purple.shade200 
+                  color: newRole == UserRole.admin
+                      ? Colors.purple.shade200
                       : Colors.blue.shade200,
                 ),
               ),
               child: Text(
                 _getRoleDescription(newRole),
                 style: TextStyle(
-                  color: newRole == UserRole.admin 
-                      ? Colors.purple.shade700 
+                  color: newRole == UserRole.admin
+                      ? Colors.purple.shade700
                       : Colors.blue.shade700,
                   fontWeight: FontWeight.w500,
                 ),
@@ -5883,7 +5748,7 @@ class _EmployeeProfileScreenState extends State<EmployeeProfileScreen> {
             onPressed: () async {
               try {
                 Navigator.pop(context);
-                
+
                 // Update the employee's role
                 final updatedEmployee = currentEmployee.copyWith(role: newRole);
                 await widget.appProvider.updateUser(updatedEmployee);
@@ -5899,8 +5764,8 @@ class _EmployeeProfileScreenState extends State<EmployeeProfileScreen> {
                     content: Text(
                       '${currentEmployee.name} role changed to ${_getRoleDisplayName(newRole)} successfully',
                     ),
-                    backgroundColor: newRole == UserRole.admin 
-                        ? Colors.purple 
+                    backgroundColor: newRole == UserRole.admin
+                        ? Colors.purple
                         : Colors.green,
                   ),
                 );
@@ -5914,9 +5779,8 @@ class _EmployeeProfileScreenState extends State<EmployeeProfileScreen> {
               }
             },
             style: ElevatedButton.styleFrom(
-              backgroundColor: newRole == UserRole.admin 
-                  ? Colors.purple 
-                  : Colors.blue,
+              backgroundColor:
+                  newRole == UserRole.admin ? Colors.purple : Colors.blue,
             ),
             child: const Text(
               'Confirm Role Change',
@@ -7335,6 +7199,177 @@ class EmployeesListScreen extends StatefulWidget {
 }
 
 class _EmployeesListScreenState extends State<EmployeesListScreen> {
+  Set<String> _selectedEmployeeIds = <String>{};
+  bool _isSelectionMode = false;
+  List<String> _allEmployeeIds = [];
+
+  void _toggleSelectionMode() {
+    setState(() {
+      _isSelectionMode = !_isSelectionMode;
+      if (!_isSelectionMode) {
+        _selectedEmployeeIds.clear();
+      }
+    });
+  }
+
+  void _selectAllEmployees() {
+    setState(() {
+      _selectedEmployeeIds = _allEmployeeIds.toSet();
+      // Exclude current admin if they exist
+      final currentUserId = widget.appProvider.currentUser?.id;
+      if (currentUserId != null) {
+        _selectedEmployeeIds.remove(currentUserId);
+      }
+    });
+  }
+
+  void _deselectAllEmployees() {
+    setState(() {
+      _selectedEmployeeIds.clear();
+    });
+  }
+
+  void _toggleSelectAll() {
+    if (_selectedEmployeeIds.length == _allEmployeeIds.length && _allEmployeeIds.isNotEmpty) {
+      _deselectAllEmployees();
+    } else {
+      _selectAllEmployees();
+    }
+  }
+
+  void _toggleEmployeeSelection(String employeeId) {
+    setState(() {
+      if (_selectedEmployeeIds.contains(employeeId)) {
+        _selectedEmployeeIds.remove(employeeId);
+      } else {
+        _selectedEmployeeIds.add(employeeId);
+      }
+    });
+  }
+
+  void _showDeleteSelectedDialog() {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Delete Selected Employees'),
+        content: Text(
+          'Are you sure you want to delete ${_selectedEmployeeIds.length} selected employees? This action cannot be undone.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Cancel'),
+          ),
+          ElevatedButton(
+            onPressed: () async {
+              final selectedCount = _selectedEmployeeIds.length;
+              
+              try {
+                // Delete selected employees
+                for (String employeeId in List.from(_selectedEmployeeIds)) {
+                  await widget.appProvider.deleteUser(employeeId);
+                }
+                
+                Navigator.pop(context);
+                _toggleSelectionMode(); // Exit selection mode
+                
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(
+                    content: Text('$selectedCount employees deleted successfully'),
+                    backgroundColor: Colors.green,
+                  ),
+                );
+              } catch (e) {
+                Navigator.pop(context);
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(
+                    content: Text('Error deleting employees: $e'),
+                    backgroundColor: Colors.red,
+                  ),
+                );
+              }
+            },
+            style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
+            child: const Text(
+              'Delete',
+              style: TextStyle(color: Colors.white),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _showAddEmployeeDialog() {
+    final nameController = TextEditingController();
+    final emailController = TextEditingController();
+    final phoneController = TextEditingController();
+    final passwordController = TextEditingController();
+
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Add Employee'),
+        content: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              TextField(
+                controller: nameController,
+                decoration: const InputDecoration(labelText: 'Name'),
+              ),
+              TextField(
+                controller: emailController,
+                decoration: const InputDecoration(labelText: 'Email'),
+                keyboardType: TextInputType.emailAddress,
+              ),
+              TextField(
+                controller: phoneController,
+                decoration: const InputDecoration(labelText: 'Phone'),
+                keyboardType: TextInputType.phone,
+              ),
+              TextField(
+                controller: passwordController,
+                decoration: const InputDecoration(labelText: 'Password'),
+                obscureText: true,
+              ),
+            ],
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Cancel'),
+          ),
+          ElevatedButton(
+            onPressed: () async {
+              if (nameController.text.isNotEmpty &&
+                  emailController.text.isNotEmpty &&
+                  phoneController.text.isNotEmpty &&
+                  passwordController.text.isNotEmpty) {
+                final user = User(
+                  id: DateTime.now().millisecondsSinceEpoch.toString(),
+                  name: nameController.text,
+                  email: emailController.text,
+                  phoneNumber: phoneController.text,
+                  role: UserRole.employee,
+                  createdAt: DateTime.now(),
+                  totalPoints: 0,
+                );
+                await widget.appProvider.addUser(user);
+                Navigator.pop(context);
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(content: Text('Employee added successfully')),
+                );
+              }
+            },
+            child: const Text('Add'),
+          ),
+        ],
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -7346,12 +7381,26 @@ class _EmployeesListScreenState extends State<EmployeesListScreen> {
           icon: const Icon(Icons.arrow_back),
           onPressed: () => Navigator.pop(context),
         ),
+        actions: [
+          _isSelectionMode 
+            ? IconButton(
+                icon: const Icon(Icons.close),
+                onPressed: _toggleSelectionMode,
+                tooltip: 'Cancel Selection',
+              )
+            : IconButton(
+                icon: const Icon(Icons.checklist),
+                onPressed: _toggleSelectionMode,
+                tooltip: 'Select Employees',
+              ),
+        ],
       ),
       body: Consumer<AppProvider>(
         builder: (context, provider, child) {
-          // Force fresh data each time Consumer rebuilds  
+          // Force fresh data each time Consumer rebuilds
           return FutureBuilder<List<User>>(
-            key: ValueKey(provider.pointsTransactions.length), // Changes when points update
+            key: ValueKey(provider
+                .pointsTransactions.length), // Changes when points update
             future: provider.getUsers(),
             builder: (context, snapshot) {
               if (!snapshot.hasData) {
@@ -7359,84 +7408,192 @@ class _EmployeesListScreenState extends State<EmployeesListScreen> {
               }
 
               final employees = snapshot.data!
-                  .where((u) => u.role == UserRole.employee || u.role == UserRole.admin)
+                  .where((u) =>
+                      u.role == UserRole.employee || u.role == UserRole.admin)
                   .toList();
 
-              return ListView.builder(
-                padding: const EdgeInsets.all(16),
-                itemCount: employees.length,
-                itemBuilder: (context, index) {
-                  final employee = employees[index];
-                  final userPoints = provider.getUserTotalPoints(employee.id);
-                  return Card(
-                    margin: const EdgeInsets.only(bottom: 8),
-                    child: ListTile(
-                      onTap: () {
-                        // Navigate to employee profile/detail view
-                        Navigator.push(
-                          context,
-                          MaterialPageRoute(
-                            builder: (context) => EmployeeProfileScreen(
-                              employee: employee,
-                              appProvider: provider,
+              // Update employee IDs for selection
+              final currentUserId = widget.appProvider.currentUser?.id;
+              _allEmployeeIds = employees
+                  .where((e) => e.id != currentUserId)
+                  .map((e) => e.id)
+                  .toList();
+
+              return Column(
+                children: [
+                  // Select All and selection count bar
+                  if (_isSelectionMode)
+                    Container(
+                      width: double.infinity,
+                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                      color: Colors.blue.shade50,
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          TextButton(
+                            onPressed: _toggleSelectAll,
+                            style: TextButton.styleFrom(
+                              foregroundColor: Colors.blue,
+                              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                            ),
+                            child: Text(
+                              (_selectedEmployeeIds.length == _allEmployeeIds.length && _allEmployeeIds.isNotEmpty)
+                                  ? 'Deselect All'
+                                  : 'Select All',
+                              style: const TextStyle(
+                                fontSize: 16,
+                                fontWeight: FontWeight.w600,
+                              ),
                             ),
                           ),
-                        );
-                      },
-                      leading: CircleAvatar(
-                        backgroundColor: employee.role == UserRole.admin 
-                            ? Colors.purple 
-                            : Colors.blue,
-                        child: Text(
-                          employee.name.isNotEmpty 
-                              ? employee.name[0].toUpperCase() 
-                              : 'E',
-                          style: const TextStyle(color: Colors.white),
-                        ),
-                      ),
-                      title: Text(employee.name),
-                      subtitle: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(employee.email),
                           Text(
-                            employee.role == UserRole.admin 
-                                ? 'Admin • $userPoints points'
-                                : '$userPoints points',
+                            '${_selectedEmployeeIds.length} Selected',
                             style: TextStyle(
-                              color: Colors.grey[600],
-                              fontSize: 12,
+                              fontSize: 16,
+                              fontWeight: FontWeight.w600,
+                              color: Colors.blue.shade700,
                             ),
-                          ),
-                        ],
-                      ),
-                      trailing: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          Icon(
-                            employee.role == UserRole.admin 
-                                ? Icons.admin_panel_settings 
-                                : Icons.person,
-                            color: employee.role == UserRole.admin 
-                                ? Colors.purple 
-                                : Colors.blue,
-                          ),
-                          const SizedBox(width: 8),
-                          const Icon(
-                            Icons.arrow_forward_ios,
-                            size: 16,
-                            color: Colors.grey,
                           ),
                         ],
                       ),
                     ),
-                  );
-                },
+                  // Employee list
+                  Expanded(
+                    child: ListView.builder(
+                      padding: _isSelectionMode 
+                          ? const EdgeInsets.symmetric(horizontal: 16, vertical: 8)
+                          : const EdgeInsets.all(16),
+                      itemCount: employees.length,
+                      itemBuilder: (context, index) {
+                        final employee = employees[index];
+                        final userPoints = provider.getUserTotalPoints(employee.id);
+                        final isSelected = _selectedEmployeeIds.contains(employee.id);
+                        final isCurrentUser = widget.appProvider.currentUser?.id == employee.id;
+
+                        return Card(
+                          color: isSelected ? Colors.blue.shade50 : Colors.white,
+                          margin: const EdgeInsets.only(bottom: 8),
+                          child: ListTile(
+                            onTap: () {
+                              if (_isSelectionMode && !isCurrentUser) {
+                                _toggleEmployeeSelection(employee.id);
+                              } else if (!_isSelectionMode) {
+                                // Navigate to employee profile/detail view
+                                Navigator.push(
+                                  context,
+                                  MaterialPageRoute(
+                                    builder: (context) => EmployeeProfileScreen(
+                                      employee: employee,
+                                      appProvider: provider,
+                                    ),
+                                  ),
+                                );
+                              }
+                            },
+                            leading: CircleAvatar(
+                              backgroundColor: employee.role == UserRole.admin
+                                  ? Colors.purple
+                                  : Colors.blue,
+                              child: Text(
+                                employee.name.isNotEmpty
+                                    ? employee.name[0].toUpperCase()
+                                    : 'E',
+                                style: const TextStyle(color: Colors.white),
+                              ),
+                            ),
+                            title: Text(
+                              employee.name,
+                              style: TextStyle(
+                                fontWeight: isSelected ? FontWeight.w600 : FontWeight.normal,
+                                color: isSelected ? Colors.blue.shade700 : Colors.black87,
+                              ),
+                            ),
+                            subtitle: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(employee.email),
+                                Text(
+                                  employee.role == UserRole.admin
+                                      ? 'Admin • $userPoints points'
+                                      : '$userPoints points',
+                                  style: TextStyle(
+                                    color: isSelected ? Colors.blue.shade600 : Colors.grey[600],
+                                    fontSize: 12,
+                                  ),
+                                ),
+                              ],
+                            ),
+                            trailing: _isSelectionMode && !isCurrentUser
+                                ? ElevatedButton(
+                                    onPressed: () => _toggleEmployeeSelection(employee.id),
+                                    style: ElevatedButton.styleFrom(
+                                      backgroundColor: isSelected ? Colors.blue : Colors.grey.shade300,
+                                      foregroundColor: isSelected ? Colors.white : Colors.black87,
+                                      minimumSize: const Size(40, 32),
+                                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                                    ),
+                                    child: Text(
+                                      isSelected ? 'Selected' : 'Select',
+                                      style: const TextStyle(fontSize: 12),
+                                    ),
+                                  )
+                                : _isSelectionMode && isCurrentUser
+                                    ? Container(
+                                        width: 40,
+                                        height: 32,
+                                        decoration: BoxDecoration(
+                                          color: Colors.grey.shade200,
+                                          borderRadius: BorderRadius.circular(6),
+                                        ),
+                                        child: const Center(
+                                          child: Icon(Icons.lock, size: 16, color: Colors.grey),
+                                        ),
+                                      )
+                                    : Row(
+                                        mainAxisSize: MainAxisSize.min,
+                                        children: [
+                                          Icon(
+                                            employee.role == UserRole.admin
+                                                ? Icons.admin_panel_settings
+                                                : Icons.person,
+                                            color: employee.role == UserRole.admin
+                                                ? Colors.purple
+                                                : Colors.blue,
+                                          ),
+                                          const SizedBox(width: 8),
+                                          const Icon(
+                                            Icons.arrow_forward_ios,
+                                            size: 16,
+                                            color: Colors.grey,
+                                          ),
+                                        ],
+                                      ),
+                          ),
+                        );
+                      },
+                    ),
+                  ),
+                ],
               );
             },
           );
         },
       ),
+      floatingActionButton: _isSelectionMode 
+          ? _selectedEmployeeIds.isNotEmpty
+              ? FloatingActionButton(
+                  onPressed: _showDeleteSelectedDialog,
+                  backgroundColor: Colors.red,
+                  foregroundColor: Colors.white,
+                  child: const Icon(Icons.delete),
+                )
+              : null
+          : FloatingActionButton(
+              onPressed: _showAddEmployeeDialog,
+              backgroundColor: Colors.blue,
+              foregroundColor: Colors.white,
+              child: const Icon(Icons.person_add),
+            ),
     );
   }
 }
