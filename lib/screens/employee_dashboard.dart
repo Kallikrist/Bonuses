@@ -212,7 +212,7 @@ class _EmployeeDashboardState extends State<EmployeeDashboard> {
                         userPoints, selectedDateTargets, user.id, appProvider),
                     _buildTargetsTab(appProvider, allTargets),
                     _buildBonusesTab(
-                        availableBonuses, redeemedBonuses, user.id, userPoints),
+                        availableBonuses, redeemedBonuses, user.id, userPoints, appProvider),
                     _buildReportsTab(allTargets, allTransactions),
                     _buildProfileTab(user, appProvider),
                   ],
@@ -803,7 +803,7 @@ class _EmployeeDashboardState extends State<EmployeeDashboard> {
   }
 
   Widget _buildBonusesTab(List<Bonus> availableBonuses,
-      List<Bonus> redeemedBonuses, String userId, int userPoints) {
+      List<Bonus> redeemedBonuses, String userId, int userPoints, AppProvider appProvider) {
     return SingleChildScrollView(
       child: Column(
         children: [
@@ -1028,7 +1028,7 @@ class _EmployeeDashboardState extends State<EmployeeDashboard> {
                       )
                     : Column(
                         children: redeemedBonuses.map((bonus) => 
-                            _buildSimpleBonusCard(bonus, userPoints, userId, true))
+                            _buildSimpleBonusCard(bonus, userPoints, userId, true, appProvider))
                             .toList(),
                       ),
               ],
@@ -1041,7 +1041,7 @@ class _EmployeeDashboardState extends State<EmployeeDashboard> {
     );
   }
 
-  Widget _buildSimpleBonusCard(Bonus bonus, int userPoints, String userId, bool isRedeemed) {
+  Widget _buildSimpleBonusCard(Bonus bonus, int userPoints, String userId, bool isRedeemed, [AppProvider? appProvider]) {
     final canRedeem = !isRedeemed && userPoints >= bonus.pointsRequired;
     final pointsNeeded = bonus.pointsRequired - userPoints;
     final progress = (userPoints / bonus.pointsRequired).clamp(0.0, 1.0);
@@ -1164,6 +1164,61 @@ class _EmployeeDashboardState extends State<EmployeeDashboard> {
                     ],
                   ],
                 ),
+                // Show secret code if available for redeemed bonuses
+                if (isRedeemed && appProvider != null) ...[
+                  Builder(
+                    builder: (context) {
+                      // Find the transaction that includes the secret code for this bonus
+                      final transactions = appProvider.getUserPointsTransactions(userId);
+                      final relevantTransaction = transactions
+                          .where((t) => 
+                              t.type == PointsTransactionType.redeemed &&
+                              t.description.contains('Redeemed ${bonus.name}'))
+                          .firstOrNull;
+                      
+                      final secretCodeRegex = RegExp(r'Secret Code: (.+?)(?:\s*$)');
+                      final secretCodeMatch = relevantTransaction != null 
+                          ? secretCodeRegex.firstMatch(relevantTransaction.description) 
+                          : null;
+                      final hasSecretCode = secretCodeMatch != null;
+                      final secretCode = secretCodeMatch?.group(1);
+                      
+                      if (hasSecretCode) {
+                        return Column(
+                          children: [
+                            const SizedBox(height: 8),
+                            Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                              decoration: BoxDecoration(
+                                color: Colors.orange.shade50,
+                                border: Border.all(color: Colors.orange.shade200),
+                                borderRadius: BorderRadius.circular(4),
+                              ),
+                              child: Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  Icon(Icons.security, 
+                                      size: 16, 
+                                      color: Colors.orange.shade700),
+                                  const SizedBox(width: 4),
+                                  Text(
+                                    'Secret Code: $secretCode',
+                                    style: TextStyle(
+                                      color: Colors.orange.shade700,
+                                      fontWeight: FontWeight.bold,
+                                      fontSize: 12,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ],
+                        );
+                      }
+                      return const SizedBox.shrink();
+                    }
+                  ),
+                ],
               ],
             ),
           ),
