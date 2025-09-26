@@ -4494,26 +4494,7 @@ class _AdminDashboardState extends State<AdminDashboard> {
             print('DEBUG: Total targets for date: ${selectedDateTargets.length}');
             print('DEBUG: Met targets with submissions: ${metTargetsWithSubmissions.length}');
 
-            // Show confirmation dialog
-            final confirmed = await showDialog<bool>(
-              context: context,
-              builder: (context) => AlertDialog(
-                title: const Text('Approve All Sales Submissions'),
-                content: Text('This will approve ${metTargetsWithSubmissions.length} sales submissions. Continue?'),
-                actions: [
-                  TextButton(
-                      onPressed: () => Navigator.pop(context, false),
-                      child: const Text('Cancel')),
-                  ElevatedButton(
-                    onPressed: () => Navigator.pop(context, true),
-                    style: ElevatedButton.styleFrom(backgroundColor: Colors.green),
-                    child: const Text('Approve All', style: TextStyle(color: Colors.white)),
-                  ),
-                ],
-              ),
-            );
-
-            if (confirmed != true) return;
+            // No confirmation dialog - approve immediately
 
             // Approve each target with sales submission
             for (final target in metTargetsWithSubmissions) {
@@ -4552,26 +4533,7 @@ class _AdminDashboardState extends State<AdminDashboard> {
     if (_selectedIndex == 0 && pendingSalesSubmissions.isNotEmpty) {
       return FloatingActionButton.extended(
         onPressed: () async {
-          final confirmed = await showDialog<bool>(
-            context: context,
-            builder: (context) => AlertDialog(
-              title: const Text('Approve All Sales Submissions'),
-              content: Text(
-                  'This will approve ${pendingSalesSubmissions.length} sales submissions. Continue?'),
-              actions: [
-                TextButton(
-                    onPressed: () => Navigator.pop(context, false),
-                    child: const Text('Cancel')),
-                ElevatedButton(
-                  onPressed: () => Navigator.pop(context, true),
-                  style: ElevatedButton.styleFrom(backgroundColor: Colors.green),
-                  child: const Text('Approve All', style: TextStyle(color: Colors.white)),
-                ),
-              ],
-            ),
-          );
-
-          if (confirmed != true) return;
+          // No confirmation dialog - approve immediately
 
           // Approve all sales submissions
           for (final request in pendingSalesSubmissions) {
