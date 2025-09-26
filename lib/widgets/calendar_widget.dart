@@ -881,9 +881,9 @@ class _AddTargetDialogState extends State<AddTargetDialog> {
     _availableEmployees = await appProvider.getUsers();
     _availableWorkplaces = await appProvider.getWorkplaces();
 
-    // Filter to only show employees
+    // Filter to show employees and admins (admins can participate as team members)
     _availableEmployees = _availableEmployees
-        .where((user) => user.role == UserRole.employee)
+        .where((user) => user.role == UserRole.employee || user.role == UserRole.admin)
         .toList();
 
     setState(() => _isLoading = false);

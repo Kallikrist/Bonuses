@@ -2097,7 +2097,7 @@ class _AddCollaboratorsDialogState extends State<_AddCollaboratorsDialog> {
             if (snapshot.hasData) {
               final employees = snapshot.data!
                   .where((u) =>
-                      u.role == UserRole.employee && u.id != widget.userId)
+                      (u.role == UserRole.employee || u.role == UserRole.admin) && u.id != widget.userId)
                   .toList();
 
               return Column(

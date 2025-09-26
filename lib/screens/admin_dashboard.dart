@@ -778,7 +778,7 @@ class _AdminDashboardState extends State<AdminDashboard> {
             }
 
             final employees = snapshot.data!
-                .where((u) => u.role == UserRole.employee)
+                .where((u) => u.role == UserRole.employee || u.role == UserRole.admin)
                 .toList();
 
             return ListView.builder(
@@ -3947,7 +3947,7 @@ class _AdminDashboardState extends State<AdminDashboard> {
             appProvider.getUsers().then((users) {
               setState(() {
                 employees = users
-                    .where((user) => user.role == UserRole.employee)
+                    .where((user) => user.role == UserRole.employee || user.role == UserRole.admin)
                     .toList();
               });
             });
@@ -4234,7 +4234,7 @@ class _AdminDashboardState extends State<AdminDashboard> {
                   builder: (context, snapshot) {
                     if (snapshot.hasData) {
                       final employees = snapshot.data!
-                          .where((u) => u.role == UserRole.employee)
+                          .where((u) => u.role == UserRole.employee || u.role == UserRole.admin)
                           .toList();
                       return DropdownButtonFormField<String>(
                         value: selectedEmployeeId,
@@ -4306,7 +4306,7 @@ class _AdminDashboardState extends State<AdminDashboard> {
                   builder: (context, snapshot) {
                     if (snapshot.hasData) {
                       final employees = snapshot.data!
-                          .where((u) => u.role == UserRole.employee)
+                          .where((u) => u.role == UserRole.employee || u.role == UserRole.admin)
                           .toList();
                       return Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
