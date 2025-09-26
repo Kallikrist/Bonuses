@@ -2844,7 +2844,12 @@ class _AdminDashboardState extends State<AdminDashboard> {
                     Icons.people_outline,
                     'Employees 2',
                     'View all employees in a new dedicated window',
-                    () => _showEmployeesListWindow(appProvider),
+                    () => Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (context) => EmployeesListScreen(appProvider: appProvider),
+                      ),
+                    ),
                   ),
                   _buildSettingsItem(
                     Icons.business,
@@ -3778,97 +3783,6 @@ class _AdminDashboardState extends State<AdminDashboard> {
     );
   }
 
-  void _showEmployeesListWindow(AppProvider appProvider) {
-    showDialog(
-      context: context,
-      builder: (context) => Dialog(
-        child: Container(
-          width: MediaQuery.of(context).size.width * 0.85,
-          height: MediaQuery.of(context).size.height * 0.85,
-          padding: const EdgeInsets.all(16),
-          child: Column(
-            children: [
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  const Text(
-                    'Employees List',
-                    style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
-                  ),
-                  IconButton(
-                    onPressed: () => Navigator.pop(context),
-                    icon: const Icon(Icons.close),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 16),
-              Expanded(
-                child: FutureBuilder<List<User>>(
-                  future: appProvider.getUsers(),
-                  builder: (context, snapshot) {
-                    if (!snapshot.hasData) {
-                      return const Center(child: CircularProgressIndicator());
-                    }
-                    final employees = snapshot.data!
-                        .where((u) => u.role == UserRole.employee || u.role == UserRole.admin)
-                        .toList();
-                    
-                    return ListView.builder(
-                      itemCount: employees.length,
-                      itemBuilder: (context, index) {
-                        final employee = employees[index];
-                        final userPoints = appProvider.getUserTotalPoints(employee.id);
-                        return Card(
-                          margin: const EdgeInsets.only(bottom: 8),
-                          child: ListTile(
-                            leading: CircleAvatar(
-                              backgroundColor: employee.role == UserRole.admin 
-                                  ? Colors.purple 
-                                  : Colors.blue,
-                              child: Text(
-                                employee.name.isNotEmpty 
-                                    ? employee.name[0].toUpperCase() 
-                                    : 'E',
-                                style: const TextStyle(color: Colors.white),
-                              ),
-                            ),
-                            title: Text(employee.name),
-                            subtitle: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Text(employee.email),
-                                Text(
-                                  employee.role == UserRole.admin 
-                                      ? 'Admin • $userPoints points'
-                                      : '$userPoints points',
-                                  style: TextStyle(
-                                    color: Colors.grey[600],
-                                    fontSize: 12,
-                                  ),
-                                ),
-                              ],
-                            ),
-                            trailing: Icon(
-                              employee.role == UserRole.admin 
-                                  ? Icons.admin_panel_settings 
-                                  : Icons.person,
-                              color: employee.role == UserRole.admin 
-                                  ? Colors.purple 
-                                  : Colors.blue,
-                            ),
-                          ),
-                        );
-                      },
-                    );
-                  },
-                ),
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
 
   void _showTargetsManagement(AppProvider appProvider) {
     showDialog(
@@ -7078,6 +6992,93 @@ class _PointsRulesScreenState extends State<PointsRulesScreen> {
           ),
         );
       },
+    );
+  }
+}
+
+class EmployeesListScreen extends StatefulWidget {
+  final AppProvider appProvider;
+
+  const EmployeesListScreen({super.key, required this.appProvider});
+
+  @override
+  State<EmployeesListScreen> createState() => _EmployeesListScreenState();
+}
+
+class _EmployeesListScreenState extends State<EmployeesListScreen> {
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(
+        title: const Text('Employees List'),
+        backgroundColor: Colors.transparent,
+        elevation: 0,
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back),
+          onPressed: () => Navigator.pop(context),
+        ),
+      ),
+      body: FutureBuilder<List<User>>(
+        future: widget.appProvider.getUsers(),
+        builder: (context, snapshot) {
+          if (!snapshot.hasData) {
+            return const Center(child: CircularProgressIndicator());
+          }
+
+          final employees = snapshot.data!
+              .where((u) => u.role == UserRole.employee || u.role == UserRole.admin)
+              .toList();
+
+          return ListView.builder(
+            padding: const EdgeInsets.all(16),
+            itemCount: employees.length,
+            itemBuilder: (context, index) {
+              final employee = employees[index];
+              final userPoints = widget.appProvider.getUserTotalPoints(employee.id);
+              return Card(
+                margin: const EdgeInsets.only(bottom: 8),
+                child: ListTile(
+                  leading: CircleAvatar(
+                    backgroundColor: employee.role == UserRole.admin 
+                        ? Colors.purple 
+                        : Colors.blue,
+                    child: Text(
+                      employee.name.isNotEmpty 
+                          ? employee.name[0].toUpperCase() 
+                          : 'E',
+                      style: const TextStyle(color: Colors.white),
+                    ),
+                  ),
+                  title: Text(employee.name),
+                  subtitle: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(employee.email),
+                      Text(
+                        employee.role == UserRole.admin 
+                            ? 'Admin • $userPoints points'
+                            : '$userPoints points',
+                        style: TextStyle(
+                          color: Colors.grey[600],
+                          fontSize: 12,
+                        ),
+                      ),
+                    ],
+                  ),
+                  trailing: Icon(
+                    employee.role == UserRole.admin 
+                        ? Icons.admin_panel_settings 
+                        : Icons.person,
+                    color: employee.role == UserRole.admin 
+                        ? Colors.purple 
+                        : Colors.blue,
+                  ),
+                ),
+              );
+            },
+          );
+        },
+      ),
     );
   }
 }
