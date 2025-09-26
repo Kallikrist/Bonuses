@@ -7038,6 +7038,18 @@ class _EmployeesListScreenState extends State<EmployeesListScreen> {
               return Card(
                 margin: const EdgeInsets.only(bottom: 8),
                 child: ListTile(
+                  onTap: () {
+                    // Navigate to employee profile/detail view
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (context) => EmployeeProfileScreen(
+                          employee: employee,
+                          appProvider: widget.appProvider,
+                        ),
+                      ),
+                    );
+                  },
                   leading: CircleAvatar(
                     backgroundColor: employee.role == UserRole.admin 
                         ? Colors.purple 
@@ -7065,19 +7077,240 @@ class _EmployeesListScreenState extends State<EmployeesListScreen> {
                       ),
                     ],
                   ),
-                  trailing: Icon(
-                    employee.role == UserRole.admin 
-                        ? Icons.admin_panel_settings 
-                        : Icons.person,
-                    color: employee.role == UserRole.admin 
-                        ? Colors.purple 
-                        : Colors.blue,
+                  trailing: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(
+                        employee.role == UserRole.admin 
+                            ? Icons.admin_panel_settings 
+                            : Icons.person,
+                        color: employee.role == UserRole.admin 
+                            ? Colors.purple 
+                            : Colors.blue,
+                      ),
+                      const SizedBox(width: 8),
+                      const Icon(
+                        Icons.arrow_forward_ios,
+                        size: 16,
+                        color: Colors.grey,
+                      ),
+                    ],
                   ),
                 ),
               );
             },
           );
         },
+      ),
+    );
+  }
+}
+
+class EmployeeProfileScreen extends StatefulWidget {
+  final User employee;
+  final AppProvider appProvider;
+
+  const EmployeeProfileScreen({
+    super.key,
+    required this.employee,
+    required this.appProvider,
+  });
+
+  @override
+  State<EmployeeProfileScreen> createState() => _EmployeeProfileScreenState();
+}
+
+class _EmployeeProfileScreenState extends State<EmployeeProfileScreen> {
+  @override
+  Widget build(BuildContext context) {
+    final userPoints = widget.appProvider.getUserTotalPoints(widget.employee.id);
+    final userTransactions = widget.appProvider.getUserPointsTransactions(widget.employee.id);
+    
+    return Scaffold(
+      appBar: AppBar(
+        title: Text(widget.employee.name),
+        backgroundColor: Colors.transparent,
+        elevation: 0,
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back),
+          onPressed: () => Navigator.pop(context),
+        ),
+      ),
+      body: SingleChildScrollView(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // Profile Header
+            Card(
+              child: Padding(
+                padding: const EdgeInsets.all(20),
+                child: Row(
+                  children: [
+                    CircleAvatar(
+                      radius: 40,
+                      backgroundColor: widget.employee.role == UserRole.admin 
+                          ? Colors.purple 
+                          : Colors.blue,
+                      child: Text(
+                        widget.employee.name.isNotEmpty 
+                            ? widget.employee.name[0].toUpperCase() 
+                            : 'E',
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontSize: 24,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 20),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            widget.employee.name,
+                            style: const TextStyle(
+                              fontSize: 24,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                          const SizedBox(height: 4),
+                          Text(
+                            widget.employee.email,
+                            style: TextStyle(
+                              fontSize: 16,
+                              color: Colors.grey[600],
+                            ),
+                          ),
+                          const SizedBox(height: 8),
+                          Row(
+                            children: [
+                              Icon(
+                                widget.employee.role == UserRole.admin 
+                                    ? Icons.admin_panel_settings 
+                                    : Icons.person,
+                                color: widget.employee.role == UserRole.admin 
+                                    ? Colors.purple 
+                                    : Colors.blue,
+                                size: 20,
+                              ),
+                              const SizedBox(width: 4),
+                              Text(
+                                widget.employee.role == UserRole.admin ? 'Administrator' : 'Employee',
+                                style: TextStyle(
+                                  fontSize: 14,
+                                  color: widget.employee.role == UserRole.admin 
+                                      ? Colors.purple 
+                                      : Colors.blue,
+                                  fontWeight: FontWeight.w500,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ],
+                      ),
+                    ),
+                    // Points Display
+                    Container(
+                      padding: const EdgeInsets.all(16),
+                      decoration: BoxDecoration(
+                        color: Colors.blue.shade50,
+                        borderRadius: BorderRadius.circular(12),
+                        border: Border.all(color: Colors.blue.shade200),
+                      ),
+                      child: Column(
+                        children: [
+                          const Text(
+                            'Points',
+                            style: TextStyle(
+                              fontSize: 12,
+                              color: Colors.grey,
+                            ),
+                          ),
+                          Text(
+                            '$userPoints',
+                            style: const TextStyle(
+                              fontSize: 24,
+                              fontWeight: FontWeight.bold,
+                              color: Colors.blue,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+            
+            const SizedBox(height: 20),
+            
+            // Recent Activity Section
+            const Text(
+              'Recent Activity',
+              style: TextStyle(
+                fontSize: 20,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+            const SizedBox(height: 12),
+            
+            if (userTransactions.isEmpty)
+              Card(
+                child: Padding(
+                  padding: const EdgeInsets.all(20),
+                  child: Center(
+                    child: Column(
+                      children: [
+                        Icon(
+                          Icons.history,
+                          size: 48,
+                          color: Colors.grey[400],
+                        ),
+                        const SizedBox(height: 12),
+                        Text(
+                          'No activity yet',
+                          style: TextStyle(
+                            fontSize: 16,
+                            color: Colors.grey[600],
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              )
+            else
+              ...userTransactions.take(5).map((transaction) => Card(
+                margin: const EdgeInsets.only(bottom: 8),
+                child: ListTile(
+                  leading: CircleAvatar(
+                    backgroundColor: transaction.points > 0 
+                        ? Colors.green 
+                        : Colors.orange,
+                    child: Icon(
+                      transaction.points > 0 ? Icons.add : Icons.remove,
+                      color: Colors.white,
+                      size: 16,
+                    ),
+                  ),
+                  title: Text(transaction.description),
+                  subtitle: Text(
+                    DateFormat('MMM dd, yyyy - HH:mm').format(transaction.date),
+                    style: const TextStyle(fontSize: 12),
+                  ),
+                  trailing: Text(
+                    '${transaction.points > 0 ? '+' : ''}${transaction.points}',
+                    style: TextStyle(
+                      color: transaction.points > 0 ? Colors.green : Colors.orange,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                ),
+              )),
+          ],
+        ),
       ),
     );
   }
