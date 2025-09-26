@@ -2841,6 +2841,12 @@ class _AdminDashboardState extends State<AdminDashboard> {
                     () => _showEmployeesManagement(),
                   ),
                   _buildSettingsItem(
+                    Icons.people_outline,
+                    'Employees 2',
+                    'View all employees in a new dedicated window',
+                    () => _showEmployeesListWindow(appProvider),
+                  ),
+                  _buildSettingsItem(
                     Icons.business,
                     'Manage Workplaces',
                     'Add, edit, and manage workplace locations',
@@ -3764,6 +3770,98 @@ class _AdminDashboardState extends State<AdminDashboard> {
               Expanded(
                 child: _buildWorkplacesTab(
                     Provider.of<AppProvider>(context, listen: false)),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  void _showEmployeesListWindow(AppProvider appProvider) {
+    showDialog(
+      context: context,
+      builder: (context) => Dialog(
+        child: Container(
+          width: MediaQuery.of(context).size.width * 0.85,
+          height: MediaQuery.of(context).size.height * 0.85,
+          padding: const EdgeInsets.all(16),
+          child: Column(
+            children: [
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  const Text(
+                    'Employees List',
+                    style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+                  ),
+                  IconButton(
+                    onPressed: () => Navigator.pop(context),
+                    icon: const Icon(Icons.close),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 16),
+              Expanded(
+                child: FutureBuilder<List<User>>(
+                  future: appProvider.getUsers(),
+                  builder: (context, snapshot) {
+                    if (!snapshot.hasData) {
+                      return const Center(child: CircularProgressIndicator());
+                    }
+                    final employees = snapshot.data!
+                        .where((u) => u.role == UserRole.employee || u.role == UserRole.admin)
+                        .toList();
+                    
+                    return ListView.builder(
+                      itemCount: employees.length,
+                      itemBuilder: (context, index) {
+                        final employee = employees[index];
+                        final userPoints = appProvider.getUserTotalPoints(employee.id);
+                        return Card(
+                          margin: const EdgeInsets.only(bottom: 8),
+                          child: ListTile(
+                            leading: CircleAvatar(
+                              backgroundColor: employee.role == UserRole.admin 
+                                  ? Colors.purple 
+                                  : Colors.blue,
+                              child: Text(
+                                employee.name.isNotEmpty 
+                                    ? employee.name[0].toUpperCase() 
+                                    : 'E',
+                                style: const TextStyle(color: Colors.white),
+                              ),
+                            ),
+                            title: Text(employee.name),
+                            subtitle: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(employee.email),
+                                Text(
+                                  employee.role == UserRole.admin 
+                                      ? 'Admin • $userPoints points'
+                                      : '$userPoints points',
+                                  style: TextStyle(
+                                    color: Colors.grey[600],
+                                    fontSize: 12,
+                                  ),
+                                ),
+                              ],
+                            ),
+                            trailing: Icon(
+                              employee.role == UserRole.admin 
+                                  ? Icons.admin_panel_settings 
+                                  : Icons.person,
+                              color: employee.role == UserRole.admin 
+                                  ? Colors.purple 
+                                  : Colors.blue,
+                            ),
+                          ),
+                        );
+                      },
+                    );
+                  },
+                ),
               ),
             ],
           ),
