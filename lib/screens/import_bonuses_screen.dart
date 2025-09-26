@@ -22,6 +22,7 @@ class _ImportBonusesScreenState extends State<ImportBonusesScreen>
   final TextEditingController _bonusNameController = TextEditingController();
   final TextEditingController _bonusDescriptionController = TextEditingController();
   final TextEditingController _pointsRequiredController = TextEditingController();
+  final TextEditingController _secretCodeController = TextEditingController();
 
   @override
   void initState() {
@@ -35,6 +36,7 @@ class _ImportBonusesScreenState extends State<ImportBonusesScreen>
     _bonusNameController.dispose();
     _bonusDescriptionController.dispose();
     _pointsRequiredController.dispose();
+    _secretCodeController.dispose();
     super.dispose();
   }
 
@@ -355,6 +357,19 @@ class _ImportBonusesScreenState extends State<ImportBonusesScreen>
               border: OutlineInputBorder(),
             ),
           ),
+          const SizedBox(height: 16),
+          
+          // Secret Code
+          TextFormField(
+            controller: _secretCodeController,
+            decoration: const InputDecoration(
+              labelText: 'Secret Code',
+              hintText: 'e.g., COFFEE123, LUNCH2024',
+              prefixIcon: Icon(Icons.security),
+              border: OutlineInputBorder(),
+              helperText: 'This code will be revealed when bonus is claimed',
+            ),
+          ),
           const SizedBox(height: 32),
           
           // Add Bonus Button
@@ -481,6 +496,7 @@ class _ImportBonusesScreenState extends State<ImportBonusesScreen>
       description: _bonusDescriptionController.text,
       pointsRequired: points,
       createdAt: DateTime.now(),
+      secretCode: _secretCodeController.text.isNotEmpty ? _secretCodeController.text : null,
     );
 
     try {
@@ -490,6 +506,7 @@ class _ImportBonusesScreenState extends State<ImportBonusesScreen>
       _bonusNameController.clear();
       _bonusDescriptionController.clear();
       _pointsRequiredController.clear();
+      _secretCodeController.clear();
       
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(

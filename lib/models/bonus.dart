@@ -14,6 +14,7 @@ class Bonus {
   final DateTime? redeemedAt;
   final String? redeemedBy;
   final String? giftCardCode;
+  final String? secretCode;
 
   Bonus({
     required this.id,
@@ -25,6 +26,7 @@ class Bonus {
     this.redeemedAt,
     this.redeemedBy,
     this.giftCardCode,
+    this.secretCode,
   });
 
   Map<String, dynamic> toJson() {
@@ -38,6 +40,7 @@ class Bonus {
       'redeemedAt': redeemedAt?.toIso8601String(),
       'redeemedBy': redeemedBy,
       'giftCardCode': giftCardCode,
+      'secretCode': secretCode,
     };
   }
 
@@ -57,6 +60,7 @@ class Bonus {
           : null,
       redeemedBy: json['redeemedBy'],
       giftCardCode: json['giftCardCode'],
+      secretCode: json['secretCode'],
     );
   }
 
@@ -70,6 +74,7 @@ class Bonus {
     DateTime? redeemedAt,
     String? redeemedBy,
     String? giftCardCode,
+    String? secretCode,
   }) {
     return Bonus(
       id: id ?? this.id,
@@ -81,6 +86,7 @@ class Bonus {
       redeemedAt: redeemedAt ?? this.redeemedAt,
       redeemedBy: redeemedBy ?? this.redeemedBy,
       giftCardCode: giftCardCode ?? this.giftCardCode,
+      secretCode: secretCode ?? this.secretCode,
     );
   }
 }

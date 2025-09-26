@@ -773,12 +773,16 @@ class AppProvider with ChangeNotifier {
     await StorageService.updateBonus(updatedBonus);
 
     // Deduct points from user
+    final secretCodeMessage = updatedBonus.secretCode?.isNotEmpty == true 
+        ? ' (Secret Code: ${updatedBonus.secretCode})'
+        : '';
+    
     final pointsTransaction = PointsTransaction(
       id: '${DateTime.now().millisecondsSinceEpoch}_redeem_$bonusId',
       userId: userId,
       type: PointsTransactionType.redeemed,
       points: bonus.pointsRequired,
-      description: 'Redeemed ${bonus.name}',
+      description: 'Redeemed ${bonus.name}${secretCodeMessage}',
       date: DateTime.now(),
     );
 
