@@ -257,7 +257,7 @@ class _ImportBonusesScreenState extends State<ImportBonusesScreen>
                   ),
                 ),
                 title: Text(
-                  transaction.description,
+                  _cleanDescriptionFromSecretCode(transaction.description),
                   style: const TextStyle(fontWeight: FontWeight.bold),
                 ),
                 subtitle: Column(
@@ -654,5 +654,10 @@ class _ImportBonusesScreenState extends State<ImportBonusesScreen>
         ],
       ),
     );
+  }
+
+  // Remove secret code from transaction description for admin redemptions display
+  String _cleanDescriptionFromSecretCode(String description) {
+    return description.replaceAll(RegExp(r'\s*\(Secret Code: .+?\)'), '');
   }
 }
