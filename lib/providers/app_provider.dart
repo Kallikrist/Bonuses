@@ -367,18 +367,8 @@ class AppProvider with ChangeNotifier {
   }
 
   // Workplace management methods
-  Future<void> addWorkplace(Workplace workplace) async {
-    await StorageService.addWorkplace(workplace);
-    notifyListeners();
-  }
-
   Future<void> updateWorkplace(Workplace workplace) async {
     await StorageService.updateWorkplace(workplace);
-    notifyListeners();
-  }
-
-  Future<void> deleteWorkplace(String workplaceId) async {
-    await StorageService.deleteWorkplace(workplaceId);
     notifyListeners();
   }
 
@@ -803,6 +793,41 @@ class AppProvider with ChangeNotifier {
 
   Future<List<Workplace>> getWorkplaces() async {
     return await StorageService.getWorkplaces();
+  }
+
+  Future<void> addWorkplace(Workplace workplace) async {
+    await StorageService.addWorkplace(workplace);
+    _workplaces.add(workplace);
+    notifyListeners();
+  }
+
+  Future<void> deleteWorkplace(String id) async {
+    try {
+      // Get workplace before deleting to find its name
+      final placeToDelete = _workplaces.firstWhere((w) => w.id == id);
+      
+      await StorageService.deleteWorkplace(id);
+      _workplaces.removeWhere((w) => w.id == id);
+      
+      // Load users and remove workplace-conditional workplace names
+      final users = await StorageService.getUsers();
+      final needToUpdate = users.where((user) => 
+        user.workplaceNames.contains(placeToDelete.name)
+      ).toList();
+      
+      for (var user in needToUpdate) {
+        final withoutPlaceName = user.workplaceNames
+          .where((name) => name != placeToDelete.name)
+          .toList();
+        if (withoutPlaceName.length != user.workplaceNames.length) {
+          await StorageService.updateUser(user.copyWith(workplaceNames: withoutPlaceName));
+        }
+      }
+      
+      notifyListeners();
+    } catch (e) {
+      print("Error deleting workplace: $e");
+    }
   }
 
   int getUserTotalPoints(String userId) {

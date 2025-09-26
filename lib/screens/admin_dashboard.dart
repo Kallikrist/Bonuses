@@ -761,57 +761,6 @@ class _AdminDashboardState extends State<AdminDashboard> {
     );
   }
 
-  Widget _buildWorkplacesTab(AppProvider appProvider) {
-    return FutureBuilder<List<Workplace>>(
-      future: appProvider.getWorkplaces(),
-      builder: (context, snapshot) {
-        if (snapshot.connectionState == ConnectionState.waiting) {
-          return const Center(child: CircularProgressIndicator());
-        }
-        if (snapshot.hasError) {
-          return Center(child: Text('Error: ${snapshot.error}'));
-        }
-        if (!snapshot.hasData || snapshot.data!.isEmpty) {
-          return const Center(child: Text('No workplaces found'));
-        }
-
-        final workplaces = snapshot.data!;
-
-        return ListView.builder(
-          padding: const EdgeInsets.all(16),
-          itemCount: workplaces.length,
-          itemBuilder: (context, index) {
-            final workplace = workplaces[index];
-            return Card(
-              child: ListTile(
-                leading: const Icon(Icons.business),
-                title: Text(workplace.name),
-                subtitle: Text(workplace.address),
-                trailing: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    IconButton(
-                      icon: const Icon(Icons.visibility),
-                      onPressed: () => _navigateToStoreProfile(
-                          context, workplace, appProvider),
-                      tooltip: 'View Store Profile',
-                    ),
-                    IconButton(
-                      icon: const Icon(Icons.edit),
-                      onPressed: () => _showEditWorkplaceDialog(
-                          context, workplace, appProvider),
-                      tooltip: 'Edit Store',
-                    ),
-                  ],
-                ),
-              ),
-            );
-          },
-        );
-      },
-    );
-  }
-
   Widget _buildAnalyticsSection(
       List<SalesTarget> todaysTargets,
       List<SalesTarget> allTargets,
@@ -2747,8 +2696,14 @@ class _AdminDashboardState extends State<AdminDashboard> {
                   _buildSettingsItem(
                     Icons.business,
                     'Manage Workplaces',
-                    'Add, edit, and manage workplace locations',
-                    () => _showWorkplacesManagement(),
+                    'View all workplaces in a dedicated window',
+                    () => Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (context) =>
+                            WorkplacesListScreen(appProvider: appProvider),
+                      ),
+                    ),
                   ),
                   _buildSettingsItem(
                     Icons.track_changes,
@@ -3602,41 +3557,6 @@ class _AdminDashboardState extends State<AdminDashboard> {
             child: const Text('Cancel'),
           ),
         ],
-      ),
-    );
-  }
-
-  void _showWorkplacesManagement() {
-    showDialog(
-      context: context,
-      builder: (context) => Dialog(
-        child: Container(
-          width: MediaQuery.of(context).size.width * 0.9,
-          height: MediaQuery.of(context).size.height * 0.8,
-          padding: const EdgeInsets.all(16),
-          child: Column(
-            children: [
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  const Text(
-                    'Manage Workplaces',
-                    style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
-                  ),
-                  IconButton(
-                    onPressed: () => Navigator.pop(context),
-                    icon: const Icon(Icons.close),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 16),
-              Expanded(
-                child: _buildWorkplacesTab(
-                    Provider.of<AppProvider>(context, listen: false)),
-              ),
-            ],
-          ),
-        ),
       ),
     );
   }
@@ -7230,7 +7150,8 @@ class _EmployeesListScreenState extends State<EmployeesListScreen> {
   }
 
   void _toggleSelectAll() {
-    if (_selectedEmployeeIds.length == _allEmployeeIds.length && _allEmployeeIds.isNotEmpty) {
+    if (_selectedEmployeeIds.length == _allEmployeeIds.length &&
+        _allEmployeeIds.isNotEmpty) {
       _deselectAllEmployees();
     } else {
       _selectAllEmployees();
@@ -7263,19 +7184,20 @@ class _EmployeesListScreenState extends State<EmployeesListScreen> {
           ElevatedButton(
             onPressed: () async {
               final selectedCount = _selectedEmployeeIds.length;
-              
+
               try {
                 // Delete selected employees
                 for (String employeeId in List.from(_selectedEmployeeIds)) {
                   await widget.appProvider.deleteUser(employeeId);
                 }
-                
+
                 Navigator.pop(context);
                 _toggleSelectionMode(); // Exit selection mode
-                
+
                 ScaffoldMessenger.of(context).showSnackBar(
                   SnackBar(
-                    content: Text('$selectedCount employees deleted successfully'),
+                    content:
+                        Text('$selectedCount employees deleted successfully'),
                     backgroundColor: Colors.green,
                   ),
                 );
@@ -7382,17 +7304,17 @@ class _EmployeesListScreenState extends State<EmployeesListScreen> {
           onPressed: () => Navigator.pop(context),
         ),
         actions: [
-          _isSelectionMode 
-            ? IconButton(
-                icon: const Icon(Icons.close),
-                onPressed: _toggleSelectionMode,
-                tooltip: 'Cancel Selection',
-              )
-            : IconButton(
-                icon: const Icon(Icons.checklist),
-                onPressed: _toggleSelectionMode,
-                tooltip: 'Select Employees',
-              ),
+          _isSelectionMode
+              ? IconButton(
+                  icon: const Icon(Icons.close),
+                  onPressed: _toggleSelectionMode,
+                  tooltip: 'Cancel Selection',
+                )
+              : IconButton(
+                  icon: const Icon(Icons.checklist),
+                  onPressed: _toggleSelectionMode,
+                  tooltip: 'Select Employees',
+                ),
         ],
       ),
       body: Consumer<AppProvider>(
@@ -7425,7 +7347,8 @@ class _EmployeesListScreenState extends State<EmployeesListScreen> {
                   if (_isSelectionMode)
                     Container(
                       width: double.infinity,
-                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 16, vertical: 12),
                       color: Colors.blue.shade50,
                       child: Row(
                         mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -7434,10 +7357,13 @@ class _EmployeesListScreenState extends State<EmployeesListScreen> {
                             onPressed: _toggleSelectAll,
                             style: TextButton.styleFrom(
                               foregroundColor: Colors.blue,
-                              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                              padding: const EdgeInsets.symmetric(
+                                  horizontal: 16, vertical: 8),
                             ),
                             child: Text(
-                              (_selectedEmployeeIds.length == _allEmployeeIds.length && _allEmployeeIds.isNotEmpty)
+                              (_selectedEmployeeIds.length ==
+                                          _allEmployeeIds.length &&
+                                      _allEmployeeIds.isNotEmpty)
                                   ? 'Deselect All'
                                   : 'Select All',
                               style: const TextStyle(
@@ -7460,18 +7386,23 @@ class _EmployeesListScreenState extends State<EmployeesListScreen> {
                   // Employee list
                   Expanded(
                     child: ListView.builder(
-                      padding: _isSelectionMode 
-                          ? const EdgeInsets.symmetric(horizontal: 16, vertical: 8)
+                      padding: _isSelectionMode
+                          ? const EdgeInsets.symmetric(
+                              horizontal: 16, vertical: 8)
                           : const EdgeInsets.all(16),
                       itemCount: employees.length,
                       itemBuilder: (context, index) {
                         final employee = employees[index];
-                        final userPoints = provider.getUserTotalPoints(employee.id);
-                        final isSelected = _selectedEmployeeIds.contains(employee.id);
-                        final isCurrentUser = widget.appProvider.currentUser?.id == employee.id;
+                        final userPoints =
+                            provider.getUserTotalPoints(employee.id);
+                        final isSelected =
+                            _selectedEmployeeIds.contains(employee.id);
+                        final isCurrentUser =
+                            widget.appProvider.currentUser?.id == employee.id;
 
                         return Card(
-                          color: isSelected ? Colors.blue.shade50 : Colors.white,
+                          color:
+                              isSelected ? Colors.blue.shade50 : Colors.white,
                           margin: const EdgeInsets.only(bottom: 8),
                           child: ListTile(
                             onTap: () {
@@ -7504,8 +7435,12 @@ class _EmployeesListScreenState extends State<EmployeesListScreen> {
                             title: Text(
                               employee.name,
                               style: TextStyle(
-                                fontWeight: isSelected ? FontWeight.w600 : FontWeight.normal,
-                                color: isSelected ? Colors.blue.shade700 : Colors.black87,
+                                fontWeight: isSelected
+                                    ? FontWeight.w600
+                                    : FontWeight.normal,
+                                color: isSelected
+                                    ? Colors.blue.shade700
+                                    : Colors.black87,
                               ),
                             ),
                             subtitle: Column(
@@ -7517,7 +7452,9 @@ class _EmployeesListScreenState extends State<EmployeesListScreen> {
                                       ? 'Admin • $userPoints points'
                                       : '$userPoints points',
                                   style: TextStyle(
-                                    color: isSelected ? Colors.blue.shade600 : Colors.grey[600],
+                                    color: isSelected
+                                        ? Colors.blue.shade600
+                                        : Colors.grey[600],
                                     fontSize: 12,
                                   ),
                                 ),
@@ -7525,12 +7462,18 @@ class _EmployeesListScreenState extends State<EmployeesListScreen> {
                             ),
                             trailing: _isSelectionMode && !isCurrentUser
                                 ? ElevatedButton(
-                                    onPressed: () => _toggleEmployeeSelection(employee.id),
+                                    onPressed: () =>
+                                        _toggleEmployeeSelection(employee.id),
                                     style: ElevatedButton.styleFrom(
-                                      backgroundColor: isSelected ? Colors.blue : Colors.grey.shade300,
-                                      foregroundColor: isSelected ? Colors.white : Colors.black87,
+                                      backgroundColor: isSelected
+                                          ? Colors.blue
+                                          : Colors.grey.shade300,
+                                      foregroundColor: isSelected
+                                          ? Colors.white
+                                          : Colors.black87,
                                       minimumSize: const Size(40, 32),
-                                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                                      padding: const EdgeInsets.symmetric(
+                                          horizontal: 12, vertical: 8),
                                     ),
                                     child: Text(
                                       isSelected ? 'Selected' : 'Select',
@@ -7543,10 +7486,12 @@ class _EmployeesListScreenState extends State<EmployeesListScreen> {
                                         height: 32,
                                         decoration: BoxDecoration(
                                           color: Colors.grey.shade200,
-                                          borderRadius: BorderRadius.circular(6),
+                                          borderRadius:
+                                              BorderRadius.circular(6),
                                         ),
                                         child: const Center(
-                                          child: Icon(Icons.lock, size: 16, color: Colors.grey),
+                                          child: Icon(Icons.lock,
+                                              size: 16, color: Colors.grey),
                                         ),
                                       )
                                     : Row(
@@ -7556,9 +7501,10 @@ class _EmployeesListScreenState extends State<EmployeesListScreen> {
                                             employee.role == UserRole.admin
                                                 ? Icons.admin_panel_settings
                                                 : Icons.person,
-                                            color: employee.role == UserRole.admin
-                                                ? Colors.purple
-                                                : Colors.blue,
+                                            color:
+                                                employee.role == UserRole.admin
+                                                    ? Colors.purple
+                                                    : Colors.blue,
                                           ),
                                           const SizedBox(width: 8),
                                           const Icon(
@@ -7579,7 +7525,7 @@ class _EmployeesListScreenState extends State<EmployeesListScreen> {
           );
         },
       ),
-      floatingActionButton: _isSelectionMode 
+      floatingActionButton: _isSelectionMode
           ? _selectedEmployeeIds.isNotEmpty
               ? FloatingActionButton(
                   onPressed: _showDeleteSelectedDialog,
@@ -7594,6 +7540,362 @@ class _EmployeesListScreenState extends State<EmployeesListScreen> {
               foregroundColor: Colors.white,
               child: const Icon(Icons.person_add),
             ),
+    );
+  }
+}
+
+class WorkplacesListScreen extends StatefulWidget {
+  final AppProvider appProvider;
+  const WorkplacesListScreen({super.key, required this.appProvider});
+
+  @override
+  State<WorkplacesListScreen> createState() => _WorkplacesListScreenState();
+}
+
+class _WorkplacesListScreenState extends State<WorkplacesListScreen> {
+  Set<String> _selectedWorkplaceIds = <String>{};
+  bool _isSelectionMode = false;
+  List<String> _allWorkplaceIds = [];
+
+  void _toggleSelectionMode() {
+    setState(() {
+      _isSelectionMode = !_isSelectionMode;
+      if (!_isSelectionMode) {
+        _selectedWorkplaceIds.clear();
+      }
+    });
+  }
+
+  void _selectAllWorkplaces() {
+    setState(() {
+      _selectedWorkplaceIds = _allWorkplaceIds.toSet();
+    });
+  }
+
+  void _deselectAllWorkplaces() {
+    setState(() {
+      _selectedWorkplaceIds.clear();
+    });
+  }
+
+  void _toggleSelectAll() {
+    if (_selectedWorkplaceIds.length == _allWorkplaceIds.length &&
+        _allWorkplaceIds.isNotEmpty) {
+      _deselectAllWorkplaces();
+    } else {
+      _selectAllWorkplaces();
+    }
+  }
+
+  void _toggleWorkplaceSelection(String workplaceId) {
+    setState(() {
+      if (_selectedWorkplaceIds.contains(workplaceId)) {
+        _selectedWorkplaceIds.remove(workplaceId);
+      } else {
+        _selectedWorkplaceIds.add(workplaceId);
+      }
+    });
+  }
+
+  void _showDeleteSelectedDialog() {
+    showDialog(
+      context: context,
+      builder: (c) => AlertDialog(
+        title: Text('Delete Selected Workplaces'),
+        content: Text(
+          'Are you sure you want to delete ${_selectedWorkplaceIds.length} selected workplaces? This action cannot be undone.',
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(c), child: Text('Cancel')),
+          ElevatedButton(
+            onPressed: () async {
+              final count = _selectedWorkplaceIds.length;
+              try {
+                for (String id in List.from(_selectedWorkplaceIds)) {
+                  await widget.appProvider.deleteWorkplace(id);
+                }
+                setState(() {
+                  _selectedWorkplaceIds.clear();
+                  _isSelectionMode = false;
+                });
+                Navigator.pop(context);
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(
+                    content: Text('$count workplaces deleted'),
+                    backgroundColor: Colors.green,
+                  ),
+                );
+              } catch (e) {
+                Navigator.pop(context);
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(
+                    content: Text('Couldn\'t delete workplaces: $e'),
+                    backgroundColor: Colors.red,
+                  ),
+                );
+              }
+            },
+            style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
+            child: const Text('Delete', style: TextStyle(color: Colors.white)),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _showAddWorkplaceDialog() {
+    final nameController = TextEditingController();
+    final addressController = TextEditingController();
+
+    showDialog(
+      context: context,
+      builder: (d) => AlertDialog(
+        title: const Text('Add Workplace'),
+        content: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              TextField(
+                controller: nameController,
+                decoration: const InputDecoration(labelText: 'Workplace Name'),
+              ),
+              TextField(
+                controller: addressController,
+                decoration: const InputDecoration(labelText: 'Address'),
+                maxLines: 3,
+              ),
+            ],
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Cancel'),
+          ),
+          ElevatedButton(
+            onPressed: () async {
+              if (nameController.text.isNotEmpty &&
+                  addressController.text.isNotEmpty) {
+                final newWorkplace = Workplace(
+                  id: DateTime.now().millisecondsSinceEpoch.toString(),
+                  name: nameController.text,
+                  address: addressController.text,
+                  createdAt: DateTime.now(),
+                );
+                await widget.appProvider.addWorkplace(newWorkplace);
+                Navigator.pop(context);
+                ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(content: Text('Workplace added')));
+              }
+            },
+            child: Text('Add'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext c) {
+    return Scaffold(
+      appBar: AppBar(
+        backgroundColor: Colors.transparent,
+        elevation: 0,
+        title: const Text('Workplaces List'),
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back),
+          onPressed: () => Navigator.pop(c),
+        ),
+        actions: [
+          _isSelectionMode
+              ? IconButton(
+                  icon: const Icon(Icons.close),
+                  onPressed: _toggleSelectionMode,
+                )
+              : IconButton(
+                  icon: const Icon(Icons.checklist),
+                  onPressed: _toggleSelectionMode,
+                ),
+        ],
+      ),
+      floatingActionButton: _isSelectionMode
+          ? _selectedWorkplaceIds.isNotEmpty
+              ? FloatingActionButton(
+                  onPressed: _showDeleteSelectedDialog,
+                  backgroundColor: Colors.red,
+                  foregroundColor: Colors.white,
+                  child: const Icon(Icons.delete),
+                )
+              : null
+          : FloatingActionButton(
+              onPressed: _showAddWorkplaceDialog,
+              backgroundColor: Colors.blue,
+              foregroundColor: Colors.white,
+              child: const Icon(Icons.business),
+            ),
+      body: Consumer<AppProvider>(builder: (context, provider, child) {
+        return FutureBuilder<List<Workplace>>(
+          key: ValueKey(provider.workplaces.length),
+          future: provider.getWorkplaces(),
+          builder: (context, snapshot) {
+            if (!snapshot.hasData) {
+              return const Center(child: CircularProgressIndicator());
+            }
+
+            final workplaces = snapshot.data!;
+            _allWorkplaceIds = workplaces.map((w) => w.id).toList();
+
+            return Column(
+              children: [
+                // Select All and count bar
+                if (_isSelectionMode)
+                  Container(
+                    width: double.infinity,
+                    padding: const EdgeInsets.symmetric(
+                        horizontal: 16, vertical: 12),
+                    color: Colors.blue.shade50,
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        TextButton(
+                          onPressed: _toggleSelectAll,
+                          style: TextButton.styleFrom(
+                            foregroundColor: Colors.blue,
+                            padding: const EdgeInsets.symmetric(
+                                horizontal: 16, vertical: 8),
+                          ),
+                          child: Text(
+                            (_selectedWorkplaceIds.length ==
+                                        _allWorkplaceIds.length &&
+                                    _allWorkplaceIds.isNotEmpty)
+                                ? 'Deselect All'
+                                : 'Select All',
+                            style: const TextStyle(
+                              fontSize: 16,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                        ),
+                        Text(
+                          '${_selectedWorkplaceIds.length} Selected',
+                          style: TextStyle(
+                            fontSize: 16,
+                            fontWeight: FontWeight.w600,
+                            color: Colors.blue.shade700,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                // Workplace list
+                Expanded(
+                  child: ListView.builder(
+                    padding: const EdgeInsets.all(16),
+                    itemCount: workplaces.length,
+                    itemBuilder: (context, index) {
+                      final workplace = workplaces[index];
+                      final isSelected =
+                          _selectedWorkplaceIds.contains(workplace.id);
+
+                      return Card(
+                        color: isSelected ? Colors.blue.shade50 : Colors.white,
+                        margin: const EdgeInsets.only(bottom: 8),
+                        child: ListTile(
+                          onTap: () {
+                            if (_isSelectionMode) {
+                              _toggleWorkplaceSelection(workplace.id);
+                            } else {
+                              // Navigate to existing Store Profile screen instead of new WorkplaceProfileScreen
+                              Navigator.of(context).push(
+                                MaterialPageRoute(
+                                  builder: (context) => StoreProfileScreen(
+                                    workplace: workplace,
+                                    appProvider: widget.appProvider,
+                                  ),
+                                ),
+                              );
+                            }
+                          },
+                          leading: CircleAvatar(
+                            backgroundColor: Colors.orange,
+                            child: Icon(Icons.business, color: Colors.white),
+                          ),
+                          title: Text(
+                            workplace.name,
+                            style: TextStyle(
+                              fontWeight: isSelected
+                                  ? FontWeight.w600
+                                  : FontWeight.normal,
+                              color: isSelected
+                                  ? Colors.blue.shade700
+                                  : Colors.black87,
+                            ),
+                          ),
+                          subtitle: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                workplace.address,
+                                style: TextStyle(
+                                  color: isSelected
+                                      ? Colors.blue.shade600
+                                      : Colors.grey[600],
+                                  fontSize: 14,
+                                ),
+                              ),
+                              Text(
+                                'Created: ${DateFormat('MMM dd, yyyy').format(workplace.createdAt)}',
+                                style: TextStyle(
+                                  color: isSelected
+                                      ? Colors.blue.shade600
+                                      : Colors.grey[600],
+                                  fontSize: 12,
+                                ),
+                              ),
+                            ],
+                          ),
+                          trailing: _isSelectionMode
+                              ? ElevatedButton(
+                                  onPressed: () =>
+                                      _toggleWorkplaceSelection(workplace.id),
+                                  style: ElevatedButton.styleFrom(
+                                    backgroundColor: isSelected
+                                        ? Colors.blue
+                                        : Colors.grey.shade300,
+                                    foregroundColor: isSelected
+                                        ? Colors.white
+                                        : Colors.black87,
+                                    minimumSize: const Size(40, 32),
+                                    padding: const EdgeInsets.symmetric(
+                                        horizontal: 12, vertical: 8),
+                                  ),
+                                  child: Text(
+                                    isSelected ? 'Selected' : 'Select',
+                                    style: const TextStyle(fontSize: 12),
+                                  ),
+                                )
+                              : Row(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    Icon(Icons.business, color: Colors.orange),
+                                    const SizedBox(width: 8),
+                                    const Icon(
+                                      Icons.arrow_forward_ios,
+                                      size: 16,
+                                      color: Colors.grey,
+                                    ),
+                                  ],
+                                ),
+                        ),
+                      );
+                    },
+                  ),
+                ),
+              ],
+            );
+          },
+        );
+      }),
     );
   }
 }
