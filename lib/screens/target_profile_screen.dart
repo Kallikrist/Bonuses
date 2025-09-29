@@ -6,6 +6,7 @@ import 'package:fl_chart/fl_chart.dart';
 import '../models/sales_target.dart';
 import '../models/user.dart';
 import '../models/workplace.dart';
+import '../models/points_transaction.dart';
 import '../providers/app_provider.dart';
 import '../models/approval_request.dart';
 
@@ -459,6 +460,13 @@ class _TargetProfileScreenState extends State<TargetProfileScreen> {
                           ? ((actualAmount - targetAmount) / targetAmount) * 100
                           : 0.0;
 
+                      // Calculate points based on admin-configured rules if target is met
+                      int pointsAwarded = 0;
+                      if (isTargetMet) {
+                        final effectivePercent = 100.0 + percentageAbove;
+                        pointsAwarded = app.getPointsForEffectivePercent(effectivePercent);
+                      }
+
                       final updatedTarget = _currentTarget.copyWith(
                         date: selectedDate,
                         targetAmount: targetAmount,
@@ -470,13 +478,50 @@ class _TargetProfileScreenState extends State<TargetProfileScreen> {
                         isMet: isTargetMet,
                         status: newStatus,
                         percentageAboveTarget: percentageAbove,
+                        pointsAwarded: pointsAwarded,
                       );
 
                       await app.updateSalesTarget(updatedTarget);
+                      
+                      // Award points to team members if target is met and points are available
+                      if (isTargetMet && pointsAwarded > 0) {
+                        // Get all team members (primary assignee + collaborators)
+                        final List<String> teamMemberIds = [];
+                        final List<String> teamMemberNames = [];
+
+                        if (updatedTarget.assignedEmployeeId != null) {
+                          teamMemberIds.add(updatedTarget.assignedEmployeeId!);
+                          teamMemberNames.add(updatedTarget.assignedEmployeeName ?? 'Unknown');
+                        }
+
+                        // Add collaborative team members
+                        teamMemberIds.addAll(updatedTarget.collaborativeEmployeeIds);
+                        teamMemberNames.addAll(updatedTarget.collaborativeEmployeeNames);
+
+                        // Award points to each team member
+                        for (int i = 0; i < teamMemberIds.length; i++) {
+                          final memberId = teamMemberIds[i];
+                          
+                          final transaction = PointsTransaction(
+                            id: '${DateTime.now().millisecondsSinceEpoch}_edit_${memberId}_${updatedTarget.id}',
+                            userId: memberId,
+                            type: PointsTransactionType.earned,
+                            points: pointsAwarded,
+                            description: 'Target completed: ${updatedTarget.assignedWorkplaceName ?? 'Unknown Store'} - ${updatedTarget.date.day}/${updatedTarget.date.month}/${updatedTarget.date.year}',
+                            date: DateTime.now(),
+                            relatedTargetId: updatedTarget.id,
+                          );
+                          
+                          await app.addPointsTransaction(transaction);
+                        }
+                      }
+                      
                       Navigator.pop(context);
                       ScaffoldMessenger.of(context).showSnackBar(
-                        const SnackBar(
-                          content: Text('Target updated successfully'),
+                        SnackBar(
+                          content: Text(isTargetMet && pointsAwarded > 0 
+                            ? 'Target updated successfully! ${pointsAwarded} points awarded to team members.'
+                            : 'Target updated successfully'),
                           backgroundColor: Colors.green,
                         ),
                       );
