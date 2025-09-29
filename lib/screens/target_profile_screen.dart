@@ -611,6 +611,7 @@ class _TargetProfileScreenState extends State<TargetProfileScreen> {
     }
     
     print('DEBUG: Found ${finalTargets.length} unique targets for chart');
+    print('DEBUG: Will use scrollable chart: ${finalTargets.length >= 12}');
     for (final target in finalTargets) {
       print('DEBUG: Final target ${target.id}: date=${target.date}, targetAmount=${target.targetAmount}, actualAmount=${target.actualAmount}');
     }
@@ -702,11 +703,12 @@ class _TargetProfileScreenState extends State<TargetProfileScreen> {
             borderRadius: BorderRadius.circular(8),
             border: Border.all(color: Colors.grey.shade300),
           ),
-          child: finalTargets.length > 12 
+          child: finalTargets.length >= 12 
             ? SingleChildScrollView(
                 scrollDirection: Axis.horizontal,
+                physics: const BouncingScrollPhysics(),
                 child: SizedBox(
-                  width: finalTargets.length * 40.0, // 40px per bar group
+                  width: finalTargets.length * 60.0, // 60px per bar group for better spacing
                   child: BarChart(
             BarChartData(
               gridData: FlGridData(show: true),
