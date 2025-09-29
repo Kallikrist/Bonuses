@@ -605,21 +605,53 @@ class _TargetProfileScreenState extends State<TargetProfileScreen> {
       spots.add(FlSpot(i.toDouble(), target.actualAmount));
       targetSpots.add(FlSpot(i.toDouble(), target.targetAmount));
       
-      // Format date label (e.g., "Sep 26", "Sep 25")
+      // Format date label with year if needed (e.g., "Sep 26", "Sep 25 '24")
       final monthName = DateFormat('MMM').format(target.date);
       final dayName = target.date.day.toString();
-      labels.add('$monthName $dayName');
+      final year = target.date.year;
+      final currentYear = DateTime.now().year;
+      
+      if (year != currentYear) {
+        labels.add('$monthName $dayName \'${year.toString().substring(2)}');
+      } else {
+        labels.add('$monthName $dayName');
+      }
     }
 
-    return Container(
-      height: 200,
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: Colors.grey.shade300),
-      ),
-      child: LineChart(
+    return Column(
+      children: [
+        // Legend
+        Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Container(
+              width: 12,
+              height: 2,
+              color: Colors.blue,
+            ),
+            const SizedBox(width: 8),
+            const Text('Target', style: TextStyle(fontSize: 12)),
+            const SizedBox(width: 16),
+            Container(
+              width: 12,
+              height: 2,
+              color: Colors.green,
+            ),
+            const SizedBox(width: 8),
+            const Text('Actual', style: TextStyle(fontSize: 12)),
+          ],
+        ),
+        const SizedBox(height: 8),
+        // Chart
+        Container(
+          height: 200,
+          padding: const EdgeInsets.all(16),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(8),
+            border: Border.all(color: Colors.grey.shade300),
+          ),
+          child: LineChart(
         LineChartData(
           gridData: FlGridData(show: true),
           titlesData: FlTitlesData(
@@ -641,10 +673,13 @@ class _TargetProfileScreenState extends State<TargetProfileScreen> {
                 reservedSize: 30,
                 getTitlesWidget: (value, meta) {
                   if (value.toInt() >= 0 && value.toInt() < labels.length) {
-                    return Text(
-                      labels[value.toInt()],
-                      style: const TextStyle(fontSize: 10),
-                    );
+                    // Show every 3rd label to avoid overcrowding
+                    if (value.toInt() % 3 == 0 || value.toInt() == labels.length - 1) {
+                      return Text(
+                        labels[value.toInt()],
+                        style: const TextStyle(fontSize: 10),
+                      );
+                    }
                   }
                   return const Text('');
                 },
@@ -676,6 +711,8 @@ class _TargetProfileScreenState extends State<TargetProfileScreen> {
           ],
         ),
       ),
+    ),
+      ],
     );
   }
 }
