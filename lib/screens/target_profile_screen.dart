@@ -578,6 +578,11 @@ class _TargetProfileScreenState extends State<TargetProfileScreen> {
     // Sort by date
     filteredTargets.sort((a, b) => a.date.compareTo(b.date));
 
+    print('DEBUG: Found ${filteredTargets.length} targets for chart');
+    for (final target in filteredTargets) {
+      print('DEBUG: Target ${target.id}: date=${target.date}, targetAmount=${target.targetAmount}, actualAmount=${target.actualAmount}');
+    }
+
     if (filteredTargets.isEmpty) {
       return Container(
         height: 200,
@@ -608,6 +613,7 @@ class _TargetProfileScreenState extends State<TargetProfileScreen> {
       // Format date label to show just the year (24, 25)
       final year = target.date.year;
       final yearShort = year.toString().substring(2);
+      print('DEBUG: Target date: ${target.date}, year: $year, yearShort: $yearShort');
       labels.add(yearShort);
     }
 
