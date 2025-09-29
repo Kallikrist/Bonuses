@@ -605,17 +605,10 @@ class _TargetProfileScreenState extends State<TargetProfileScreen> {
       spots.add(FlSpot(i.toDouble(), target.actualAmount));
       targetSpots.add(FlSpot(i.toDouble(), target.targetAmount));
       
-      // Format date label with year if needed (e.g., "Sep 26", "Sep 25 '24")
-      final monthName = DateFormat('MMM').format(target.date);
-      final dayName = target.date.day.toString();
+      // Format date label to show just the year (24, 25)
       final year = target.date.year;
-      final currentYear = DateTime.now().year;
-      
-      if (year != currentYear) {
-        labels.add('$monthName $dayName \'${year.toString().substring(2)}');
-      } else {
-        labels.add('$monthName $dayName');
-      }
+      final yearShort = year.toString().substring(2);
+      labels.add(yearShort);
     }
 
     return Column(
@@ -673,13 +666,11 @@ class _TargetProfileScreenState extends State<TargetProfileScreen> {
                 reservedSize: 30,
                 getTitlesWidget: (value, meta) {
                   if (value.toInt() >= 0 && value.toInt() < labels.length) {
-                    // Show every 3rd label to avoid overcrowding
-                    if (value.toInt() % 3 == 0 || value.toInt() == labels.length - 1) {
-                      return Text(
-                        labels[value.toInt()],
-                        style: const TextStyle(fontSize: 10),
-                      );
-                    }
+                    // Show year labels (24, 25) for each target
+                    return Text(
+                      labels[value.toInt()],
+                      style: const TextStyle(fontSize: 10),
+                    );
                   }
                   return const Text('');
                 },
@@ -690,23 +681,41 @@ class _TargetProfileScreenState extends State<TargetProfileScreen> {
           ),
           borderData: FlBorderData(show: true),
           lineBarsData: [
-            // Target line
+            // Target points (blue dots)
             LineChartBarData(
               spots: targetSpots,
-              isCurved: true,
+              isCurved: false,
               color: Colors.blue,
-              barWidth: 2,
-              isStrokeCapRound: true,
-              dotData: const FlDotData(show: false),
+              barWidth: 0,
+              dotData: FlDotData(
+                show: true,
+                getDotPainter: (spot, percent, barData, index) {
+                  return FlDotCirclePainter(
+                    radius: 6,
+                    color: Colors.blue,
+                    strokeWidth: 2,
+                    strokeColor: Colors.white,
+                  );
+                },
+              ),
             ),
-            // Actual line
+            // Actual points (green dots)
             LineChartBarData(
               spots: spots,
-              isCurved: true,
+              isCurved: false,
               color: Colors.green,
-              barWidth: 3,
-              isStrokeCapRound: true,
-              dotData: const FlDotData(show: true),
+              barWidth: 0,
+              dotData: FlDotData(
+                show: true,
+                getDotPainter: (spot, percent, barData, index) {
+                  return FlDotCirclePainter(
+                    radius: 6,
+                    color: Colors.green,
+                    strokeWidth: 2,
+                    strokeColor: Colors.white,
+                  );
+                },
+              ),
             ),
           ],
         ),
