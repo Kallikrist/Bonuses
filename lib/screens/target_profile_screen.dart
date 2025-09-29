@@ -261,6 +261,7 @@ class _TargetProfileScreenState extends State<TargetProfileScreen> {
 
   void _showEditTargetDialog(BuildContext context, AppProvider app) {
     final targetAmountController = TextEditingController(text: _currentTarget.targetAmount.toString());
+    final actualAmountController = TextEditingController(text: _currentTarget.actualAmount.toString());
     User? selectedEmployee;
     Workplace? selectedWorkplace;
     DateTime selectedDate = _currentTarget.date;
@@ -315,6 +316,16 @@ class _TargetProfileScreenState extends State<TargetProfileScreen> {
                     controller: targetAmountController,
                     decoration: const InputDecoration(
                       labelText: 'Target Amount',
+                    ),
+                    keyboardType: TextInputType.number,
+                  ),
+                  const SizedBox(height: 16),
+                  
+                  // Actual Amount
+                  TextField(
+                    controller: actualAmountController,
+                    decoration: const InputDecoration(
+                      labelText: 'Actual Sales Amount',
                     ),
                     keyboardType: TextInputType.number,
                   ),
@@ -432,22 +443,26 @@ class _TargetProfileScreenState extends State<TargetProfileScreen> {
                 onPressed: () async {
                   final currentUser = app.currentUser;
                   if (targetAmountController.text.isNotEmpty &&
+                      actualAmountController.text.isNotEmpty &&
                       selectedEmployee != null &&
                       selectedWorkplace != null &&
                       currentUser != null) {
-                    final amount = double.tryParse(targetAmountController.text);
+                    final targetAmount = double.tryParse(targetAmountController.text);
+                    final actualAmount = double.tryParse(actualAmountController.text);
 
-                    if (amount != null && amount > 0) {
-                      // Recalculate target status based on new target amount vs actual amount
-                      final isTargetMet = _currentTarget.actualAmount >= amount;
+                    if (targetAmount != null && targetAmount > 0 && 
+                        actualAmount != null && actualAmount >= 0) {
+                      // Recalculate target status based on new target amount vs new actual amount
+                      final isTargetMet = actualAmount >= targetAmount;
                       final newStatus = isTargetMet ? TargetStatus.met : TargetStatus.missed;
                       final percentageAbove = isTargetMet
-                          ? ((_currentTarget.actualAmount - amount) / amount) * 100
+                          ? ((actualAmount - targetAmount) / targetAmount) * 100
                           : 0.0;
 
                       final updatedTarget = _currentTarget.copyWith(
                         date: selectedDate,
-                        targetAmount: amount,
+                        targetAmount: targetAmount,
+                        actualAmount: actualAmount,
                         assignedEmployeeId: selectedEmployee!.id,
                         assignedEmployeeName: selectedEmployee!.name,
                         assignedWorkplaceId: selectedWorkplace!.id,
@@ -468,7 +483,7 @@ class _TargetProfileScreenState extends State<TargetProfileScreen> {
                     } else {
                       ScaffoldMessenger.of(context).showSnackBar(
                         const SnackBar(
-                          content: Text('Please enter a valid target amount'),
+                          content: Text('Please enter valid target and actual amounts'),
                           backgroundColor: Colors.red,
                         ),
                       );
