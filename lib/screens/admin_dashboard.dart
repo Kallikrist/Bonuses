@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:intl/intl.dart';
+import 'target_profile_screen.dart';
 import '../providers/app_provider.dart';
 import '../models/sales_target.dart';
 import '../models/bonus.dart';
@@ -7678,10 +7679,10 @@ class _TargetListScreenState extends State<TargetListScreen> {
                                   style: const TextStyle(fontSize: 12),
                                 ),
                               )
-                            : IconButton(
-                                icon: const Icon(Icons.arrow_forward_ios),
-                                onPressed: () => _navigateToTarget(target),
-                              ),
+                                   : IconButton(
+                                       icon: const Icon(Icons.arrow_forward_ios),
+                                       onPressed: () => _navigateToTarget(target),
+                                     ),
                       ),
                     );
                   },
@@ -7743,10 +7744,10 @@ class _TargetListScreenState extends State<TargetListScreen> {
   }
 
   void _navigateToTarget(SalesTarget target) {
-    // This would navigate to a detailed view of the target
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text('Target: ${target.assignedEmployeeName ?? "Unknown"}'),
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) => TargetProfileScreen(target: target),
       ),
     );
   }
