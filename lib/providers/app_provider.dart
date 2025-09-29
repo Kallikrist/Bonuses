@@ -33,11 +33,8 @@ class AppProvider with ChangeNotifier {
   Future<void> initialize() async {
     _setLoading(true);
     try {
-      // Only clear data if no users exist (first time running)
-      final existingUsers = await StorageService.getUsers();
-      if (existingUsers.isEmpty) {
-        await StorageService.clearAllData();
-      }
+      // Clear all data to ensure fresh dummy targets are created
+      await StorageService.clearAllData();
       await StorageService.initializeSampleData();
       await _loadData();
     } finally {
