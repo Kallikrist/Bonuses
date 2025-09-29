@@ -464,7 +464,12 @@ class _TargetProfileScreenState extends State<TargetProfileScreen> {
                       int pointsAwarded = 0;
                       if (isTargetMet) {
                         final effectivePercent = 100.0 + percentageAbove;
+                        print('DEBUG: Target edit - effectivePercent: $effectivePercent, percentageAbove: $percentageAbove');
+                        print('DEBUG: Target edit - actualAmount: $actualAmount, targetAmount: $targetAmount');
+                        print('DEBUG: Target edit - pointsRules: ${app.pointsRules.entries.length} custom rules');
+                        print('DEBUG: Target edit - legacy rules - 200%: ${app.pointsRules.pointsForDoubleTarget}, 110%: ${app.pointsRules.pointsForTenPercentAbove}, 100%: ${app.pointsRules.pointsForMet}');
                         pointsAwarded = app.getPointsForEffectivePercent(effectivePercent);
+                        print('DEBUG: Target edit - pointsAwarded: $pointsAwarded');
                       }
 
                       final updatedTarget = _currentTarget.copyWith(
