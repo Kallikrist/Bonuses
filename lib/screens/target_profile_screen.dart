@@ -438,6 +438,13 @@ class _TargetProfileScreenState extends State<TargetProfileScreen> {
                     final amount = double.tryParse(targetAmountController.text);
 
                     if (amount != null && amount > 0) {
+                      // Recalculate target status based on new target amount vs actual amount
+                      final isTargetMet = _currentTarget.actualAmount >= amount;
+                      final newStatus = isTargetMet ? TargetStatus.met : TargetStatus.missed;
+                      final percentageAbove = isTargetMet
+                          ? ((_currentTarget.actualAmount - amount) / amount) * 100
+                          : 0.0;
+
                       final updatedTarget = _currentTarget.copyWith(
                         date: selectedDate,
                         targetAmount: amount,
@@ -445,6 +452,9 @@ class _TargetProfileScreenState extends State<TargetProfileScreen> {
                         assignedEmployeeName: selectedEmployee!.name,
                         assignedWorkplaceId: selectedWorkplace!.id,
                         assignedWorkplaceName: selectedWorkplace!.name,
+                        isMet: isTargetMet,
+                        status: newStatus,
+                        percentageAboveTarget: percentageAbove,
                       );
 
                       await app.updateSalesTarget(updatedTarget);
