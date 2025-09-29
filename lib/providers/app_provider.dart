@@ -819,6 +819,55 @@ class AppProvider with ChangeNotifier {
     return await StorageService.getWorkplaces();
   }
 
+  // Get target history for charting - returns monthly aggregated data
+  List<Map<String, dynamic>> getTargetHistory({
+    String? employeeId,
+    String? workplaceId,
+    int monthsBack = 12,
+  }) {
+    final now = DateTime.now();
+    final startDate = DateTime(now.year, now.month - monthsBack, 1);
+    
+    // Filter targets by criteria
+    var filteredTargets = _salesTargets.where((target) {
+      if (target.date.isBefore(startDate)) return false;
+      if (employeeId != null && target.assignedEmployeeId != employeeId) return false;
+      if (workplaceId != null && target.assignedWorkplaceId != workplaceId) return false;
+      return true;
+    }).toList();
+
+    // Group by month and aggregate
+    final Map<String, Map<String, dynamic>> monthlyData = {};
+    
+    for (final target in filteredTargets) {
+      final monthKey = '${target.date.year}-${target.date.month.toString().padLeft(2, '0')}';
+      
+      if (!monthlyData.containsKey(monthKey)) {
+        monthlyData[monthKey] = {
+          'month': monthKey,
+          'targetTotal': 0.0,
+          'actualTotal': 0.0,
+          'targetCount': 0,
+          'metCount': 0,
+        };
+      }
+      
+      final data = monthlyData[monthKey]!;
+      data['targetTotal'] = (data['targetTotal'] as double) + target.targetAmount;
+      data['actualTotal'] = (data['actualTotal'] as double) + target.actualAmount;
+      data['targetCount'] = (data['targetCount'] as int) + 1;
+      if (target.actualAmount >= target.targetAmount) {
+        data['metCount'] = (data['metCount'] as int) + 1;
+      }
+    }
+
+    // Convert to list and sort by month
+    final result = monthlyData.values.toList();
+    result.sort((a, b) => (a['month'] as String).compareTo(b['month'] as String));
+    
+    return result;
+  }
+
   Future<void> addWorkplace(Workplace workplace) async {
     await StorageService.addWorkplace(workplace);
     _workplaces.add(workplace);

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
+import 'package:fl_chart/fl_chart.dart';
 
 import '../models/sales_target.dart';
 import '../providers/app_provider.dart';
@@ -134,6 +135,16 @@ class TargetProfileScreen extends StatelessWidget {
 
                 const SizedBox(height: 24),
 
+                // Performance Chart
+                Text(
+                  'Performance Trend (Last 12 Months)',
+                  style: Theme.of(context).textTheme.titleMedium,
+                ),
+                const SizedBox(height: 8),
+                _buildPerformanceChart(app),
+
+                const SizedBox(height: 24),
+
                 // Recent activity placeholder (submissions/approvals/team changes)
                 Text(
                   'Recent Activity',
@@ -223,6 +234,118 @@ class TargetProfileScreen extends StatelessWidget {
       case TargetStatus.approved:
         return Icons.verified;
     }
+  }
+
+  Widget _buildPerformanceChart(AppProvider app) {
+    final historyData = app.getTargetHistory(
+      employeeId: target.assignedEmployeeId,
+      workplaceId: target.assignedWorkplaceId,
+      monthsBack: 12,
+    );
+
+    if (historyData.isEmpty) {
+      return Container(
+        height: 200,
+        decoration: BoxDecoration(
+          color: Colors.grey[100],
+          borderRadius: BorderRadius.circular(8),
+        ),
+        child: const Center(
+          child: Text(
+            'No historical data available',
+            style: TextStyle(color: Colors.grey),
+          ),
+        ),
+      );
+    }
+
+    // Prepare chart data
+    final spots = <FlSpot>[];
+    final targetSpots = <FlSpot>[];
+    final labels = <String>[];
+
+    for (int i = 0; i < historyData.length; i++) {
+      final data = historyData[i];
+      final month = data['month'] as String;
+      final actual = data['actualTotal'] as double;
+      final target = data['targetTotal'] as double;
+      
+      spots.add(FlSpot(i.toDouble(), actual));
+      targetSpots.add(FlSpot(i.toDouble(), target));
+      
+      // Format month label (e.g., "Jan", "Feb")
+      final monthParts = month.split('-');
+      final monthNum = int.parse(monthParts[1]);
+      final monthName = DateFormat('MMM').format(DateTime(2024, monthNum));
+      labels.add(monthName);
+    }
+
+    return Container(
+      height: 200,
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: Colors.grey.shade300),
+      ),
+      child: LineChart(
+        LineChartData(
+          gridData: FlGridData(show: true),
+          titlesData: FlTitlesData(
+            leftTitles: AxisTitles(
+              sideTitles: SideTitles(
+                showTitles: true,
+                reservedSize: 40,
+                getTitlesWidget: (value, meta) {
+                  return Text(
+                    value.toInt().toString(),
+                    style: const TextStyle(fontSize: 10),
+                  );
+                },
+              ),
+            ),
+            bottomTitles: AxisTitles(
+              sideTitles: SideTitles(
+                showTitles: true,
+                reservedSize: 30,
+                getTitlesWidget: (value, meta) {
+                  if (value.toInt() >= 0 && value.toInt() < labels.length) {
+                    return Text(
+                      labels[value.toInt()],
+                      style: const TextStyle(fontSize: 10),
+                    );
+                  }
+                  return const Text('');
+                },
+              ),
+            ),
+            topTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
+            rightTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
+          ),
+          borderData: FlBorderData(show: true),
+          lineBarsData: [
+            // Target line
+            LineChartBarData(
+              spots: targetSpots,
+              isCurved: true,
+              color: Colors.blue,
+              barWidth: 2,
+              isStrokeCapRound: true,
+              dotData: const FlDotData(show: false),
+            ),
+            // Actual line
+            LineChartBarData(
+              spots: spots,
+              isCurved: true,
+              color: Colors.green,
+              barWidth: 3,
+              isStrokeCapRound: true,
+              dotData: const FlDotData(show: true),
+            ),
+          ],
+        ),
+      ),
+    );
   }
 }
 
