@@ -161,7 +161,7 @@ class _TargetProfileScreenState extends State<TargetProfileScreen> {
 
                 // Performance Chart
                 Text(
-                  'Performance Trend (Last 12 Months)',
+                  'Performance Trend (Last 2 Years)',
                   style: Theme.of(context).textTheme.titleMedium,
                 ),
                 const SizedBox(height: 8),
@@ -564,13 +564,21 @@ class _TargetProfileScreenState extends State<TargetProfileScreen> {
   }
 
   Widget _buildPerformanceChart(AppProvider app) {
-    final historyData = app.getTargetHistory(
-      employeeId: _currentTarget.assignedEmployeeId,
-      workplaceId: _currentTarget.assignedWorkplaceId,
-      monthsBack: 12,
-    );
+    // Get individual targets instead of monthly aggregations
+    final now = DateTime.now();
+    final startDate = DateTime(now.year - 2, now.month, 1);
+    
+    final filteredTargets = app.salesTargets.where((target) {
+      if (target.date.isBefore(startDate)) return false;
+      if (_currentTarget.assignedEmployeeId != null && target.assignedEmployeeId != _currentTarget.assignedEmployeeId) return false;
+      if (_currentTarget.assignedWorkplaceId != null && target.assignedWorkplaceId != _currentTarget.assignedWorkplaceId) return false;
+      return true;
+    }).toList();
 
-    if (historyData.isEmpty) {
+    // Sort by date
+    filteredTargets.sort((a, b) => a.date.compareTo(b.date));
+
+    if (filteredTargets.isEmpty) {
       return Container(
         height: 200,
         decoration: BoxDecoration(
@@ -586,25 +594,21 @@ class _TargetProfileScreenState extends State<TargetProfileScreen> {
       );
     }
 
-    // Prepare chart data
+    // Prepare chart data - show individual targets
     final spots = <FlSpot>[];
     final targetSpots = <FlSpot>[];
     final labels = <String>[];
 
-    for (int i = 0; i < historyData.length; i++) {
-      final data = historyData[i];
-      final month = data['month'] as String;
-      final actual = data['actualTotal'] as double;
-      final target = data['targetTotal'] as double;
+    for (int i = 0; i < filteredTargets.length; i++) {
+      final target = filteredTargets[i];
       
-      spots.add(FlSpot(i.toDouble(), actual));
-      targetSpots.add(FlSpot(i.toDouble(), target));
+      spots.add(FlSpot(i.toDouble(), target.actualAmount));
+      targetSpots.add(FlSpot(i.toDouble(), target.targetAmount));
       
-      // Format month label (e.g., "Jan", "Feb")
-      final monthParts = month.split('-');
-      final monthNum = int.parse(monthParts[1]);
-      final monthName = DateFormat('MMM').format(DateTime(2024, monthNum));
-      labels.add(monthName);
+      // Format date label (e.g., "Sep 26", "Sep 25")
+      final monthName = DateFormat('MMM').format(target.date);
+      final dayName = target.date.day.toString();
+      labels.add('$monthName $dayName');
     }
 
     return Container(
