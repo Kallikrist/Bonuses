@@ -322,23 +322,49 @@ class StorageService {
       await saveUsers(sampleUsers);
     }
 
-    // Create a sample target with assignment information
+    // Create sample targets for the last 12 years
     final targets = await getSalesTargets();
     if (targets.isEmpty) {
-      final sampleTarget = SalesTarget(
-        id: 'sample_target_1',
-        date: DateTime.now(),
-        targetAmount: 1000.0,
-        createdAt: DateTime.now(),
-        createdBy: 'admin1',
-        assignedEmployeeId: 'emp1',
-        assignedEmployeeName: 'John Doe',
-        assignedWorkplaceId: 'wp1',
-        assignedWorkplaceName: 'Downtown Store',
-        collaborativeEmployeeIds: ['emp2'],
-        collaborativeEmployeeNames: ['Jane Smith'],
-      );
-      await addSalesTarget(sampleTarget);
+      final now = DateTime.now();
+      final sampleTargets = <SalesTarget>[];
+      
+      // Create 12 targets for the last 12 years (2024-2013)
+      for (int i = 0; i < 12; i++) {
+        final year = now.year - i;
+        final targetDate = DateTime(year, 9, 26); // September 26th each year
+        
+        // Vary the target amounts and actual amounts for realistic data
+        final targetAmount = 1000.0 + (i * 100.0); // Increasing targets over time
+        final actualAmount = targetAmount * (0.7 + (i * 0.05)); // Varying performance
+        
+        // Determine if target was met
+        final isMet = actualAmount >= targetAmount;
+        final status = isMet ? TargetStatus.met : TargetStatus.missed;
+        
+        sampleTargets.add(SalesTarget(
+          id: 'sample_target_$year',
+          date: targetDate,
+          targetAmount: targetAmount,
+          actualAmount: actualAmount,
+          isMet: isMet,
+          status: status,
+          percentageAboveTarget: isMet ? ((actualAmount - targetAmount) / targetAmount * 100) : 0.0,
+          pointsAwarded: isMet ? (5 + i) : 0, // More points for recent targets
+          createdAt: targetDate,
+          createdBy: 'admin1',
+          assignedEmployeeId: 'emp1',
+          assignedEmployeeName: 'John Doe',
+          assignedWorkplaceId: 'wp2', // Use Mall Location for consistency
+          assignedWorkplaceName: 'Mall Location',
+          collaborativeEmployeeIds: [],
+          collaborativeEmployeeNames: [],
+        ));
+      }
+      
+      // Add all sample targets
+      for (final target in sampleTargets) {
+        await addSalesTarget(target);
+      }
     }
 
     final bonuses = await getBonuses();
