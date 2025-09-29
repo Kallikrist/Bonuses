@@ -4,6 +4,8 @@ import 'package:provider/provider.dart';
 import 'package:fl_chart/fl_chart.dart';
 
 import '../models/sales_target.dart';
+import '../models/user.dart';
+import '../models/workplace.dart';
 import '../providers/app_provider.dart';
 import '../models/approval_request.dart';
 
@@ -99,12 +101,7 @@ class TargetProfileScreen extends StatelessWidget {
                   runSpacing: 8,
                   children: [
                     OutlinedButton.icon(
-                      onPressed: () {
-                        // Navigate to existing edit flow if available
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          const SnackBar(content: Text('Edit target coming soon')),
-                        );
-                      },
+                      onPressed: () => _showEditTargetDialog(context, app),
                       icon: const Icon(Icons.edit),
                       label: const Text('Edit'),
                     ),
@@ -234,6 +231,235 @@ class TargetProfileScreen extends StatelessWidget {
       case TargetStatus.approved:
         return Icons.verified;
     }
+  }
+
+  void _showEditTargetDialog(BuildContext context, AppProvider app) {
+    final targetAmountController = TextEditingController(text: target.targetAmount.toString());
+    User? selectedEmployee;
+    Workplace? selectedWorkplace;
+    DateTime selectedDate = target.date;
+
+    showDialog(
+      context: context,
+      builder: (context) => StatefulBuilder(
+        builder: (context, setState) {
+          return AlertDialog(
+            title: const Text('Edit Target'),
+            content: SingleChildScrollView(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  // Date Picker
+                  GestureDetector(
+                    onTap: () async {
+                      final pickedDate = await showDatePicker(
+                        context: context,
+                        initialDate: selectedDate,
+                        firstDate: DateTime.now().subtract(const Duration(days: 365)),
+                        lastDate: DateTime.now().add(const Duration(days: 365)),
+                      );
+                      if (pickedDate != null) {
+                        setState(() {
+                          selectedDate = pickedDate;
+                        });
+                      }
+                    },
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 16),
+                      decoration: BoxDecoration(
+                        border: Border.all(color: Colors.grey.shade400),
+                        borderRadius: BorderRadius.circular(4),
+                      ),
+                      child: Row(
+                        children: [
+                          Icon(Icons.calendar_today, color: Colors.grey.shade600),
+                          const SizedBox(width: 8),
+                          Text(
+                            DateFormat('MMM d, yyyy').format(selectedDate),
+                            style: const TextStyle(color: Colors.black87),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+                  
+                  // Target Amount
+                  TextField(
+                    controller: targetAmountController,
+                    decoration: const InputDecoration(
+                      labelText: 'Target Amount',
+                    ),
+                    keyboardType: TextInputType.number,
+                  ),
+                  const SizedBox(height: 16),
+                  
+                  // Employee Dropdown
+                  FutureBuilder<List<User>>(
+                    future: app.getUsers(),
+                    builder: (context, snapshot) {
+                      if (snapshot.hasError) {
+                        return Container(
+                          padding: const EdgeInsets.all(8.0),
+                          child: Text(
+                            'Error loading users: ${snapshot.error}',
+                            style: const TextStyle(color: Colors.red),
+                          ),
+                        );
+                      }
+                      if (snapshot.hasData) {
+                        final allUsers = snapshot.data!;
+                        final users = allUsers
+                            .where((u) => u.role == UserRole.employee || u.role == UserRole.admin)
+                            .toList();
+
+                        // Set initial selected employee
+                        if (selectedEmployee == null && target.assignedEmployeeId != null) {
+                          selectedEmployee = users.firstWhere(
+                            (u) => u.id == target.assignedEmployeeId,
+                            orElse: () => users.first,
+                          );
+                        }
+
+                        // Ensure selectedEmployee matches exactly one item in the filtered list
+                        final validSelectedEmployee = selectedEmployee != null &&
+                            users.any((user) => user.id == selectedEmployee!.id)
+                            ? users.firstWhere((user) => user.id == selectedEmployee!.id)
+                            : null;
+
+                        return DropdownButtonFormField<User>(
+                          value: validSelectedEmployee,
+                          decoration: const InputDecoration(labelText: 'Employee'),
+                          items: users
+                              .map((user) => DropdownMenuItem(
+                                    value: user,
+                                    child: Text('${user.name} (${user.role.name})'),
+                                  ))
+                              .toList(),
+                          onChanged: (User? user) => setState(() => selectedEmployee = user),
+                        );
+                      }
+                      return Container(
+                        padding: const EdgeInsets.all(8.0),
+                        child: const CircularProgressIndicator(),
+                      );
+                    },
+                  ),
+                  
+                  // Workplace Dropdown
+                  FutureBuilder<List<Workplace>>(
+                    future: app.getWorkplaces(),
+                    builder: (context, snapshot) {
+                      if (snapshot.hasError) {
+                        return Container(
+                          padding: const EdgeInsets.all(8.0),
+                          child: Text(
+                            'Error loading workplaces: ${snapshot.error}',
+                            style: const TextStyle(color: Colors.red),
+                          ),
+                        );
+                      }
+                      if (snapshot.hasData) {
+                        final workplaces = snapshot.data!;
+
+                        // Set initial selected workplace
+                        if (selectedWorkplace == null && target.assignedWorkplaceId != null) {
+                          selectedWorkplace = workplaces.firstWhere(
+                            (w) => w.id == target.assignedWorkplaceId,
+                            orElse: () => workplaces.first,
+                          );
+                        }
+
+                        // Ensure selectedWorkplace matches exactly one item in the workplaces list
+                        final validSelectedWorkplace = selectedWorkplace != null &&
+                            workplaces.any((workplace) => workplace.id == selectedWorkplace!.id)
+                            ? workplaces.firstWhere((workplace) => workplace.id == selectedWorkplace!.id)
+                            : null;
+
+                        return DropdownButtonFormField<Workplace>(
+                          value: validSelectedWorkplace,
+                          decoration: const InputDecoration(labelText: 'Workplace'),
+                          items: workplaces
+                              .map((workplace) => DropdownMenuItem(
+                                    value: workplace,
+                                    child: Text(workplace.name),
+                                  ))
+                              .toList(),
+                          onChanged: (Workplace? workplace) => setState(() => selectedWorkplace = workplace),
+                        );
+                      }
+                      return Container(
+                        padding: const EdgeInsets.all(8.0),
+                        child: const CircularProgressIndicator(),
+                      );
+                    },
+                  ),
+                ],
+              ),
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(context),
+                child: const Text('Cancel'),
+              ),
+              ElevatedButton(
+                onPressed: () async {
+                  final currentUser = app.currentUser;
+                  if (targetAmountController.text.isNotEmpty &&
+                      selectedEmployee != null &&
+                      selectedWorkplace != null &&
+                      currentUser != null) {
+                    final amount = double.tryParse(targetAmountController.text);
+
+                    if (amount != null && amount > 0) {
+                      final updatedTarget = target.copyWith(
+                        date: selectedDate,
+                        targetAmount: amount,
+                        assignedEmployeeId: selectedEmployee!.id,
+                        assignedEmployeeName: selectedEmployee!.name,
+                        assignedWorkplaceId: selectedWorkplace!.id,
+                        assignedWorkplaceName: selectedWorkplace!.name,
+                      );
+
+                      await app.updateSalesTarget(updatedTarget);
+                      Navigator.pop(context);
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(
+                          content: Text('Target updated successfully'),
+                          backgroundColor: Colors.green,
+                        ),
+                      );
+                    } else {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(
+                          content: Text('Please enter a valid target amount'),
+                          backgroundColor: Colors.red,
+                        ),
+                      );
+                    }
+                  } else if (currentUser == null) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(
+                        content: Text('Error: No user logged in'),
+                        backgroundColor: Colors.red,
+                      ),
+                    );
+                  } else {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(
+                        content: Text('Please fill all fields'),
+                        backgroundColor: Colors.red,
+                      ),
+                    );
+                  }
+                },
+                child: const Text('Update'),
+              ),
+            ],
+          );
+        },
+      ),
+    );
   }
 
   Widget _buildPerformanceChart(AppProvider app) {
