@@ -688,85 +688,71 @@ class _TargetProfileScreenState extends State<TargetProfileScreen> {
             borderRadius: BorderRadius.circular(8),
             border: Border.all(color: Colors.grey.shade300),
           ),
-          child: LineChart(
-        LineChartData(
-          gridData: FlGridData(show: true),
-          titlesData: FlTitlesData(
-            leftTitles: AxisTitles(
-              sideTitles: SideTitles(
-                showTitles: true,
-                reservedSize: 40,
-                getTitlesWidget: (value, meta) {
-                  return Text(
-                    value.toInt().toString(),
-                    style: const TextStyle(fontSize: 10),
-                  );
-                },
-              ),
-            ),
-            bottomTitles: AxisTitles(
-              sideTitles: SideTitles(
-                showTitles: true,
-                reservedSize: 30,
-                getTitlesWidget: (value, meta) {
-                  if (value.toInt() >= 0 && value.toInt() < labels.length) {
-                    // Show every 3rd label to avoid overcrowding
-                    if (value.toInt() % 3 == 0 || value.toInt() == labels.length - 1) {
+          child: BarChart(
+            BarChartData(
+              gridData: FlGridData(show: true),
+              titlesData: FlTitlesData(
+                leftTitles: AxisTitles(
+                  sideTitles: SideTitles(
+                    showTitles: true,
+                    reservedSize: 40,
+                    getTitlesWidget: (value, meta) {
                       return Text(
-                        labels[value.toInt()],
+                        value.toInt().toString(),
                         style: const TextStyle(fontSize: 10),
                       );
-                    }
-                  }
-                  return const Text('');
-                },
+                    },
+                  ),
+                ),
+                bottomTitles: AxisTitles(
+                  sideTitles: SideTitles(
+                    showTitles: true,
+                    reservedSize: 30,
+                    getTitlesWidget: (value, meta) {
+                      if (value.toInt() >= 0 && value.toInt() < labels.length) {
+                        return Text(
+                          labels[value.toInt()],
+                          style: const TextStyle(fontSize: 10),
+                        );
+                      }
+                      return const Text('');
+                    },
+                  ),
+                ),
+                topTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
+                rightTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
               ),
+              borderData: FlBorderData(show: true),
+              barGroups: [
+                for (int i = 0; i < finalTargets.length; i++)
+                  BarChartGroupData(
+                    x: i,
+                    barRods: [
+                      BarChartRodData(
+                        toY: finalTargets[i].targetAmount,
+                        color: Colors.blue,
+                        width: 8,
+                        borderRadius: const BorderRadius.only(
+                          topLeft: Radius.circular(2),
+                          topRight: Radius.circular(2),
+                        ),
+                      ),
+                      BarChartRodData(
+                        toY: finalTargets[i].actualAmount,
+                        color: Colors.green,
+                        width: 8,
+                        borderRadius: const BorderRadius.only(
+                          topLeft: Radius.circular(2),
+                          topRight: Radius.circular(2),
+                        ),
+                      ),
+                    ],
+                    barsSpace: 4,
+                  ),
+              ],
             ),
-            topTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
-            rightTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
           ),
-          borderData: FlBorderData(show: true),
-          lineBarsData: [
-            // Target points (blue dots)
-            LineChartBarData(
-              spots: targetSpots,
-              isCurved: false,
-              color: Colors.blue,
-              barWidth: 0,
-              dotData: FlDotData(
-                show: true,
-                getDotPainter: (spot, percent, barData, index) {
-                  return FlDotCirclePainter(
-                    radius: 6,
-                    color: Colors.blue,
-                    strokeWidth: 2,
-                    strokeColor: Colors.white,
-                  );
-                },
-              ),
-            ),
-            // Actual points (green dots)
-            LineChartBarData(
-              spots: spots,
-              isCurved: false,
-              color: Colors.green,
-              barWidth: 0,
-              dotData: FlDotData(
-                show: true,
-                getDotPainter: (spot, percent, barData, index) {
-                  return FlDotCirclePainter(
-                    radius: 6,
-                    color: Colors.green,
-                    strokeWidth: 2,
-                    strokeColor: Colors.white,
-                  );
-                },
-              ),
-            ),
-          ],
         ),
-      ),
-    ),
       ],
     );
   }
