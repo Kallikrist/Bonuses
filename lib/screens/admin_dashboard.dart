@@ -7631,6 +7631,8 @@ class _TargetListScreenState extends State<TargetListScreen> {
                         onTap: () {
                           if (_isSelectionMode) {
                             _toggleTargetSelection(target.id);
+                          } else {
+                            _navigateToTarget(target);
                           }
                         },
                         leading: CircleAvatar(
