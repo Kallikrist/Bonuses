@@ -587,15 +587,29 @@ class _TargetProfileScreenState extends State<TargetProfileScreen> {
       return true;
     }).toList();
 
-    // Sort by date
-    filteredTargets.sort((a, b) => a.date.compareTo(b.date));
-
-    print('DEBUG: Found ${filteredTargets.length} targets for chart');
+    // Remove duplicates by date - if multiple targets have the same date, keep only one
+    final uniqueTargets = <DateTime, SalesTarget>{};
     for (final target in filteredTargets) {
+      final dateKey = DateTime(target.date.year, target.date.month, target.date.day);
+      if (!uniqueTargets.containsKey(dateKey)) {
+        uniqueTargets[dateKey] = target;
+        print('DEBUG: Added unique target for date: $dateKey');
+      } else {
+        print('DEBUG: Skipped duplicate target for date: $dateKey');
+      }
+    }
+    
+    final finalTargets = uniqueTargets.values.toList();
+
+    // Sort by date
+    finalTargets.sort((a, b) => a.date.compareTo(b.date));
+
+    print('DEBUG: Found ${finalTargets.length} unique targets for chart');
+    for (final target in finalTargets) {
       print('DEBUG: Target ${target.id}: date=${target.date}, targetAmount=${target.targetAmount}, actualAmount=${target.actualAmount}');
     }
 
-    if (filteredTargets.isEmpty) {
+    if (finalTargets.isEmpty) {
       return Container(
         height: 200,
         decoration: BoxDecoration(
@@ -616,8 +630,8 @@ class _TargetProfileScreenState extends State<TargetProfileScreen> {
     final targetSpots = <FlSpot>[];
     final labels = <String>[];
 
-    for (int i = 0; i < filteredTargets.length; i++) {
-      final target = filteredTargets[i];
+    for (int i = 0; i < finalTargets.length; i++) {
+      final target = finalTargets[i];
       
       spots.add(FlSpot(i.toDouble(), target.actualAmount));
       targetSpots.add(FlSpot(i.toDouble(), target.targetAmount));
