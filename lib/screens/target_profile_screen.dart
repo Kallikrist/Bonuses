@@ -696,11 +696,13 @@ class _TargetProfileScreenState extends State<TargetProfileScreen> {
                 reservedSize: 30,
                 getTitlesWidget: (value, meta) {
                   if (value.toInt() >= 0 && value.toInt() < labels.length) {
-                    // Show all date labels for each target
-                    return Text(
-                      labels[value.toInt()],
-                      style: const TextStyle(fontSize: 9),
-                    );
+                    // Show every 3rd label to avoid overcrowding
+                    if (value.toInt() % 3 == 0 || value.toInt() == labels.length - 1) {
+                      return Text(
+                        labels[value.toInt()],
+                        style: const TextStyle(fontSize: 10),
+                      );
+                    }
                   }
                   return const Text('');
                 },
