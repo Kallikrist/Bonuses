@@ -567,11 +567,29 @@ class _TargetProfileScreenState extends State<TargetProfileScreen> {
     // Get individual targets instead of monthly aggregations
     final now = DateTime.now();
     final startDate = DateTime(now.year - 2, now.month, 1);
+    final endDate = DateTime(now.year + 2, now.month, 31); // Include future targets up to 2 years ahead
+    
+    print('DEBUG: Date range: $startDate to $endDate');
     
     final filteredTargets = app.salesTargets.where((target) {
-      if (target.date.isBefore(startDate)) return false;
-      if (_currentTarget.assignedEmployeeId != null && target.assignedEmployeeId != _currentTarget.assignedEmployeeId) return false;
-      if (_currentTarget.assignedWorkplaceId != null && target.assignedWorkplaceId != _currentTarget.assignedWorkplaceId) return false;
+      print('DEBUG: Checking target ${target.id}: date=${target.date}, isBefore start: ${target.date.isBefore(startDate)}, isAfter end: ${target.date.isAfter(endDate)}');
+      if (target.date.isBefore(startDate)) {
+        print('DEBUG: Target ${target.id} filtered out - too old');
+        return false;
+      }
+      if (target.date.isAfter(endDate)) {
+        print('DEBUG: Target ${target.id} filtered out - too far in future');
+        return false;
+      }
+      if (_currentTarget.assignedEmployeeId != null && target.assignedEmployeeId != _currentTarget.assignedEmployeeId) {
+        print('DEBUG: Target ${target.id} filtered out - different employee');
+        return false;
+      }
+      if (_currentTarget.assignedWorkplaceId != null && target.assignedWorkplaceId != _currentTarget.assignedWorkplaceId) {
+        print('DEBUG: Target ${target.id} filtered out - different workplace');
+        return false;
+      }
+      print('DEBUG: Target ${target.id} included in chart');
       return true;
     }).toList();
 
