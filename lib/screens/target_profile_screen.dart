@@ -622,11 +622,23 @@ class _TargetProfileScreenState extends State<TargetProfileScreen> {
       spots.add(FlSpot(i.toDouble(), target.actualAmount));
       targetSpots.add(FlSpot(i.toDouble(), target.targetAmount));
       
-      // Format date label to show just the year (24, 25)
+      // Format date label to show month and day (Sep 26, Oct 15, etc.)
+      final monthName = DateFormat('MMM').format(target.date);
+      final dayName = target.date.day.toString();
       final year = target.date.year;
-      final yearShort = year.toString().substring(2);
-      print('DEBUG: Target date: ${target.date}, year: $year, yearShort: $yearShort');
-      labels.add(yearShort);
+      final currentYear = DateTime.now().year;
+      
+      String label;
+      if (year != currentYear) {
+        // Show year if different from current year
+        label = '$monthName $dayName \'${year.toString().substring(2)}';
+      } else {
+        // Just show month and day for current year
+        label = '$monthName $dayName';
+      }
+      
+      print('DEBUG: Target date: ${target.date}, label: $label');
+      labels.add(label);
     }
 
     return Column(
@@ -684,10 +696,10 @@ class _TargetProfileScreenState extends State<TargetProfileScreen> {
                 reservedSize: 30,
                 getTitlesWidget: (value, meta) {
                   if (value.toInt() >= 0 && value.toInt() < labels.length) {
-                    // Show year labels (24, 25) for each target
+                    // Show all date labels for each target
                     return Text(
                       labels[value.toInt()],
-                      style: const TextStyle(fontSize: 10),
+                      style: const TextStyle(fontSize: 9),
                     );
                   }
                   return const Text('');
