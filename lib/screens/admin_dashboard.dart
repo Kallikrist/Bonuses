@@ -7338,6 +7338,41 @@ class _TargetListScreenState extends State<TargetListScreen> {
                                 u.role == UserRole.admin)
                             .toList();
 
+                        // Show shortcut to add employee if no users available
+                        if (users.isEmpty) {
+                          return Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                'No employees found. Create one?',
+                                style: TextStyle(color: Colors.grey[600]),
+                              ),
+                              const SizedBox(height: 8),
+                              ElevatedButton.icon(
+                                onPressed: () {
+                                  Navigator.pop(context); // Close this dialog
+                                  Navigator.push(
+                                    context,
+                                    MaterialPageRoute(
+                                      builder: (context) => EmployeesListScreen(
+                                          appProvider: widget.appProvider),
+                                    ),
+                                  ).then((_) {
+                                    // Reopen target dialog when returning
+                                    _showAddTargetDialog();
+                                  });
+                                },
+                                icon: const Icon(Icons.person_add),
+                                label: const Text('Manage Employees'),
+                                style: ElevatedButton.styleFrom(
+                                  backgroundColor: Colors.blue,
+                                  foregroundColor: Colors.white,
+                                ),
+                              ),
+                            ],
+                          );
+                        }
+
                         // Ensure selectedEmployee matches exactly one item in the filtered list
                         final validSelectedEmployee = selectedEmployee !=
                                     null &&
@@ -7382,6 +7417,42 @@ class _TargetListScreenState extends State<TargetListScreen> {
                       }
                       if (snapshot.hasData) {
                         final workplaces = snapshot.data!;
+
+                        // Show shortcut to add workplace if no workplaces available
+                        if (workplaces.isEmpty) {
+                          return Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                'No workplaces found. Create one?',
+                                style: TextStyle(color: Colors.grey[600]),
+                              ),
+                              const SizedBox(height: 8),
+                              ElevatedButton.icon(
+                                onPressed: () {
+                                  Navigator.pop(context); // Close this dialog
+                                  Navigator.push(
+                                    context,
+                                    MaterialPageRoute(
+                                      builder: (context) =>
+                                          WorkplacesListScreen(
+                                              appProvider: widget.appProvider),
+                                    ),
+                                  ).then((_) {
+                                    // Reopen target dialog when returning
+                                    _showAddTargetDialog();
+                                  });
+                                },
+                                icon: const Icon(Icons.business),
+                                label: const Text('Manage Workplaces'),
+                                style: ElevatedButton.styleFrom(
+                                  backgroundColor: Colors.orange,
+                                  foregroundColor: Colors.white,
+                                ),
+                              ),
+                            ],
+                          );
+                        }
 
                         // Ensure selectedWorkplace matches exactly one item in the workplaces list
                         final validSelectedWorkplace =
@@ -7570,12 +7641,14 @@ class _TargetListScreenState extends State<TargetListScreen> {
                           ),
                         ),
                         title: Text(
-                          target.assignedEmployeeName ?? 'No Employee',
+                          '${target.assignedWorkplaceName ?? 'No Workplace'} • ${DateFormat('MMM d, yyyy').format(target.date)}',
                           style: const TextStyle(fontWeight: FontWeight.bold),
                         ),
                         subtitle: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
+                            Text(
+                                'Employee: ${target.assignedEmployeeName ?? 'No Employee'}'),
                             Text(
                                 'Target: ${target.targetAmount.toStringAsFixed(0)}'),
                             Text(
@@ -7638,15 +7711,15 @@ class _TargetListScreenState extends State<TargetListScreen> {
   Color _getStatusColor(TargetStatus status) {
     switch (status) {
       case TargetStatus.pending:
-        return Colors.grey;
-      case TargetStatus.met:
-        return Colors.green;
-      case TargetStatus.missed:
-        return Colors.red;
+        return Colors.blue; // pending -> blue
       case TargetStatus.submitted:
-        return Colors.orange;
+        return Colors.blue; // submitted -> blue
+      case TargetStatus.missed:
+        return Colors.red; // missed -> red
+      case TargetStatus.met:
+        return Colors.green; // achieved -> green
       case TargetStatus.approved:
-        return Colors.blue;
+        return Colors.green; // approved -> green
     }
   }
 
