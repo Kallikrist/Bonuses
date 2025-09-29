@@ -681,7 +681,15 @@ class _TargetProfileScreenState extends State<TargetProfileScreen> {
               color: Colors.green,
             ),
             const SizedBox(width: 8),
-            const Text('Actual', style: TextStyle(fontSize: 12)),
+            const Text('Met', style: TextStyle(fontSize: 12)),
+            const SizedBox(width: 16),
+            Container(
+              width: 12,
+              height: 2,
+              color: Colors.red,
+            ),
+            const SizedBox(width: 8),
+            const Text('Missed', style: TextStyle(fontSize: 12)),
           ],
         ),
         const SizedBox(height: 8),
@@ -745,7 +753,9 @@ class _TargetProfileScreenState extends State<TargetProfileScreen> {
                       ),
                       BarChartRodData(
                         toY: finalTargets[i].actualAmount,
-                        color: Colors.green,
+                        color: finalTargets[i].actualAmount >= finalTargets[i].targetAmount 
+                            ? Colors.green 
+                            : Colors.red,
                         width: 8,
                         borderRadius: const BorderRadius.only(
                           topLeft: Radius.circular(2),
