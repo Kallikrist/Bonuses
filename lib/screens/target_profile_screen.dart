@@ -564,31 +564,25 @@ class _TargetProfileScreenState extends State<TargetProfileScreen> {
   }
 
   Widget _buildPerformanceChart(AppProvider app) {
-    // Get individual targets instead of monthly aggregations
-    final now = DateTime.now();
-    final startDate = DateTime(now.year - 2, now.month, 1);
-    final endDate = DateTime(now.year + 2, now.month, 31); // Include future targets up to 2 years ahead
-    
-    print('DEBUG: Date range: $startDate to $endDate');
+    // Get all targets for the same employee/workplace (no date filtering for now)
+    print('DEBUG: Current target - employeeId: ${_currentTarget.assignedEmployeeId}, workplaceId: ${_currentTarget.assignedWorkplaceId}');
+    print('DEBUG: Total targets in app: ${app.salesTargets.length}');
     
     final filteredTargets = app.salesTargets.where((target) {
-      print('DEBUG: Checking target ${target.id}: date=${target.date}, isBefore start: ${target.date.isBefore(startDate)}, isAfter end: ${target.date.isAfter(endDate)}');
-      if (target.date.isBefore(startDate)) {
-        print('DEBUG: Target ${target.id} filtered out - too old');
-        return false;
-      }
-      if (target.date.isAfter(endDate)) {
-        print('DEBUG: Target ${target.id} filtered out - too far in future');
-        return false;
-      }
+      print('DEBUG: Checking target ${target.id}: date=${target.date}, employeeId=${target.assignedEmployeeId}, workplaceId=${target.assignedWorkplaceId}');
+      
+      // Match employee if current target has one
       if (_currentTarget.assignedEmployeeId != null && target.assignedEmployeeId != _currentTarget.assignedEmployeeId) {
         print('DEBUG: Target ${target.id} filtered out - different employee');
         return false;
       }
+      
+      // Match workplace if current target has one
       if (_currentTarget.assignedWorkplaceId != null && target.assignedWorkplaceId != _currentTarget.assignedWorkplaceId) {
         print('DEBUG: Target ${target.id} filtered out - different workplace');
         return false;
       }
+      
       print('DEBUG: Target ${target.id} included in chart');
       return true;
     }).toList();
