@@ -9,23 +9,49 @@ import '../models/workplace.dart';
 import '../providers/app_provider.dart';
 import '../models/approval_request.dart';
 
-class TargetProfileScreen extends StatelessWidget {
+class TargetProfileScreen extends StatefulWidget {
   final SalesTarget target;
 
   const TargetProfileScreen({super.key, required this.target});
 
   @override
+  State<TargetProfileScreen> createState() => _TargetProfileScreenState();
+}
+
+class _TargetProfileScreenState extends State<TargetProfileScreen> {
+  late SalesTarget _currentTarget;
+
+  @override
+  void initState() {
+    super.initState();
+    _currentTarget = widget.target;
+  }
+
+  @override
   Widget build(BuildContext context) {
-    final dateStr = DateFormat('MMM d, yyyy').format(target.date);
     return Scaffold(
       appBar: AppBar(
         title: const Text('Target Profile'),
       ),
       body: Consumer<AppProvider>(
         builder: (context, app, _) {
-          final statusColor = _statusColor(target.status);
-          final percent = target.targetAmount > 0
-              ? ((target.actualAmount / target.targetAmount) * 100).clamp(0, 100000).toDouble()
+          // Update current target from app state
+          final updatedTarget = app.salesTargets.firstWhere(
+            (t) => t.id == _currentTarget.id,
+            orElse: () => _currentTarget,
+          );
+          if (updatedTarget != _currentTarget) {
+            WidgetsBinding.instance.addPostFrameCallback((_) {
+              setState(() {
+                _currentTarget = updatedTarget;
+              });
+            });
+          }
+
+          final dateStr = DateFormat('MMM d, yyyy').format(_currentTarget.date);
+          final statusColor = _statusColor(_currentTarget.status);
+          final percent = _currentTarget.targetAmount > 0
+              ? ((_currentTarget.actualAmount / _currentTarget.targetAmount) * 100).clamp(0, 100000).toDouble()
               : 0.0;
 
           return SingleChildScrollView(
@@ -40,7 +66,7 @@ class TargetProfileScreen extends StatelessWidget {
                     CircleAvatar(
                       backgroundColor: statusColor,
                       child: Icon(
-                        _statusIcon(target.status),
+                        _statusIcon(_currentTarget.status),
                         color: Colors.white,
                       ),
                     ),
@@ -50,7 +76,7 @@ class TargetProfileScreen extends StatelessWidget {
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           Text(
-                            target.assignedWorkplaceName ?? 'No Workplace',
+                            _currentTarget.assignedWorkplaceName ?? 'No Workplace',
                             style: const TextStyle(
                               fontSize: 18,
                               fontWeight: FontWeight.bold,
@@ -62,7 +88,7 @@ class TargetProfileScreen extends StatelessWidget {
                           ),
                           const SizedBox(height: 4),
                           Chip(
-                            label: Text(target.status.name.toUpperCase()),
+                            label: Text(_currentTarget.status.name.toUpperCase()),
                             backgroundColor: statusColor.withOpacity(0.15),
                             labelStyle: TextStyle(color: statusColor),
                             visualDensity: VisualDensity.compact,
@@ -82,12 +108,12 @@ class TargetProfileScreen extends StatelessWidget {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        _kpiRow('Employee', target.assignedEmployeeName ?? 'No Employee'),
-                        _kpiRow('Target', target.targetAmount.toStringAsFixed(0)),
-                        _kpiRow('Actual', target.actualAmount.toStringAsFixed(0)),
+                        _kpiRow('Employee', _currentTarget.assignedEmployeeName ?? 'No Employee'),
+                        _kpiRow('Target', _currentTarget.targetAmount.toStringAsFixed(0)),
+                        _kpiRow('Actual', _currentTarget.actualAmount.toStringAsFixed(0)),
                         _kpiRow('Progress', '${percent.toStringAsFixed(0)}%'),
-                        if (target.pointsAwarded > 0)
-                          _kpiRow('Points', target.pointsAwarded.toString()),
+                        if (_currentTarget.pointsAwarded > 0)
+                          _kpiRow('Points', _currentTarget.pointsAwarded.toString()),
                       ],
                     ),
                   ),
@@ -105,12 +131,12 @@ class TargetProfileScreen extends StatelessWidget {
                       icon: const Icon(Icons.edit),
                       label: const Text('Edit'),
                     ),
-                    if (target.isSubmitted && !target.isApproved)
+                    if (_currentTarget.isSubmitted && !_currentTarget.isApproved)
                       ElevatedButton.icon(
                         onPressed: () async {
                           try {
                             final pending = app.approvalRequests.firstWhere(
-                              (r) => r.targetId == target.id &&
+                              (r) => r.targetId == _currentTarget.id &&
                                       r.type == ApprovalRequestType.salesSubmission &&
                                       r.status == ApprovalStatus.pending,
                             );
@@ -150,7 +176,7 @@ class TargetProfileScreen extends StatelessWidget {
                 const SizedBox(height: 8),
                 Builder(builder: (context) {
                   final items = app.approvalRequests
-                      .where((r) => r.targetId == target.id)
+                      .where((r) => r.targetId == _currentTarget.id)
                       .toList()
                     ..sort((a, b) => b.submittedAt.compareTo(a.submittedAt));
                   if (items.isEmpty) {
@@ -234,10 +260,10 @@ class TargetProfileScreen extends StatelessWidget {
   }
 
   void _showEditTargetDialog(BuildContext context, AppProvider app) {
-    final targetAmountController = TextEditingController(text: target.targetAmount.toString());
+    final targetAmountController = TextEditingController(text: _currentTarget.targetAmount.toString());
     User? selectedEmployee;
     Workplace? selectedWorkplace;
-    DateTime selectedDate = target.date;
+    DateTime selectedDate = _currentTarget.date;
 
     showDialog(
       context: context,
@@ -314,9 +340,9 @@ class TargetProfileScreen extends StatelessWidget {
                             .toList();
 
                         // Set initial selected employee
-                        if (selectedEmployee == null && target.assignedEmployeeId != null) {
+                        if (selectedEmployee == null && _currentTarget.assignedEmployeeId != null) {
                           selectedEmployee = users.firstWhere(
-                            (u) => u.id == target.assignedEmployeeId,
+                            (u) => u.id == _currentTarget.assignedEmployeeId,
                             orElse: () => users.first,
                           );
                         }
@@ -363,9 +389,9 @@ class TargetProfileScreen extends StatelessWidget {
                         final workplaces = snapshot.data!;
 
                         // Set initial selected workplace
-                        if (selectedWorkplace == null && target.assignedWorkplaceId != null) {
+                        if (selectedWorkplace == null && _currentTarget.assignedWorkplaceId != null) {
                           selectedWorkplace = workplaces.firstWhere(
-                            (w) => w.id == target.assignedWorkplaceId,
+                            (w) => w.id == _currentTarget.assignedWorkplaceId,
                             orElse: () => workplaces.first,
                           );
                         }
@@ -412,7 +438,7 @@ class TargetProfileScreen extends StatelessWidget {
                     final amount = double.tryParse(targetAmountController.text);
 
                     if (amount != null && amount > 0) {
-                      final updatedTarget = target.copyWith(
+                      final updatedTarget = _currentTarget.copyWith(
                         date: selectedDate,
                         targetAmount: amount,
                         assignedEmployeeId: selectedEmployee!.id,
@@ -464,8 +490,8 @@ class TargetProfileScreen extends StatelessWidget {
 
   Widget _buildPerformanceChart(AppProvider app) {
     final historyData = app.getTargetHistory(
-      employeeId: target.assignedEmployeeId,
-      workplaceId: target.assignedWorkplaceId,
+      employeeId: _currentTarget.assignedEmployeeId,
+      workplaceId: _currentTarget.assignedWorkplaceId,
       monthsBack: 12,
     );
 
