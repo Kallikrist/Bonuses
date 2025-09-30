@@ -643,23 +643,12 @@ class _TargetProfileScreenState extends State<TargetProfileScreen> {
       spots.add(FlSpot(i.toDouble(), target.actualAmount));
       targetSpots.add(FlSpot(i.toDouble(), target.targetAmount));
       
-      // Format date label to show month and day (Sep 26, Oct 15, etc.)
-      final monthName = DateFormat('MMM').format(target.date);
-      final dayName = target.date.day.toString();
+      // Format date label to show just the year (last 2 digits)
       final year = target.date.year;
-      final currentYear = DateTime.now().year;
+      final yearShort = year.toString().substring(2); // Just "24", "25", "26" etc.
       
-      String label;
-      if (year != currentYear) {
-        // Show year if different from current year
-        label = '$monthName $dayName \'${year.toString().substring(2)}';
-      } else {
-        // Just show month and day for current year
-        label = '$monthName $dayName';
-      }
-      
-      print('DEBUG: Target date: ${target.date}, label: $label');
-      labels.add(label);
+      print('DEBUG: Target date: ${target.date}, label: $yearShort');
+      labels.add(yearShort);
     }
 
     return Column(
@@ -712,6 +701,27 @@ class _TargetProfileScreenState extends State<TargetProfileScreen> {
                   child: BarChart(
             BarChartData(
               gridData: FlGridData(show: true),
+              barTouchData: BarTouchData(
+                enabled: true,
+                touchTooltipData: BarTouchTooltipData(
+                  getTooltipItem: (group, groupIndex, rod, rodIndex) {
+                    final target = finalTargets[groupIndex];
+                    final isTarget = rodIndex == 0;
+                    return BarTooltipItem(
+                      isTarget 
+                          ? 'Target: ${target.targetAmount.toStringAsFixed(0)}'
+                          : 'Actual: ${target.actualAmount.toStringAsFixed(0)}',
+                      const TextStyle(
+                        color: Colors.white,
+                        fontWeight: FontWeight.bold,
+                        fontSize: 12,
+                      ),
+                    );
+                  },
+                  fitInsideHorizontally: true,
+                  fitInsideVertically: true,
+                ),
+              ),
               titlesData: FlTitlesData(
                 leftTitles: AxisTitles(
                   sideTitles: SideTitles(
@@ -780,6 +790,27 @@ class _TargetProfileScreenState extends State<TargetProfileScreen> {
             : BarChart(
                 BarChartData(
                   gridData: FlGridData(show: true),
+                  barTouchData: BarTouchData(
+                    enabled: true,
+                    touchTooltipData: BarTouchTooltipData(
+                      getTooltipItem: (group, groupIndex, rod, rodIndex) {
+                        final target = finalTargets[groupIndex];
+                        final isTarget = rodIndex == 0;
+                        return BarTooltipItem(
+                          isTarget 
+                              ? 'Target: ${target.targetAmount.toStringAsFixed(0)}'
+                              : 'Actual: ${target.actualAmount.toStringAsFixed(0)}',
+                          const TextStyle(
+                            color: Colors.white,
+                            fontWeight: FontWeight.bold,
+                            fontSize: 12,
+                          ),
+                        );
+                      },
+                      fitInsideHorizontally: true,
+                      fitInsideVertically: true,
+                    ),
+                  ),
                   titlesData: FlTitlesData(
                     leftTitles: AxisTitles(
                       sideTitles: SideTitles(
