@@ -8,6 +8,7 @@ import 'package:intl/intl.dart';
 import '../providers/app_provider.dart';
 import '../models/sales_target.dart';
 import '../models/user.dart';
+import '../models/workplace.dart';
 
 class ImportTargetsScreen extends StatefulWidget {
   const ImportTargetsScreen({super.key});
@@ -196,7 +197,7 @@ class _ImportTargetsScreenState extends State<ImportTargetsScreen> {
             ),
             const SizedBox(height: 8),
             const Text(
-              'Match the workplace names from your file to existing workplaces:',
+              'Match the workplace names from your file to existing workplaces or create new ones:',
               style: TextStyle(color: Colors.grey),
             ),
             const SizedBox(height: 16),
@@ -215,24 +216,36 @@ class _ImportTargetsScreenState extends State<ImportTargetsScreen> {
                     const SizedBox(width: 16),
                     Expanded(
                       flex: 3,
-                      child: DropdownButtonFormField<String>(
-                        decoration: const InputDecoration(
-                          labelText: 'Select Workplace',
-                          border: OutlineInputBorder(),
-                          contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                        ),
-                        value: _workplaceMapping[name],
-                        items: existingWorkplaces.map((workplace) {
-                          return DropdownMenuItem(
-                            value: workplace.id,
-                            child: Text(workplace.name),
-                          );
-                        }).toList(),
-                        onChanged: (value) {
-                          setState(() {
-                            _workplaceMapping[name] = value!;
-                          });
-                        },
+                      child: Row(
+                        children: [
+                          Expanded(
+                            child: DropdownButtonFormField<String>(
+                              decoration: const InputDecoration(
+                                labelText: 'Select Workplace',
+                                border: OutlineInputBorder(),
+                                contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                              ),
+                              value: _workplaceMapping[name],
+                              items: existingWorkplaces.map((workplace) {
+                                return DropdownMenuItem(
+                                  value: workplace.id,
+                                  child: Text(workplace.name),
+                                );
+                              }).toList(),
+                              onChanged: (value) {
+                                setState(() {
+                                  _workplaceMapping[name] = value!;
+                                });
+                              },
+                            ),
+                          ),
+                          const SizedBox(width: 8),
+                          IconButton(
+                            icon: const Icon(Icons.add_circle, color: Colors.green),
+                            tooltip: 'Create New Workplace',
+                            onPressed: () => _showCreateWorkplaceDialog(app, name),
+                          ),
+                        ],
                       ),
                     ),
                   ],
@@ -579,6 +592,81 @@ class _ImportTargetsScreenState extends State<ImportTargetsScreen> {
       );
 
       _workplaceMapping[name] = match.id;
+    }
+  }
+
+  Future<void> _showCreateWorkplaceDialog(AppProvider app, String suggestedName) async {
+    final nameController = TextEditingController(text: suggestedName);
+    final addressController = TextEditingController();
+
+    final result = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Create New Workplace'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            TextField(
+              controller: nameController,
+              decoration: const InputDecoration(
+                labelText: 'Workplace Name',
+                border: OutlineInputBorder(),
+              ),
+            ),
+            const SizedBox(height: 16),
+            TextField(
+              controller: addressController,
+              decoration: const InputDecoration(
+                labelText: 'Address (Optional)',
+                border: OutlineInputBorder(),
+              ),
+              maxLines: 2,
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('Cancel'),
+          ),
+          ElevatedButton(
+            onPressed: () async {
+              if (nameController.text.trim().isEmpty) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(content: Text('Please enter a workplace name')),
+                );
+                return;
+              }
+              Navigator.pop(context, true);
+            },
+            child: const Text('Create'),
+          ),
+        ],
+      ),
+    );
+
+    if (result == true && nameController.text.trim().isNotEmpty) {
+      final newWorkplace = Workplace(
+        id: 'wp_${DateTime.now().millisecondsSinceEpoch}',
+        name: nameController.text.trim(),
+        address: addressController.text.trim().isEmpty ? '' : addressController.text.trim(),
+        createdAt: DateTime.now(),
+      );
+
+      await app.addWorkplace(newWorkplace);
+      
+      setState(() {
+        _workplaceMapping[suggestedName] = newWorkplace.id;
+      });
+
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Created workplace: ${newWorkplace.name}'),
+            backgroundColor: Colors.green,
+          ),
+        );
+      }
     }
   }
 
