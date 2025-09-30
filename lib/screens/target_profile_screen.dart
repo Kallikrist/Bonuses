@@ -571,15 +571,15 @@ class _TargetProfileScreenState extends State<TargetProfileScreen> {
     final filteredTargets = app.salesTargets.where((target) {
       print('DEBUG: Checking target ${target.id}: date=${target.date}, employeeId=${target.assignedEmployeeId}, workplaceId=${target.assignedWorkplaceId}');
       
-      // Match employee if current target has one
-      if (_currentTarget.assignedEmployeeId != null && target.assignedEmployeeId != _currentTarget.assignedEmployeeId) {
-        print('DEBUG: Target ${target.id} filtered out - different employee');
+      // Both employee and workplace must match exactly (including null values)
+      // This ensures unassigned targets only show with other unassigned targets
+      if (_currentTarget.assignedEmployeeId != target.assignedEmployeeId) {
+        print('DEBUG: Target ${target.id} filtered out - different employee (${_currentTarget.assignedEmployeeId} vs ${target.assignedEmployeeId})');
         return false;
       }
       
-      // Match workplace if current target has one
-      if (_currentTarget.assignedWorkplaceId != null && target.assignedWorkplaceId != _currentTarget.assignedWorkplaceId) {
-        print('DEBUG: Target ${target.id} filtered out - different workplace');
+      if (_currentTarget.assignedWorkplaceId != target.assignedWorkplaceId) {
+        print('DEBUG: Target ${target.id} filtered out - different workplace (${_currentTarget.assignedWorkplaceId} vs ${target.assignedWorkplaceId})');
         return false;
       }
       
