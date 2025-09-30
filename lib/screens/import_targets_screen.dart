@@ -263,7 +263,7 @@ class _ImportTargetsScreenState extends State<ImportTargetsScreen> {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             const Text(
-              'Assign Employee',
+              'Assign Employee (Optional)',
               style: TextStyle(
                 fontSize: 18,
                 fontWeight: FontWeight.bold,
@@ -271,22 +271,29 @@ class _ImportTargetsScreenState extends State<ImportTargetsScreen> {
             ),
             const SizedBox(height: 8),
             const Text(
-              'Select the employee to assign all imported targets to:',
+              'Optionally select an employee to assign all imported targets to. Leave empty for unassigned targets.',
               style: TextStyle(color: Colors.grey),
             ),
             const SizedBox(height: 16),
-            DropdownButtonFormField<User>(
+            DropdownButtonFormField<User?>(
               decoration: const InputDecoration(
-                labelText: 'Select Employee',
+                labelText: 'Select Employee (Optional)',
                 border: OutlineInputBorder(),
+                hintText: 'Leave empty for unassigned',
               ),
               value: _selectedEmployee,
-              items: employees.map((employee) {
-                return DropdownMenuItem(
-                  value: employee,
-                  child: Text(employee.name),
-                );
-              }).toList(),
+              items: [
+                const DropdownMenuItem<User?>(
+                  value: null,
+                  child: Text('None (Unassigned)'),
+                ),
+                ...employees.map((employee) {
+                  return DropdownMenuItem<User?>(
+                    value: employee,
+                    child: Text(employee.name),
+                  );
+                }),
+              ],
               onChanged: (value) {
                 setState(() {
                   _selectedEmployee = value;
@@ -352,7 +359,6 @@ class _ImportTargetsScreenState extends State<ImportTargetsScreen> {
 
   Widget _buildImportButton(AppProvider app) {
     final bool canImport = _workplaceMapping.length == (_workplaceNames?.length ?? 0) &&
-        _selectedEmployee != null &&
         _workplaceMapping.values.every((id) => id.isNotEmpty);
 
     return ElevatedButton.icon(
@@ -577,13 +583,6 @@ class _ImportTargetsScreenState extends State<ImportTargetsScreen> {
   }
 
   Future<void> _importTargets(AppProvider app) async {
-    if (_selectedEmployee == null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Please select an employee')),
-      );
-      return;
-    }
-
     setState(() {
       _isLoading = true;
     });
@@ -606,8 +605,8 @@ class _ImportTargetsScreenState extends State<ImportTargetsScreen> {
           status: TargetStatus.pending,
           createdAt: DateTime.now(),
           createdBy: app.currentUser!.id,
-          assignedEmployeeId: _selectedEmployee!.id,
-          assignedEmployeeName: _selectedEmployee!.name,
+          assignedEmployeeId: _selectedEmployee?.id,
+          assignedEmployeeName: _selectedEmployee?.name,
           assignedWorkplaceId: workplaceId,
           assignedWorkplaceName: workplaceName,
           collaborativeEmployeeIds: [],
