@@ -2613,12 +2613,6 @@ class _AdminDashboardState extends State<AdminDashboard> {
                     ),
                   ),
                   _buildSettingsItem(
-                    Icons.track_changes,
-                    'Manage Targets',
-                    'Edit targets, set team leaders, and modify assignments',
-                    () => _showTargetsManagement(appProvider),
-                  ),
-                  _buildSettingsItem(
                     Icons.upload_file,
                     'Import Targets',
                     'Bulk import targets from Excel or CSV file',
@@ -2631,8 +2625,8 @@ class _AdminDashboardState extends State<AdminDashboard> {
                   ),
                   _buildSettingsItem(
                     Icons.view_list,
-                    'Manage Targets 2',
-                    'View all targets in a new dedicated window',
+                    'Manage Targets',
+                    'View and manage all targets in a dedicated window',
                     () => Navigator.push(
                       context,
                       MaterialPageRoute(
