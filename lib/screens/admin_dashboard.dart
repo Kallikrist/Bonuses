@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:intl/intl.dart';
 import 'target_profile_screen.dart';
+import 'import_targets_screen.dart';
 import '../providers/app_provider.dart';
 import '../models/sales_target.dart';
 import '../models/bonus.dart';
@@ -2616,6 +2617,17 @@ class _AdminDashboardState extends State<AdminDashboard> {
                     'Manage Targets',
                     'Edit targets, set team leaders, and modify assignments',
                     () => _showTargetsManagement(appProvider),
+                  ),
+                  _buildSettingsItem(
+                    Icons.upload_file,
+                    'Import Targets',
+                    'Bulk import targets from Excel or CSV file',
+                    () => Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (context) => const ImportTargetsScreen(),
+                      ),
+                    ),
                   ),
                   _buildSettingsItem(
                     Icons.view_list,
