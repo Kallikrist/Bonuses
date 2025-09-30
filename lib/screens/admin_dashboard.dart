@@ -7693,10 +7693,10 @@ class _TargetListScreenState extends State<TargetListScreen> {
                                   style: const TextStyle(fontSize: 12),
                                 ),
                               )
-                                   : IconButton(
-                                       icon: const Icon(Icons.arrow_forward_ios),
-                                       onPressed: () => _navigateToTarget(target),
-                                     ),
+                            : IconButton(
+                                icon: const Icon(Icons.arrow_forward_ios),
+                                onPressed: () => _navigateToTarget(target),
+                              ),
                       ),
                     );
                   },
