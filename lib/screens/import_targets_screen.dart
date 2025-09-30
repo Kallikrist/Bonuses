@@ -617,19 +617,26 @@ class _ImportTargetsScreenState extends State<ImportTargetsScreen> {
         imported++;
       }
 
+      // Force a reload of data to ensure UI updates
+      await app.initialize();
+
       if (mounted) {
         Navigator.pop(context);
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text('Successfully imported $imported targets'),
             backgroundColor: Colors.green,
+            duration: const Duration(seconds: 3),
           ),
         );
       }
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Error importing targets: $e')),
+          SnackBar(
+            content: Text('Error importing targets: $e'),
+            backgroundColor: Colors.red,
+          ),
         );
       }
     } finally {
