@@ -602,33 +602,14 @@ class _TargetProfileScreenState extends State<TargetProfileScreen> {
       return true;
     }).toList();
 
-    // Remove duplicates by date - if multiple targets have the same date, keep only one
-    final uniqueTargets = <String, SalesTarget>{};
-    for (final target in filteredTargets) {
-      // Use full date string as key to distinguish between different years
-      final dateKey = '${target.date.year}-${target.date.month}-${target.date.day}';
-      if (!uniqueTargets.containsKey(dateKey)) {
-        uniqueTargets[dateKey] = target;
-        print('DEBUG: Added unique target for date: $dateKey (${target.date})');
-      } else {
-        print('DEBUG: Skipped duplicate target for date: $dateKey (${target.date})');
-      }
-    }
-    
-    final finalTargets = uniqueTargets.values.toList();
+    // Sort by date (no deduplication - multiple targets can exist for same date)
+    filteredTargets.sort((a, b) => a.date.compareTo(b.date));
+    final finalTargets = filteredTargets;
 
-    // Sort by date
-    finalTargets.sort((a, b) => a.date.compareTo(b.date));
-
-    print('DEBUG: Found ${filteredTargets.length} filtered targets before deduplication');
-    for (final target in filteredTargets) {
-      print('DEBUG: Filtered target ${target.id}: date=${target.date}, targetAmount=${target.targetAmount}, actualAmount=${target.actualAmount}');
-    }
-    
-    print('DEBUG: Found ${finalTargets.length} unique targets for chart');
+    print('DEBUG: Found ${finalTargets.length} targets for chart');
     print('DEBUG: Will use scrollable chart: ${finalTargets.length >= 12}');
     for (final target in finalTargets) {
-      print('DEBUG: Final target ${target.id}: date=${target.date}, targetAmount=${target.targetAmount}, actualAmount=${target.actualAmount}');
+      print('DEBUG: Target ${target.id}: date=${target.date}, targetAmount=${target.targetAmount}, actualAmount=${target.actualAmount}, employee=${target.assignedEmployeeName}');
     }
 
     if (finalTargets.isEmpty) {
