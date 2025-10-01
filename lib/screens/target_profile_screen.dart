@@ -583,6 +583,13 @@ class _TargetProfileScreenState extends State<TargetProfileScreen> {
         return false;
       }
       
+      // Only show targets for the same date (month and day) to show historical trends
+      // e.g., if viewing Oct 1, 2025, show Oct 1 from 2024, 2023, 2022, etc.
+      if (target.date.month != _currentTarget.date.month || target.date.day != _currentTarget.date.day) {
+        print('DEBUG: Target ${target.id} filtered out - different date (${target.date.month}/${target.date.day} vs ${_currentTarget.date.month}/${_currentTarget.date.day})');
+        return false;
+      }
+      
       print('DEBUG: Target ${target.id} included in chart');
       return true;
     }).toList();
