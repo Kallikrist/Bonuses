@@ -6893,6 +6893,8 @@ class PointsRulesScreen extends StatefulWidget {
 class _PointsRulesScreenState extends State<PointsRulesScreen> {
   late TextEditingController percentController;
   late TextEditingController pointsController;
+  late TextEditingController pointValueController;
+  late TextEditingController currencySymbolController;
 
   int? editingIndex;
 
@@ -6901,12 +6903,20 @@ class _PointsRulesScreenState extends State<PointsRulesScreen> {
     super.initState();
     percentController = TextEditingController();
     pointsController = TextEditingController();
+    pointValueController = TextEditingController(
+      text: widget.appProvider.pointsRules.pointValue.toStringAsFixed(0),
+    );
+    currencySymbolController = TextEditingController(
+      text: widget.appProvider.pointsRules.currencySymbol,
+    );
   }
 
   @override
   void dispose() {
     percentController.dispose();
     pointsController.dispose();
+    pointValueController.dispose();
+    currencySymbolController.dispose();
     super.dispose();
   }
 
@@ -6931,6 +6941,97 @@ class _PointsRulesScreenState extends State<PointsRulesScreen> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
+                // Currency Value Section
+                Text(
+                  'Point Currency Value',
+                  style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                        fontWeight: FontWeight.bold,
+                        color: Colors.blue[700],
+                      ),
+                ),
+                const SizedBox(height: 12),
+                Card(
+                  child: Padding(
+                    padding: const EdgeInsets.all(16),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          'Define how much 1 point is worth in your local currency',
+                          style: TextStyle(color: Colors.grey[600]),
+                        ),
+                        const SizedBox(height: 16),
+                        Row(
+                          children: [
+                            Expanded(
+                              flex: 2,
+                              child: TextField(
+                                controller: pointValueController,
+                                keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                                decoration: const InputDecoration(
+                                  labelText: 'Value per Point',
+                                  border: OutlineInputBorder(),
+                                  hintText: 'e.g., 100',
+                                ),
+                                onChanged: (value) {
+                                  final newValue = double.tryParse(value);
+                                  if (newValue != null && newValue > 0) {
+                                    appProvider.updatePointsRules(
+                                      appProvider.pointsRules.copyWith(pointValue: newValue),
+                                    );
+                                  }
+                                },
+                              ),
+                            ),
+                            const SizedBox(width: 12),
+                            Expanded(
+                              child: TextField(
+                                controller: currencySymbolController,
+                                decoration: const InputDecoration(
+                                  labelText: 'Currency',
+                                  border: OutlineInputBorder(),
+                                  hintText: 'ISK',
+                                ),
+                                onChanged: (value) {
+                                  if (value.isNotEmpty) {
+                                    appProvider.updatePointsRules(
+                                      appProvider.pointsRules.copyWith(currencySymbol: value),
+                                    );
+                                  }
+                                },
+                              ),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 12),
+                        Container(
+                          padding: const EdgeInsets.all(12),
+                          decoration: BoxDecoration(
+                            color: Colors.blue[50],
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                          child: Row(
+                            children: [
+                              Icon(Icons.info_outline, color: Colors.blue[700]),
+                              const SizedBox(width: 8),
+                              Expanded(
+                                child: Text(
+                                  '1 point = ${rules.pointValue.toStringAsFixed(0)} ${rules.currencySymbol}',
+                                  style: TextStyle(
+                                    fontWeight: FontWeight.bold,
+                                    color: Colors.blue[700],
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 24),
+                
                 // Custom Rules Section
                 Text(
                   'Custom Rules',
