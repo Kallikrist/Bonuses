@@ -6967,7 +6967,9 @@ class _PointsRulesScreenState extends State<PointsRulesScreen> {
                               flex: 2,
                               child: TextField(
                                 controller: pointValueController,
-                                keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                                keyboardType:
+                                    const TextInputType.numberWithOptions(
+                                        decimal: true),
                                 decoration: const InputDecoration(
                                   labelText: 'Value per Point',
                                   border: OutlineInputBorder(),
@@ -6977,7 +6979,8 @@ class _PointsRulesScreenState extends State<PointsRulesScreen> {
                                   final newValue = double.tryParse(value);
                                   if (newValue != null && newValue > 0) {
                                     appProvider.updatePointsRules(
-                                      appProvider.pointsRules.copyWith(pointValue: newValue),
+                                      appProvider.pointsRules
+                                          .copyWith(pointValue: newValue),
                                     );
                                   }
                                 },
@@ -6995,7 +6998,8 @@ class _PointsRulesScreenState extends State<PointsRulesScreen> {
                                 onChanged: (value) {
                                   if (value.isNotEmpty) {
                                     appProvider.updatePointsRules(
-                                      appProvider.pointsRules.copyWith(currencySymbol: value),
+                                      appProvider.pointsRules
+                                          .copyWith(currencySymbol: value),
                                     );
                                   }
                                 },
@@ -7031,7 +7035,7 @@ class _PointsRulesScreenState extends State<PointsRulesScreen> {
                   ),
                 ),
                 const SizedBox(height: 24),
-                
+
                 // Custom Rules Section
                 Text(
                   'Custom Rules',
@@ -7265,6 +7269,7 @@ class _TargetListScreenState extends State<TargetListScreen> {
   Set<String> _selectedTargetIds = <String>{};
   bool _isSelectionMode = false;
   List<String> _allTargetIds = [];
+  String? _selectedWorkplaceId; // Filter by workplace
 
   void _toggleSelectionMode() {
     setState(() {
@@ -7354,6 +7359,56 @@ class _TargetListScreenState extends State<TargetListScreen> {
               'Delete',
               style: TextStyle(color: Colors.white),
             ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _showWorkplaceFilterDialog() {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Filter by Workplace'),
+        content: FutureBuilder<List<Workplace>>(
+          future: widget.appProvider.getWorkplaces(),
+          builder: (context, snapshot) {
+            if (!snapshot.hasData) {
+              return const CircularProgressIndicator();
+            }
+
+            final workplaces = snapshot.data!;
+
+            return Column(
+              mainAxisSize: MainAxisSize.min,
+              children: workplaces
+                  .map((workplace) => ListTile(
+                        title: Text(workplace.name),
+                        leading: Radio<String>(
+                          value: workplace.id,
+                          groupValue: _selectedWorkplaceId,
+                          onChanged: (value) {
+                            setState(() {
+                              _selectedWorkplaceId = value;
+                            });
+                            Navigator.pop(context);
+                          },
+                        ),
+                        onTap: () {
+                          setState(() {
+                            _selectedWorkplaceId = workplace.id;
+                          });
+                          Navigator.pop(context);
+                        },
+                      ))
+                  .toList(),
+            );
+          },
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Cancel'),
           ),
         ],
       ),
@@ -7659,6 +7714,20 @@ class _TargetListScreenState extends State<TargetListScreen> {
           onPressed: () => Navigator.pop(context),
         ),
         actions: [
+          if (!_isSelectionMode)
+            IconButton(
+              icon: Icon(_selectedWorkplaceId == null ? Icons.filter_list : Icons.filter_list_off),
+              tooltip: _selectedWorkplaceId == null ? 'Filter by Workplace' : 'Clear Filter',
+              onPressed: () {
+                if (_selectedWorkplaceId != null) {
+                  setState(() {
+                    _selectedWorkplaceId = null;
+                  });
+                } else {
+                  _showWorkplaceFilterDialog();
+                }
+              },
+            ),
           _isSelectionMode
               ? IconButton(
                   icon: const Icon(Icons.close),
@@ -7674,7 +7743,12 @@ class _TargetListScreenState extends State<TargetListScreen> {
       ),
       body: Consumer<AppProvider>(
         builder: (context, provider, child) {
-          final targets = provider.salesTargets;
+          // Apply workplace filter if selected
+          final targets = _selectedWorkplaceId == null
+              ? provider.salesTargets
+              : provider.salesTargets
+                  .where((t) => t.assignedWorkplaceId == _selectedWorkplaceId)
+                  .toList();
 
           // Update target IDs for selection
           _allTargetIds = targets.map((t) => t.id).toList();
