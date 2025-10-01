@@ -571,13 +571,7 @@ class _TargetProfileScreenState extends State<TargetProfileScreen> {
     final filteredTargets = app.salesTargets.where((target) {
       print('DEBUG: Checking target ${target.id}: date=${target.date}, employeeId=${target.assignedEmployeeId}, workplaceId=${target.assignedWorkplaceId}');
       
-      // Both employee and workplace must match exactly (including null values)
-      // This ensures unassigned targets only show with other unassigned targets
-      if (_currentTarget.assignedEmployeeId != target.assignedEmployeeId) {
-        print('DEBUG: Target ${target.id} filtered out - different employee (${_currentTarget.assignedEmployeeId} vs ${target.assignedEmployeeId})');
-        return false;
-      }
-      
+      // Match workplace - this is the key filter
       if (_currentTarget.assignedWorkplaceId != target.assignedWorkplaceId) {
         print('DEBUG: Target ${target.id} filtered out - different workplace (${_currentTarget.assignedWorkplaceId} vs ${target.assignedWorkplaceId})');
         return false;
@@ -585,12 +579,13 @@ class _TargetProfileScreenState extends State<TargetProfileScreen> {
       
       // Only show targets for the same date (month and day) to show historical trends
       // e.g., if viewing Oct 1, 2025, show Oct 1 from 2024, 2023, 2022, etc.
+      // regardless of which employee was assigned
       if (target.date.month != _currentTarget.date.month || target.date.day != _currentTarget.date.day) {
         print('DEBUG: Target ${target.id} filtered out - different date (${target.date.month}/${target.date.day} vs ${_currentTarget.date.month}/${_currentTarget.date.day})');
         return false;
       }
       
-      print('DEBUG: Target ${target.id} included in chart');
+      print('DEBUG: Target ${target.id} included in chart - same workplace (${target.assignedWorkplaceName}) and same date (${target.date.month}/${target.date.day})');
       return true;
     }).toList();
 
