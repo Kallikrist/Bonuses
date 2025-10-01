@@ -7716,8 +7716,12 @@ class _TargetListScreenState extends State<TargetListScreen> {
         actions: [
           if (!_isSelectionMode)
             IconButton(
-              icon: Icon(_selectedWorkplaceId == null ? Icons.filter_list : Icons.filter_list_off),
-              tooltip: _selectedWorkplaceId == null ? 'Filter by Workplace' : 'Clear Filter',
+              icon: Icon(_selectedWorkplaceId == null
+                  ? Icons.filter_list
+                  : Icons.filter_list_off),
+              tooltip: _selectedWorkplaceId == null
+                  ? 'Filter by Workplace'
+                  : 'Clear Filter',
               onPressed: () {
                 if (_selectedWorkplaceId != null) {
                   setState(() {
@@ -7875,20 +7879,42 @@ class _TargetListScreenState extends State<TargetListScreen> {
           );
         },
       ),
-      floatingActionButton:
-          _isSelectionMode == false || _selectedTargetIds.isEmpty
+      floatingActionButton: _isSelectionMode
+          ? (_selectedTargetIds.isNotEmpty
               ? FloatingActionButton(
-                  onPressed: _showAddTargetDialog,
-                  backgroundColor: Colors.blue,
-                  foregroundColor: Colors.white,
-                  child: const Icon(Icons.add),
-                )
-              : FloatingActionButton(
                   onPressed: _showDeleteSelectedDialog,
                   backgroundColor: Colors.red,
                   foregroundColor: Colors.white,
                   child: const Icon(Icons.delete_forever),
+                )
+              : null)
+          : Row(
+              mainAxisAlignment: MainAxisAlignment.end,
+              children: [
+                FloatingActionButton(
+                  onPressed: () {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (context) => const ImportTargetsScreen(),
+                      ),
+                    );
+                  },
+                  backgroundColor: Colors.green,
+                  foregroundColor: Colors.white,
+                  heroTag: 'import',
+                  child: const Icon(Icons.upload_file),
                 ),
+                const SizedBox(width: 16),
+                FloatingActionButton(
+                  onPressed: _showAddTargetDialog,
+                  backgroundColor: Colors.blue,
+                  foregroundColor: Colors.white,
+                  heroTag: 'add',
+                  child: const Icon(Icons.add),
+                ),
+              ],
+            ),
     );
   }
 
