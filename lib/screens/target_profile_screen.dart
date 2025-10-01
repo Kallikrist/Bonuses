@@ -455,7 +455,20 @@ class _TargetProfileScreenState extends State<TargetProfileScreen> {
                         actualAmount != null && actualAmount >= 0) {
                       // Recalculate target status based on new target amount vs new actual amount
                       final isTargetMet = actualAmount >= targetAmount;
-                      final newStatus = isTargetMet ? TargetStatus.met : TargetStatus.missed;
+                      
+                      // Only mark as missed if the date has passed
+                      final now = DateTime.now();
+                      final dateHasPassed = selectedDate.isBefore(DateTime(now.year, now.month, now.day));
+                      
+                      TargetStatus newStatus;
+                      if (isTargetMet) {
+                        newStatus = TargetStatus.met;
+                      } else if (dateHasPassed) {
+                        newStatus = TargetStatus.missed;
+                      } else {
+                        newStatus = TargetStatus.pending;
+                      }
+                      
                       final percentageAbove = isTargetMet
                           ? ((actualAmount - targetAmount) / targetAmount) * 100
                           : 0.0;
