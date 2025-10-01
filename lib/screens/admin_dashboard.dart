@@ -3,6 +3,7 @@ import 'package:provider/provider.dart';
 import 'package:intl/intl.dart';
 import 'target_profile_screen.dart';
 import 'import_targets_screen.dart';
+import 'import_employees_screen.dart';
 import '../providers/app_provider.dart';
 import '../models/sales_target.dart';
 import '../models/bonus.dart';
@@ -8379,19 +8380,42 @@ class _EmployeesListScreenState extends State<EmployeesListScreen> {
         },
       ),
       floatingActionButton: _isSelectionMode
-          ? _selectedEmployeeIds.isNotEmpty
+          ? (_selectedEmployeeIds.isNotEmpty
               ? FloatingActionButton(
                   onPressed: _showDeleteSelectedDialog,
                   backgroundColor: Colors.red,
                   foregroundColor: Colors.white,
                   child: const Icon(Icons.delete),
                 )
-              : null
-          : FloatingActionButton(
-              onPressed: _showAddEmployeeDialog,
-              backgroundColor: Colors.blue,
-              foregroundColor: Colors.white,
-              child: const Icon(Icons.person_add),
+              : null)
+          : Row(
+              mainAxisAlignment: MainAxisAlignment.end,
+              children: [
+                FloatingActionButton(
+                  onPressed: () {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (context) => ImportEmployeesScreen(
+                          appProvider: widget.appProvider,
+                        ),
+                      ),
+                    );
+                  },
+                  backgroundColor: Colors.green,
+                  foregroundColor: Colors.white,
+                  heroTag: 'import_employees',
+                  child: const Icon(Icons.upload_file),
+                ),
+                const SizedBox(width: 16),
+                FloatingActionButton(
+                  onPressed: _showAddEmployeeDialog,
+                  backgroundColor: Colors.blue,
+                  foregroundColor: Colors.white,
+                  heroTag: 'add_employee',
+                  child: const Icon(Icons.person_add),
+                ),
+              ],
             ),
     );
   }
