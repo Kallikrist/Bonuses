@@ -5,10 +5,12 @@ import '../providers/app_provider.dart';
 import '../models/sales_target.dart';
 import '../models/bonus.dart';
 import '../models/user.dart';
+import '../models/company.dart';
 import '../models/country.dart';
 import '../models/points_transaction.dart';
 import '../widgets/profile_header_widget.dart';
 import '../widgets/target_card_widget.dart';
+import 'admin_dashboard.dart'; // Import for EmployeeProfileScreen
 
 class EmployeeDashboard extends StatefulWidget {
   const EmployeeDashboard({super.key});
@@ -63,7 +65,11 @@ class _EmployeeDashboardState extends State<EmployeeDashboard> {
           itemCount: employees.length,
           itemBuilder: (context, index) {
             final employee = employees[index];
-            final points = appProvider.getUserTotalPoints(employee.id);
+            // Get company-specific points
+            final points = employee.primaryCompanyId != null
+                ? appProvider.getUserCompanyPoints(
+                    employee.id, employee.primaryCompanyId!)
+                : 0;
             return Card(
               margin: const EdgeInsets.only(bottom: 8),
               child: ListTile(
@@ -166,13 +172,16 @@ class _EmployeeDashboardState extends State<EmployeeDashboard> {
     return Consumer<AppProvider>(
       builder: (context, appProvider, child) {
         final user = appProvider.currentUser!;
-        final userPoints = appProvider.getUserTotalPoints(user.id);
+        // Get company-specific points
+        final userPoints = user.primaryCompanyId != null
+            ? appProvider.getUserCompanyPoints(user.id, user.primaryCompanyId!)
+            : 0;
         final todaysTargets = appProvider.getTodaysTargetsForEmployee(user.id);
         final selectedDateTargets = appProvider.salesTargets.where((target) {
           return target.date.year == _selectedDate.year &&
-                 target.date.month == _selectedDate.month &&
-                 target.date.day == _selectedDate.day &&
-                 (target.assignedEmployeeId == user.id ||
+              target.date.month == _selectedDate.month &&
+              target.date.day == _selectedDate.day &&
+              (target.assignedEmployeeId == user.id ||
                   target.collaborativeEmployeeIds.contains(user.id));
         }).toList();
         final allTargets = appProvider.salesTargets;
@@ -195,13 +204,40 @@ class _EmployeeDashboardState extends State<EmployeeDashboard> {
           body: Column(
             children: [
               // Profile Header with Action Buttons
-              ProfileHeaderWidget(
-                userName: user.name,
-                userEmail: user.email,
-                onProfileTap: () => setState(
-                    () => _selectedIndex = 4), // Navigate to Profile tab
-                actionButtons: _getEmployeeActionButtons(context, appProvider),
-                salesTargets: allTargets,
+              FutureBuilder<List<Company>>(
+                future: appProvider.getCompanies(),
+                builder: (context, snapshot) {
+                  final allCompanies = snapshot.data ?? [];
+                  final userCompanies = allCompanies
+                      .where((c) => user.companyIds.contains(c.id))
+                      .toList();
+
+                  return ProfileHeaderWidget(
+                    userName: user.name,
+                    userEmail: user.email,
+                    onProfileTap: () => setState(
+                        () => _selectedIndex = 4), // Navigate to Profile tab
+                    actionButtons:
+                        _getEmployeeActionButtons(context, appProvider),
+                    salesTargets: allTargets,
+                    userCompanies: userCompanies,
+                    currentCompanyId: user.primaryCompanyId,
+                    onCompanyChanged: (newCompanyId) async {
+                      final updatedUser = user.copyWith(
+                        primaryCompanyId: newCompanyId,
+                      );
+                      await appProvider.updateUser(updatedUser);
+                      setState(() {}); // Refresh UI
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(
+                          content: Text(
+                              'Switched to ${userCompanies.firstWhere((c) => c.id == newCompanyId).name}'),
+                          backgroundColor: Colors.green,
+                        ),
+                      );
+                    },
+                  );
+                },
               ),
               // Main Content
               Expanded(
@@ -211,10 +247,9 @@ class _EmployeeDashboardState extends State<EmployeeDashboard> {
                     _buildOverviewTab(
                         userPoints, selectedDateTargets, user.id, appProvider),
                     _buildTargetsTab(appProvider, allTargets),
-                    _buildBonusesTab(
-                        availableBonuses, redeemedBonuses, user.id, userPoints, appProvider),
+                    _buildBonusesTab(availableBonuses, redeemedBonuses, user.id,
+                        userPoints, appProvider),
                     _buildReportsTab(allTargets, allTransactions),
-                    _buildProfileTab(user, appProvider),
                   ],
                 ),
               ),
@@ -250,10 +285,6 @@ class _EmployeeDashboardState extends State<EmployeeDashboard> {
                 icon: Icon(Icons.analytics),
                 label: 'Reports',
               ),
-              BottomNavigationBarItem(
-                icon: Icon(Icons.person),
-                label: 'Profile',
-              ),
             ],
           ),
         );
@@ -261,12 +292,15 @@ class _EmployeeDashboardState extends State<EmployeeDashboard> {
     );
   }
 
-  Widget _buildOverviewTab(int userPoints, List<SalesTarget> selectedDateTargets,
-      String userId, AppProvider appProvider) {
+  Widget _buildOverviewTab(
+      int userPoints,
+      List<SalesTarget> selectedDateTargets,
+      String userId,
+      AppProvider appProvider) {
     final isToday = _selectedDate.year == DateTime.now().year &&
-                   _selectedDate.month == DateTime.now().month &&
-                   _selectedDate.day == DateTime.now().day;
-                   
+        _selectedDate.month == DateTime.now().month &&
+        _selectedDate.day == DateTime.now().day;
+
     return SingleChildScrollView(
       padding: const EdgeInsets.all(16),
       child: Column(
@@ -288,7 +322,9 @@ class _EmployeeDashboardState extends State<EmployeeDashboard> {
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
                             Text(
-                              isToday ? 'Today\'s Targets' : 'Targets for Selected Date',
+                              isToday
+                                  ? 'Today\'s Targets'
+                                  : 'Targets for Selected Date',
                               style: TextStyle(
                                 fontSize: 16,
                                 fontWeight: FontWeight.bold,
@@ -296,7 +332,8 @@ class _EmployeeDashboardState extends State<EmployeeDashboard> {
                               ),
                             ),
                             Text(
-                              DateFormat('EEEE, MMM dd, yyyy').format(_selectedDate),
+                              DateFormat('EEEE, MMM dd, yyyy')
+                                  .format(_selectedDate),
                               style: TextStyle(
                                 color: Colors.blue.shade600,
                                 fontSize: 14,
@@ -314,7 +351,8 @@ class _EmployeeDashboardState extends State<EmployeeDashboard> {
                       ElevatedButton.icon(
                         onPressed: () {
                           setState(() {
-                            _selectedDate = _selectedDate.subtract(const Duration(days: 1));
+                            _selectedDate =
+                                _selectedDate.subtract(const Duration(days: 1));
                           });
                         },
                         icon: const Icon(Icons.chevron_left, size: 16),
@@ -322,7 +360,8 @@ class _EmployeeDashboardState extends State<EmployeeDashboard> {
                         style: ElevatedButton.styleFrom(
                           backgroundColor: Colors.blue.shade100,
                           foregroundColor: Colors.blue.shade700,
-                          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 12, vertical: 8),
                         ),
                       ),
                       ElevatedButton(
@@ -332,16 +371,21 @@ class _EmployeeDashboardState extends State<EmployeeDashboard> {
                           });
                         },
                         style: ElevatedButton.styleFrom(
-                          backgroundColor: isToday ? Colors.blue.shade700 : Colors.blue.shade100,
-                          foregroundColor: isToday ? Colors.white : Colors.blue.shade700,
-                          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                          backgroundColor: isToday
+                              ? Colors.blue.shade700
+                              : Colors.blue.shade100,
+                          foregroundColor:
+                              isToday ? Colors.white : Colors.blue.shade700,
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 16, vertical: 8),
                         ),
                         child: const Text('Today'),
                       ),
                       ElevatedButton.icon(
                         onPressed: () {
                           setState(() {
-                            _selectedDate = _selectedDate.add(const Duration(days: 1));
+                            _selectedDate =
+                                _selectedDate.add(const Duration(days: 1));
                           });
                         },
                         icon: const Icon(Icons.chevron_right, size: 16),
@@ -349,7 +393,8 @@ class _EmployeeDashboardState extends State<EmployeeDashboard> {
                         style: ElevatedButton.styleFrom(
                           backgroundColor: Colors.blue.shade100,
                           foregroundColor: Colors.blue.shade700,
-                          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 12, vertical: 8),
                         ),
                       ),
                     ],
@@ -383,7 +428,9 @@ class _EmployeeDashboardState extends State<EmployeeDashboard> {
           ),
           const SizedBox(height: 16),
           Text(
-            isToday ? 'Today\'s Sales Targets' : 'Sales Targets - ${DateFormat('MMM dd').format(_selectedDate)}',
+            isToday
+                ? 'Today\'s Sales Targets'
+                : 'Sales Targets - ${DateFormat('MMM dd').format(_selectedDate)}',
             style: Theme.of(context).textTheme.titleLarge,
           ),
           const SizedBox(height: 8),
@@ -392,7 +439,9 @@ class _EmployeeDashboardState extends State<EmployeeDashboard> {
               child: Padding(
                 padding: const EdgeInsets.all(16),
                 child: Text(
-                  isToday ? 'No sales targets set for today' : 'No sales targets for selected date',
+                  isToday
+                      ? 'No sales targets set for today'
+                      : 'No sales targets for selected date',
                   style: Theme.of(context).textTheme.bodyMedium?.copyWith(
                         color: Colors.grey[600],
                       ),
@@ -802,8 +851,12 @@ class _EmployeeDashboardState extends State<EmployeeDashboard> {
     );
   }
 
-  Widget _buildBonusesTab(List<Bonus> availableBonuses,
-      List<Bonus> redeemedBonuses, String userId, int userPoints, AppProvider appProvider) {
+  Widget _buildBonusesTab(
+      List<Bonus> availableBonuses,
+      List<Bonus> redeemedBonuses,
+      String userId,
+      int userPoints,
+      AppProvider appProvider) {
     return SingleChildScrollView(
       child: Column(
         children: [
@@ -910,8 +963,7 @@ class _EmployeeDashboardState extends State<EmployeeDashboard> {
                               value: overflowProgress,
                               strokeWidth: 4,
                               color: Colors.white70,
-                              backgroundColor:
-                                  Colors.white.withOpacity(0.15),
+                              backgroundColor: Colors.white.withOpacity(0.15),
                             ),
                           ),
                         Text(
@@ -937,7 +989,9 @@ class _EmployeeDashboardState extends State<EmployeeDashboard> {
               children: [
                 Expanded(
                   child: Text(
-                    _showAvailableBonuses ? 'Available Bonuses' : 'Your Claimed Bonuses',
+                    _showAvailableBonuses
+                        ? 'Available Bonuses'
+                        : 'Your Claimed Bonuses',
                     style: const TextStyle(
                       fontSize: 20,
                       fontWeight: FontWeight.bold,
@@ -956,13 +1010,15 @@ class _EmployeeDashboardState extends State<EmployeeDashboard> {
                       ChoiceChip(
                         label: const Text('Available'),
                         selected: _showAvailableBonuses,
-                        onSelected: (v) => setState(() => _showAvailableBonuses = true),
+                        onSelected: (v) =>
+                            setState(() => _showAvailableBonuses = true),
                       ),
                       const SizedBox(width: 8),
                       ChoiceChip(
                         label: const Text('Redeemed'),
                         selected: !_showAvailableBonuses,
-                        onSelected: (v) => setState(() => _showAvailableBonuses = false),
+                        onSelected: (v) =>
+                            setState(() => _showAvailableBonuses = false),
                       ),
                     ],
                   ),
@@ -976,15 +1032,15 @@ class _EmployeeDashboardState extends State<EmployeeDashboard> {
           // Available Bonuses Section (toggle)
           if (_showAvailableBonuses)
             Container(
-            margin: const EdgeInsets.symmetric(horizontal: 16),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
+              margin: const EdgeInsets.symmetric(horizontal: 16),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
                   const SizedBox(height: 12),
-                ...availableBonuses.map((bonus) => _buildSimpleBonusCard(
-                      bonus, userPoints, userId, false)),
-              ],
-            ),
+                  ...availableBonuses.map((bonus) =>
+                      _buildSimpleBonusCard(bonus, userPoints, userId, false)),
+                ],
+              ),
             ),
 
           if (_showAvailableBonuses) const SizedBox(height: 24),
@@ -992,47 +1048,48 @@ class _EmployeeDashboardState extends State<EmployeeDashboard> {
           // Claimed Bonuses Section (toggle)
           if (!_showAvailableBonuses)
             Container(
-            margin: const EdgeInsets.symmetric(horizontal: 16),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
+              margin: const EdgeInsets.symmetric(horizontal: 16),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
                   const SizedBox(height: 12),
-                redeemedBonuses.isEmpty
-                    ? Container(
-                        padding: const EdgeInsets.all(32),
-                        decoration: BoxDecoration(
-                          color: Colors.grey.shade100,
-                          borderRadius: BorderRadius.circular(12),
-                        ),
-                        child: const Center(
-                          child: Column(
-                            children: [
-                              Icon(Icons.card_giftcard, 
-                                   size: 48, color: Colors.grey),
-                              SizedBox(height: 12),
-                              Text(
-                                'No bonuses claimed yet',
-                                style: TextStyle(
-                                  fontSize: 16,
-                                  color: Colors.grey,
-                                ),
-                              ),
-                              SizedBox(height: 4),
-                              Text(
-                                'Start earning points to claim bonuses!',
-                                style: TextStyle(color: Colors.grey),
-                              ),
-                            ],
+                  redeemedBonuses.isEmpty
+                      ? Container(
+                          padding: const EdgeInsets.all(32),
+                          decoration: BoxDecoration(
+                            color: Colors.grey.shade100,
+                            borderRadius: BorderRadius.circular(12),
                           ),
+                          child: const Center(
+                            child: Column(
+                              children: [
+                                Icon(Icons.card_giftcard,
+                                    size: 48, color: Colors.grey),
+                                SizedBox(height: 12),
+                                Text(
+                                  'No bonuses claimed yet',
+                                  style: TextStyle(
+                                    fontSize: 16,
+                                    color: Colors.grey,
+                                  ),
+                                ),
+                                SizedBox(height: 4),
+                                Text(
+                                  'Start earning points to claim bonuses!',
+                                  style: TextStyle(color: Colors.grey),
+                                ),
+                              ],
+                            ),
+                          ),
+                        )
+                      : Column(
+                          children: redeemedBonuses
+                              .map((bonus) => _buildSimpleBonusCard(
+                                  bonus, userPoints, userId, true, appProvider))
+                              .toList(),
                         ),
-                      )
-                    : Column(
-                        children: redeemedBonuses.map((bonus) => 
-                            _buildSimpleBonusCard(bonus, userPoints, userId, true, appProvider))
-                            .toList(),
-                      ),
-              ],
-            ),
+                ],
+              ),
             ),
 
           const SizedBox(height: 32),
@@ -1041,7 +1098,9 @@ class _EmployeeDashboardState extends State<EmployeeDashboard> {
     );
   }
 
-  Widget _buildSimpleBonusCard(Bonus bonus, int userPoints, String userId, bool isRedeemed, [AppProvider? appProvider]) {
+  Widget _buildSimpleBonusCard(
+      Bonus bonus, int userPoints, String userId, bool isRedeemed,
+      [AppProvider? appProvider]) {
     final canRedeem = !isRedeemed && userPoints >= bonus.pointsRequired;
     final pointsNeeded = bonus.pointsRequired - userPoints;
     final progress = (userPoints / bonus.pointsRequired).clamp(0.0, 1.0);
@@ -1053,9 +1112,9 @@ class _EmployeeDashboardState extends State<EmployeeDashboard> {
         color: Colors.white,
         borderRadius: BorderRadius.circular(12),
         border: Border.all(
-          color: isRedeemed 
+          color: isRedeemed
               ? Colors.green.withOpacity(0.3)
-              : canRedeem 
+              : canRedeem
                   ? Colors.purple.withOpacity(0.3)
                   : Colors.grey.withOpacity(0.3),
         ),
@@ -1106,7 +1165,7 @@ class _EmployeeDashboardState extends State<EmployeeDashboard> {
             ),
           ),
           const SizedBox(width: 16),
-          
+
           // Content
           Expanded(
             child: Column(
@@ -1166,63 +1225,64 @@ class _EmployeeDashboardState extends State<EmployeeDashboard> {
                 ),
                 // Show secret code if available for redeemed bonuses
                 if (isRedeemed && appProvider != null) ...[
-                  Builder(
-                    builder: (context) {
-                      // Find the transaction that includes the secret code for this bonus
-                      final transactions = appProvider.getUserPointsTransactions(userId);
-                      final relevantTransaction = transactions
-                          .where((t) => 
-                              t.type == PointsTransactionType.redeemed &&
-                              t.description.contains('Redeemed ${bonus.name}'))
-                          .firstOrNull;
-                      
-                      final secretCodeRegex = RegExp(r'Secret Code: (.+?)(?:\s*$)');
-                      final secretCodeMatch = relevantTransaction != null 
-                          ? secretCodeRegex.firstMatch(relevantTransaction.description) 
-                          : null;
-                      final hasSecretCode = secretCodeMatch != null;
-                      final secretCode = secretCodeMatch?.group(1);
-                      
-                      if (hasSecretCode) {
-                        return Column(
-                          children: [
-                            const SizedBox(height: 8),
-                            Container(
-                              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                              decoration: BoxDecoration(
-                                color: Colors.orange.shade50,
-                                border: Border.all(color: Colors.orange.shade200),
-                                borderRadius: BorderRadius.circular(4),
-                              ),
-                              child: Row(
-                                mainAxisSize: MainAxisSize.min,
-                                children: [
-                                  Icon(Icons.security, 
-                                      size: 16, 
-                                      color: Colors.orange.shade700),
-                                  const SizedBox(width: 4),
-                                  Text(
-                                    'Secret Code: $secretCode',
-                                    style: TextStyle(
-                                      color: Colors.orange.shade700,
-                                      fontWeight: FontWeight.bold,
-                                      fontSize: 12,
-                                    ),
-                                  ),
-                                ],
-                              ),
+                  Builder(builder: (context) {
+                    // Find the transaction that includes the secret code for this bonus
+                    final transactions =
+                        appProvider.getUserPointsTransactions(userId);
+                    final relevantTransaction = transactions
+                        .where((t) =>
+                            t.type == PointsTransactionType.redeemed &&
+                            t.description.contains('Redeemed ${bonus.name}'))
+                        .firstOrNull;
+
+                    final secretCodeRegex =
+                        RegExp(r'Secret Code: (.+?)(?:\s*$)');
+                    final secretCodeMatch = relevantTransaction != null
+                        ? secretCodeRegex
+                            .firstMatch(relevantTransaction.description)
+                        : null;
+                    final hasSecretCode = secretCodeMatch != null;
+                    final secretCode = secretCodeMatch?.group(1);
+
+                    if (hasSecretCode) {
+                      return Column(
+                        children: [
+                          const SizedBox(height: 8),
+                          Container(
+                            padding: const EdgeInsets.symmetric(
+                                horizontal: 8, vertical: 4),
+                            decoration: BoxDecoration(
+                              color: Colors.orange.shade50,
+                              border: Border.all(color: Colors.orange.shade200),
+                              borderRadius: BorderRadius.circular(4),
                             ),
-                          ],
-                        );
-                      }
-                      return const SizedBox.shrink();
+                            child: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Icon(Icons.security,
+                                    size: 16, color: Colors.orange.shade700),
+                                const SizedBox(width: 4),
+                                Text(
+                                  'Secret Code: $secretCode',
+                                  style: TextStyle(
+                                    color: Colors.orange.shade700,
+                                    fontWeight: FontWeight.bold,
+                                    fontSize: 12,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ],
+                      );
                     }
-                  ),
+                    return const SizedBox.shrink();
+                  }),
                 ],
               ],
             ),
           ),
-          
+
           // Action Button or Status
           if (isRedeemed)
             Container(
@@ -1249,7 +1309,8 @@ class _EmployeeDashboardState extends State<EmployeeDashboard> {
                 shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(8),
                 ),
-                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
               ),
               child: const Text(
                 'Claim',
@@ -1569,6 +1630,16 @@ class _EmployeeDashboardState extends State<EmployeeDashboard> {
   }
 
   Widget _buildProfileTab(User user, AppProvider appProvider) {
+    // Reuse the EmployeeProfileScreen for consistency
+    return EmployeeProfileScreen(
+      employee: user,
+      appProvider: appProvider,
+      showBackButton:
+          false, // No back button when viewing own profile from tab bar
+    );
+  }
+
+  Widget _buildProfileTabOld(User user, AppProvider appProvider) {
     return SingleChildScrollView(
       padding: const EdgeInsets.all(16),
       child: Column(
@@ -2056,6 +2127,22 @@ class _EmployeeDashboardState extends State<EmployeeDashboard> {
         color: Colors.green,
         onTap: () => setState(() => _selectedIndex = 3),
       ),
+      ActionButton(
+        icon: Icons.person,
+        label: 'Profile',
+        color: Colors.teal,
+        onTap: () => Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (context) => EmployeeProfileScreen(
+              employee: appProvider.currentUser!,
+              appProvider: appProvider,
+              showBackButton:
+                  true, // Show back button when navigating from action button
+            ),
+          ),
+        ),
+      ),
     ];
   }
 }
@@ -2097,7 +2184,9 @@ class _AddCollaboratorsDialogState extends State<_AddCollaboratorsDialog> {
             if (snapshot.hasData) {
               final employees = snapshot.data!
                   .where((u) =>
-                      (u.role == UserRole.employee || u.role == UserRole.admin) && u.id != widget.userId)
+                      (u.role == UserRole.employee ||
+                          u.role == UserRole.admin) &&
+                      u.id != widget.userId)
                   .toList();
 
               return Column(
@@ -2163,11 +2252,13 @@ class _AddCollaboratorsDialogState extends State<_AddCollaboratorsDialog> {
         Consumer<AppProvider>(
           builder: (context, appProvider, child) {
             final user = appProvider.currentUser!;
-            final isAssignedEmployee = widget.target.assignedEmployeeId == user.id;
-            
+            final isAssignedEmployee =
+                widget.target.assignedEmployeeId == user.id;
+
             return ElevatedButton(
               onPressed: () {
-                print('DEBUG: Dialog Save - Selected IDs: $selectedEmployeeIds');
+                print(
+                    'DEBUG: Dialog Save - Selected IDs: $selectedEmployeeIds');
                 print(
                     'DEBUG: Dialog Save - Selected Names: $selectedEmployeeNames');
 
@@ -2179,15 +2270,14 @@ class _AddCollaboratorsDialogState extends State<_AddCollaboratorsDialog> {
                     );
 
                 Navigator.pop(context);
-                
+
                 ScaffoldMessenger.of(context).showSnackBar(
                   SnackBar(
-                    content: Text(isAssignedEmployee 
-                      ? 'Team members updated successfully!' 
-                      : 'Team change submitted for admin approval!'),
-                    backgroundColor: isAssignedEmployee 
-                      ? Colors.green 
-                      : Colors.orange,
+                    content: Text(isAssignedEmployee
+                        ? 'Team members updated successfully!'
+                        : 'Team change submitted for admin approval!'),
+                    backgroundColor:
+                        isAssignedEmployee ? Colors.green : Colors.orange,
                   ),
                 );
               },

@@ -6,6 +6,7 @@ import 'dart:io';
 import '../providers/app_provider.dart';
 import '../models/user.dart';
 import '../models/points_transaction.dart';
+import '../models/company.dart';
 
 class ImportEmployeesScreen extends StatefulWidget {
   final AppProvider appProvider;
@@ -24,6 +25,14 @@ class _ImportEmployeesScreenState extends State<ImportEmployeesScreen> {
   String? _fileName;
   List<Map<String, dynamic>> _previewData = [];
   bool _isLoading = false;
+  String? _selectedCompanyId;
+
+  @override
+  void initState() {
+    super.initState();
+    // Default to admin's current company
+    _selectedCompanyId = widget.appProvider.currentUser?.primaryCompanyId;
+  }
 
   Future<void> _pickFile() async {
     try {
@@ -144,21 +153,68 @@ class _ImportEmployeesScreenState extends State<ImportEmployeesScreen> {
     try {
       int imported = 0;
       int skipped = 0;
+      int addedToExisting = 0;
 
       final existingUsers = await widget.appProvider.getUsers();
-      final existingEmails =
-          existingUsers.map((u) => u.email.toLowerCase()).toSet();
+
+      // Get company details if selected
+      Company? selectedCompany;
+      if (_selectedCompanyId != null) {
+        final companies = await widget.appProvider.getCompanies();
+        selectedCompany =
+            companies.firstWhere((c) => c.id == _selectedCompanyId);
+      }
 
       for (final data in _previewData) {
         final email = data['email'] as String;
 
         // Check if user with this email already exists
-        if (existingEmails.contains(email.toLowerCase())) {
-          skipped++;
-          continue;
+        final existingUser = existingUsers.firstWhere(
+          (u) => u.email.toLowerCase() == email.toLowerCase(),
+          orElse: () => User(
+            id: '',
+            name: '',
+            email: '',
+            phoneNumber: '',
+            role: UserRole.employee,
+            createdAt: DateTime.now(),
+            companyIds: [],
+            companyNames: [],
+          ),
+        );
+
+        // If user exists
+        if (existingUser.id.isNotEmpty) {
+          // Check if already in this company
+          if (_selectedCompanyId != null &&
+              existingUser.companyIds.contains(_selectedCompanyId)) {
+            skipped++;
+            continue;
+          }
+
+          // Add user to the new company
+          if (_selectedCompanyId != null && selectedCompany != null) {
+            final updatedUser = existingUser.copyWith(
+              companyIds: [...existingUser.companyIds, selectedCompany.id],
+              companyNames: [
+                ...existingUser.companyNames,
+                selectedCompany.name
+              ],
+              // Set as primary if they don't have one
+              primaryCompanyId:
+                  existingUser.primaryCompanyId ?? selectedCompany.id,
+            );
+            await widget.appProvider.updateUser(updatedUser);
+            addedToExisting++;
+            continue;
+          } else {
+            // No company selected, user exists globally, skip
+            skipped++;
+            continue;
+          }
         }
 
-        // Create new employee
+        // Create new employee with company assignment
         final newEmployee = User(
           id: 'emp_${DateTime.now().millisecondsSinceEpoch}_$imported',
           name: data['name'],
@@ -166,6 +222,9 @@ class _ImportEmployeesScreenState extends State<ImportEmployeesScreen> {
           phoneNumber: data['phone'],
           role: UserRole.employee,
           createdAt: DateTime.now(),
+          companyIds: selectedCompany != null ? [selectedCompany.id] : [],
+          companyNames: selectedCompany != null ? [selectedCompany.name] : [],
+          primaryCompanyId: selectedCompany?.id,
         );
 
         await widget.appProvider.addUser(newEmployee);
@@ -195,9 +254,13 @@ class _ImportEmployeesScreenState extends State<ImportEmployeesScreen> {
         Navigator.pop(context);
 
         String message =
-            'Successfully imported $imported employee${imported != 1 ? 's' : ''}';
+            'Successfully imported $imported new employee${imported != 1 ? 's' : ''}';
+        if (addedToExisting > 0) {
+          message +=
+              ', added $addedToExisting existing employee${addedToExisting != 1 ? 's' : ''} to company';
+        }
         if (skipped > 0) {
-          message += ' ($skipped skipped - email already exists)';
+          message += ' ($skipped skipped - already in this company)';
         }
 
         ScaffoldMessenger.of(context).showSnackBar(
@@ -349,8 +412,60 @@ class _ImportEmployeesScreenState extends State<ImportEmployeesScreen> {
                     ),
                   ),
 
-                  // Preview
+                  // Company Selection
                   if (_previewData.isNotEmpty) ...[
+                    const SizedBox(height: 24),
+                    Card(
+                      child: Padding(
+                        padding: const EdgeInsets.all(16),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            const Text(
+                              'Company Assignment',
+                              style: TextStyle(
+                                fontSize: 18,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                            const SizedBox(height: 16),
+                            FutureBuilder<List<Company>>(
+                              future: widget.appProvider.getCompanies(),
+                              builder: (context, snapshot) {
+                                final companies = snapshot.data ?? [];
+
+                                return DropdownButtonFormField<String?>(
+                                  decoration: const InputDecoration(
+                                    labelText: 'Assign to Company (Optional)',
+                                    border: OutlineInputBorder(),
+                                    helperText:
+                                        'All imported employees will be assigned to this company',
+                                  ),
+                                  value: _selectedCompanyId,
+                                  items: [
+                                    const DropdownMenuItem<String?>(
+                                      value: null,
+                                      child: Text('None'),
+                                    ),
+                                    ...companies.map((company) {
+                                      return DropdownMenuItem<String?>(
+                                        value: company.id,
+                                        child: Text(company.name),
+                                      );
+                                    }),
+                                  ],
+                                  onChanged: (value) {
+                                    setState(() {
+                                      _selectedCompanyId = value;
+                                    });
+                                  },
+                                );
+                              },
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
                     const SizedBox(height: 24),
                     Card(
                       child: Padding(

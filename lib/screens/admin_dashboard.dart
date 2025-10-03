@@ -4,12 +4,14 @@ import 'package:intl/intl.dart';
 import 'target_profile_screen.dart';
 import 'import_targets_screen.dart';
 import 'import_employees_screen.dart';
+import 'companies_list_screen.dart';
 import '../providers/app_provider.dart';
 import '../models/sales_target.dart';
 import '../models/bonus.dart';
 import '../models/points_transaction.dart';
 import '../models/user.dart';
 import '../models/workplace.dart';
+import '../models/company.dart';
 import '../models/approval_request.dart';
 import '../models/points_rules.dart';
 import '../services/storage_service.dart';
@@ -80,13 +82,39 @@ class _AdminDashboardState extends State<AdminDashboard> {
           body: Column(
             children: [
               // Profile Header with Action Buttons
-              ProfileHeaderWidget(
-                userName: user.name,
-                userEmail: user.email,
-                onProfileTap: () => setState(
-                    () => _selectedIndex = 3), // Navigate to Profile tab
-                actionButtons: _getAdminActionButtons(context, appProvider),
-                salesTargets: allTargets,
+              FutureBuilder<List<Company>>(
+                future: appProvider.getCompanies(),
+                builder: (context, snapshot) {
+                  final allCompanies = snapshot.data ?? [];
+                  final userCompanies = allCompanies
+                      .where((c) => user.companyIds.contains(c.id))
+                      .toList();
+
+                  return ProfileHeaderWidget(
+                    userName: user.name,
+                    userEmail: user.email,
+                    onProfileTap: () => setState(
+                        () => _selectedIndex = 3), // Navigate to Profile tab
+                    actionButtons: _getAdminActionButtons(context, appProvider),
+                    salesTargets: allTargets,
+                    userCompanies: userCompanies,
+                    currentCompanyId: user.primaryCompanyId,
+                    onCompanyChanged: (newCompanyId) async {
+                      final updatedUser = user.copyWith(
+                        primaryCompanyId: newCompanyId,
+                      );
+                      await appProvider.updateUser(updatedUser);
+                      setState(() {}); // Refresh UI
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(
+                          content: Text(
+                              'Switched to ${userCompanies.firstWhere((c) => c.id == newCompanyId).name}'),
+                          backgroundColor: Colors.green,
+                        ),
+                      );
+                    },
+                  );
+                },
               ),
               // Main Content
               Expanded(
@@ -119,7 +147,6 @@ class _AdminDashboardState extends State<AdminDashboard> {
                     _buildNavItem(1, Icons.card_giftcard, 'Bonuses'),
                     _buildAddButton(),
                     _buildNavItem(2, Icons.settings, 'Settings'),
-                    _buildNavItem(3, Icons.person, 'Profile'),
                   ],
                 ),
               ),
@@ -435,8 +462,6 @@ class _AdminDashboardState extends State<AdminDashboard> {
       case 2:
         return _buildSettingsTab(
             appProvider, allTargets, allTransactions, allBonuses);
-      case 3:
-        return _buildProfileTab(appProvider);
       default:
         return _buildDashboardTab(selectedDateTargets, allTargets,
             allTransactions, appProvider, allBonuses);
@@ -1384,6 +1409,319 @@ class _AdminDashboardState extends State<AdminDashboard> {
     );
   }
 
+  void _showCompanySettings(
+      BuildContext context, AppProvider appProvider) async {
+    final companies = await appProvider.getCompanies();
+    final currentUser = appProvider.currentUser!;
+
+    // Check if admin already has a company
+    final userCompany =
+        companies.where((c) => c.adminUserId == currentUser.id).firstOrNull;
+
+    if (userCompany != null) {
+      // Show company details with edit option
+      _showCompanyDetailsDialog(context, appProvider, userCompany);
+    } else {
+      // Show create company dialog
+      _showCreateCompanyDialog(context, appProvider);
+    }
+  }
+
+  void _showCompanyDetailsDialog(
+      BuildContext context, AppProvider appProvider, Company company) {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Company Settings'),
+        content: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              _buildCompanyInfoRow('Company Name', company.name),
+              if (company.address != null && company.address!.isNotEmpty)
+                _buildCompanyInfoRow('Address', company.address!),
+              if (company.contactEmail != null &&
+                  company.contactEmail!.isNotEmpty)
+                _buildCompanyInfoRow('Contact Email', company.contactEmail!),
+              if (company.contactPhone != null &&
+                  company.contactPhone!.isNotEmpty)
+                _buildCompanyInfoRow('Contact Phone', company.contactPhone!),
+            ],
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Close'),
+          ),
+          ElevatedButton(
+            onPressed: () {
+              Navigator.pop(context);
+              _showEditCompanyDialog(context, appProvider, company);
+            },
+            child: const Text('Edit'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildCompanyInfoRow(String label, String value) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 12),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            label,
+            style: const TextStyle(
+              fontSize: 12,
+              color: Colors.grey,
+              fontWeight: FontWeight.w500,
+            ),
+          ),
+          const SizedBox(height: 4),
+          Text(
+            value,
+            style: const TextStyle(
+              fontSize: 16,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _showCreateCompanyDialog(BuildContext context, AppProvider appProvider) {
+    final nameController = TextEditingController();
+    final addressController = TextEditingController();
+    final emailController = TextEditingController();
+    final phoneController = TextEditingController();
+
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Register Your Company'),
+        content: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              TextField(
+                controller: nameController,
+                decoration: const InputDecoration(
+                  labelText: 'Company Name *',
+                  border: OutlineInputBorder(),
+                  hintText: 'Enter company name',
+                ),
+              ),
+              const SizedBox(height: 16),
+              TextField(
+                controller: addressController,
+                decoration: const InputDecoration(
+                  labelText: 'Address',
+                  border: OutlineInputBorder(),
+                  hintText: 'Enter company address',
+                ),
+                maxLines: 2,
+              ),
+              const SizedBox(height: 16),
+              TextField(
+                controller: emailController,
+                decoration: const InputDecoration(
+                  labelText: 'Contact Email',
+                  border: OutlineInputBorder(),
+                  hintText: 'company@example.com',
+                ),
+                keyboardType: TextInputType.emailAddress,
+              ),
+              const SizedBox(height: 16),
+              TextField(
+                controller: phoneController,
+                decoration: const InputDecoration(
+                  labelText: 'Contact Phone',
+                  border: OutlineInputBorder(),
+                  hintText: '+1234567890',
+                ),
+                keyboardType: TextInputType.phone,
+              ),
+            ],
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Cancel'),
+          ),
+          ElevatedButton(
+            onPressed: () async {
+              if (nameController.text.trim().isEmpty) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(content: Text('Please enter a company name')),
+                );
+                return;
+              }
+
+              final newCompany = Company(
+                id: 'company_${DateTime.now().millisecondsSinceEpoch}',
+                name: nameController.text.trim(),
+                address: addressController.text.trim().isEmpty
+                    ? null
+                    : addressController.text.trim(),
+                contactEmail: emailController.text.trim().isEmpty
+                    ? null
+                    : emailController.text.trim(),
+                contactPhone: phoneController.text.trim().isEmpty
+                    ? null
+                    : phoneController.text.trim(),
+                adminUserId: appProvider.currentUser!.id,
+                createdAt: DateTime.now(),
+              );
+
+              await appProvider.addCompany(newCompany);
+
+              // Update current user to have this as their primary company
+              final updatedUser = appProvider.currentUser!.copyWith(
+                companyIds: [newCompany.id],
+                companyNames: [newCompany.name],
+                primaryCompanyId: newCompany.id,
+              );
+              await appProvider.updateUser(updatedUser);
+
+              if (context.mounted) {
+                Navigator.pop(context);
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(
+                    content: Text(
+                        'Company "${newCompany.name}" created successfully!'),
+                    backgroundColor: Colors.green,
+                  ),
+                );
+              }
+            },
+            child: const Text('Create Company'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _showEditCompanyDialog(
+      BuildContext context, AppProvider appProvider, Company company) {
+    final nameController = TextEditingController(text: company.name);
+    final addressController =
+        TextEditingController(text: company.address ?? '');
+    final emailController =
+        TextEditingController(text: company.contactEmail ?? '');
+    final phoneController =
+        TextEditingController(text: company.contactPhone ?? '');
+
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Edit Company'),
+        content: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              TextField(
+                controller: nameController,
+                decoration: const InputDecoration(
+                  labelText: 'Company Name *',
+                  border: OutlineInputBorder(),
+                ),
+              ),
+              const SizedBox(height: 16),
+              TextField(
+                controller: addressController,
+                decoration: const InputDecoration(
+                  labelText: 'Address',
+                  border: OutlineInputBorder(),
+                ),
+                maxLines: 2,
+              ),
+              const SizedBox(height: 16),
+              TextField(
+                controller: emailController,
+                decoration: const InputDecoration(
+                  labelText: 'Contact Email',
+                  border: OutlineInputBorder(),
+                ),
+                keyboardType: TextInputType.emailAddress,
+              ),
+              const SizedBox(height: 16),
+              TextField(
+                controller: phoneController,
+                decoration: const InputDecoration(
+                  labelText: 'Contact Phone',
+                  border: OutlineInputBorder(),
+                ),
+                keyboardType: TextInputType.phone,
+              ),
+            ],
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Cancel'),
+          ),
+          ElevatedButton(
+            onPressed: () async {
+              if (nameController.text.trim().isEmpty) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(content: Text('Please enter a company name')),
+                );
+                return;
+              }
+
+              final updatedCompany = company.copyWith(
+                name: nameController.text.trim(),
+                address: addressController.text.trim().isEmpty
+                    ? null
+                    : addressController.text.trim(),
+                contactEmail: emailController.text.trim().isEmpty
+                    ? null
+                    : emailController.text.trim(),
+                contactPhone: phoneController.text.trim().isEmpty
+                    ? null
+                    : phoneController.text.trim(),
+              );
+
+              await appProvider.updateCompany(updatedCompany);
+
+              // Update company name in user's list if it changed
+              if (updatedCompany.name != company.name) {
+                final currentUser = appProvider.currentUser!;
+                if (currentUser.companyNames.contains(company.name)) {
+                  final updatedNames = currentUser.companyNames
+                      .map<String>((name) =>
+                          name == company.name ? updatedCompany.name : name)
+                      .toList();
+                  final updatedUser =
+                      currentUser.copyWith(companyNames: updatedNames);
+                  await appProvider.updateUser(updatedUser);
+                }
+              }
+
+              if (context.mounted) {
+                Navigator.pop(context);
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(
+                    content: Text('Company updated successfully!'),
+                    backgroundColor: Colors.green,
+                  ),
+                );
+              }
+            },
+            child: const Text('Save Changes'),
+          ),
+        ],
+      ),
+    );
+  }
+
   void _showLogoutDialog(BuildContext context, AppProvider appProvider) {
     showDialog(
       context: context,
@@ -1894,6 +2232,12 @@ class _AdminDashboardState extends State<AdminDashboard> {
     final pointsController = TextEditingController();
     String selectedAction = 'add';
 
+    // Get admin's current company ID for company-specific points
+    final adminCompanyId = appProvider.currentUser?.primaryCompanyId;
+    final currentPoints = adminCompanyId != null
+        ? employee.getCompanyPoints(adminCompanyId)
+        : employee.totalPoints;
+
     showDialog(
       context: context,
       builder: (context) => StatefulBuilder(
@@ -1902,7 +2246,7 @@ class _AdminDashboardState extends State<AdminDashboard> {
           content: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              Text('Current points: ${employee.totalPoints}'),
+              Text('Current points: $currentPoints'),
               const SizedBox(height: 16),
               DropdownButtonFormField<String>(
                 value: selectedAction,
@@ -1941,7 +2285,7 @@ class _AdminDashboardState extends State<AdminDashboard> {
               onPressed: () async {
                 final points = int.tryParse(pointsController.text);
                 print(
-                    'DEBUG: UI - Entered points: $points, Action: $selectedAction');
+                    'DEBUG: UI - Entered points: $points, Action: $selectedAction, Company: $adminCompanyId');
                 if (points != null && points > 0) {
                   Navigator.pop(context);
 
@@ -1954,9 +2298,10 @@ class _AdminDashboardState extends State<AdminDashboard> {
                       : 'Admin removed $points points';
 
                   try {
-                    // Update the employee's points
+                    // Update the employee's points for the current company
                     await appProvider.updateUserPoints(
-                        employee.id, pointsChange, description);
+                        employee.id, pointsChange, description,
+                        companyId: adminCompanyId);
 
                     ScaffoldMessenger.of(context).showSnackBar(
                       SnackBar(
@@ -2251,7 +2596,17 @@ class _AdminDashboardState extends State<AdminDashboard> {
         icon: Icons.person,
         label: 'Profile',
         color: Colors.green,
-        onTap: () => setState(() => _selectedIndex = 3),
+        onTap: () => Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (context) => EmployeeProfileScreen(
+              employee: appProvider.currentUser!,
+              appProvider: appProvider,
+              showBackButton:
+                  true, // Show back button when navigating from action button
+            ),
+          ),
+        ),
       ),
     ];
   }
@@ -2590,14 +2945,30 @@ class _AdminDashboardState extends State<AdminDashboard> {
                   ),
                   const SizedBox(height: 16),
                   _buildSettingsItem(
+                    Icons.business_center,
+                    'Manage Companies',
+                    'View and manage all companies',
+                    () => Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (context) =>
+                            CompaniesListScreen(appProvider: appProvider),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  _buildSettingsItem(
                     Icons.people_outline,
                     'Manage Employees',
                     'View all employees in a new dedicated window',
                     () => Navigator.push(
                       context,
                       MaterialPageRoute(
-                        builder: (context) =>
-                            EmployeesListScreen(appProvider: appProvider),
+                        builder: (context) => EmployeesListScreen(
+                          appProvider: appProvider,
+                          filterCompanyId: appProvider.currentUser
+                              ?.primaryCompanyId, // Filter by admin's current company
+                        ),
                       ),
                     ),
                   ),
@@ -2825,187 +3196,12 @@ class _AdminDashboardState extends State<AdminDashboard> {
   Widget _buildProfileTab(AppProvider appProvider) {
     final user = appProvider.currentUser!;
 
-    return SingleChildScrollView(
-      padding: const EdgeInsets.all(16),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          const Text(
-            'Profile Settings',
-            style: TextStyle(
-              fontSize: 24,
-              fontWeight: FontWeight.bold,
-            ),
-          ),
-          const SizedBox(height: 24),
-
-          // Profile Picture Section
-          Center(
-            child: Column(
-              children: [
-                Stack(
-                  children: [
-                    CircleAvatar(
-                      radius: 60,
-                      backgroundColor: Colors.blue[100],
-                      child: Icon(
-                        Icons.person,
-                        size: 60,
-                        color: Colors.blue[600],
-                      ),
-                    ),
-                    Positioned(
-                      bottom: 0,
-                      right: 0,
-                      child: Container(
-                        decoration: BoxDecoration(
-                          color: Colors.blue[600],
-                          shape: BoxShape.circle,
-                          border: Border.all(color: Colors.white, width: 2),
-                        ),
-                        child: IconButton(
-                          icon: const Icon(Icons.camera_alt,
-                              color: Colors.white, size: 20),
-                          onPressed: () => _showChangeProfilePictureDialog(
-                              context, appProvider),
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 16),
-                Text(
-                  user.name,
-                  style: const TextStyle(
-                    fontSize: 24,
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-                Text(
-                  user.email,
-                  style: TextStyle(
-                    fontSize: 16,
-                    color: Colors.grey[600],
-                  ),
-                ),
-              ],
-            ),
-          ),
-          const SizedBox(height: 32),
-
-          // Profile Information Cards
-          _buildProfileInfoCard(
-            'Personal Information',
-            [
-              _buildProfileField(
-                Icons.person,
-                'Name',
-                user.name,
-                () => _showEditFieldDialog(context, 'Name', user.name,
-                    (newValue) async {
-                  try {
-                    final updatedUser = user.copyWith(name: newValue);
-                    await appProvider.updateUser(updatedUser);
-                    // The UI will update automatically due to Consumer<AppProvider>
-                  } catch (e) {
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      SnackBar(
-                        content: Text('Error updating name: $e'),
-                        backgroundColor: Colors.red,
-                      ),
-                    );
-                  }
-                }),
-              ),
-              _buildProfileField(
-                Icons.email,
-                'Email',
-                user.email,
-                () => _showEditFieldDialog(context, 'Email', user.email,
-                    (newValue) async {
-                  try {
-                    final updatedUser = user.copyWith(email: newValue);
-                    await appProvider.updateUser(updatedUser);
-                    // The UI will update automatically due to Consumer<AppProvider>
-                  } catch (e) {
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      SnackBar(
-                        content: Text('Error updating email: $e'),
-                        backgroundColor: Colors.red,
-                      ),
-                    );
-                  }
-                }),
-              ),
-              _buildProfileField(
-                Icons.phone,
-                'Phone Number',
-                user.phoneNumber ?? 'Not set',
-                () => _showEditFieldDialog(
-                    context, 'Phone Number', user.phoneNumber ?? '',
-                    (newValue) async {
-                  try {
-                    final updatedUser = user.copyWith(phoneNumber: newValue);
-                    await appProvider.updateUser(updatedUser);
-                    // The UI will update automatically due to Consumer<AppProvider>
-                  } catch (e) {
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      SnackBar(
-                        content: Text('Error updating phone: $e'),
-                        backgroundColor: Colors.red,
-                      ),
-                    );
-                  }
-                }),
-              ),
-            ],
-          ),
-          const SizedBox(height: 16),
-
-          _buildProfileInfoCard(
-            'Security',
-            [
-              _buildProfileField(
-                Icons.lock,
-                'Password',
-                '••••••••',
-                () => _showChangePasswordDialog(context, appProvider),
-              ),
-              _buildProfileField(
-                Icons.security,
-                'Two-Factor Authentication',
-                'Disabled',
-                () => _showTwoFactorDialog(context),
-              ),
-            ],
-          ),
-          const SizedBox(height: 16),
-
-          _buildProfileInfoCard(
-            'Account Information',
-            [
-              _buildProfileField(
-                Icons.badge,
-                'Role',
-                user.role.name.toUpperCase(),
-                null, // Not editable
-              ),
-              _buildProfileField(
-                Icons.calendar_today,
-                'Member Since',
-                DateFormat('MMM dd, yyyy').format(user.createdAt),
-                null, // Not editable
-              ),
-              _buildProfileField(
-                Icons.stars,
-                'Total Points',
-                user.totalPoints.toString(),
-                null, // Not editable
-              ),
-            ],
-          ),
-        ],
-      ),
+    // Reuse the EmployeeProfileScreen for consistency
+    return EmployeeProfileScreen(
+      employee: user,
+      appProvider: appProvider,
+      showBackButton:
+          false, // No back button when viewing own profile from tab bar
     );
   }
 
@@ -3530,67 +3726,123 @@ class _AdminDashboardState extends State<AdminDashboard> {
     final emailController = TextEditingController();
     final phoneController = TextEditingController();
     final passwordController = TextEditingController();
+    String? selectedCompanyId;
 
     showDialog(
       context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Add Employee'),
-        content: SingleChildScrollView(
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              TextField(
-                controller: nameController,
-                decoration: const InputDecoration(labelText: 'Name'),
+      builder: (context) => StatefulBuilder(
+        builder: (context, setState) => FutureBuilder<List<Company>>(
+          future: appProvider.getCompanies(),
+          builder: (context, snapshot) {
+            final companies = snapshot.data ?? [];
+
+            return AlertDialog(
+              title: const Text('Add Employee'),
+              content: SingleChildScrollView(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    TextField(
+                      controller: nameController,
+                      decoration: const InputDecoration(labelText: 'Name'),
+                    ),
+                    TextField(
+                      controller: emailController,
+                      decoration: const InputDecoration(labelText: 'Email'),
+                      keyboardType: TextInputType.emailAddress,
+                    ),
+                    TextField(
+                      controller: phoneController,
+                      decoration: const InputDecoration(labelText: 'Phone'),
+                      keyboardType: TextInputType.phone,
+                    ),
+                    TextField(
+                      controller: passwordController,
+                      decoration: const InputDecoration(labelText: 'Password'),
+                      obscureText: true,
+                    ),
+                    const SizedBox(height: 16),
+                    DropdownButtonFormField<String?>(
+                      decoration: const InputDecoration(
+                        labelText: 'Company (Optional)',
+                        border: OutlineInputBorder(),
+                      ),
+                      value: selectedCompanyId,
+                      items: [
+                        const DropdownMenuItem<String?>(
+                          value: null,
+                          child: Text('None'),
+                        ),
+                        ...companies.map((company) {
+                          return DropdownMenuItem<String?>(
+                            value: company.id,
+                            child: Text(company.name),
+                          );
+                        }),
+                      ],
+                      onChanged: (value) {
+                        setState(() {
+                          selectedCompanyId = value;
+                        });
+                      },
+                    ),
+                  ],
+                ),
               ),
-              TextField(
-                controller: emailController,
-                decoration: const InputDecoration(labelText: 'Email'),
-                keyboardType: TextInputType.emailAddress,
-              ),
-              TextField(
-                controller: phoneController,
-                decoration: const InputDecoration(labelText: 'Phone'),
-                keyboardType: TextInputType.phone,
-              ),
-              TextField(
-                controller: passwordController,
-                decoration: const InputDecoration(labelText: 'Password'),
-                obscureText: true,
-              ),
-            ],
-          ),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.pop(context),
+                  child: const Text('Cancel'),
+                ),
+                ElevatedButton(
+                  onPressed: () async {
+                    if (nameController.text.isNotEmpty &&
+                        emailController.text.isNotEmpty &&
+                        phoneController.text.isNotEmpty &&
+                        passwordController.text.isNotEmpty) {
+                      // Find the selected company by ID
+                      final selectedCompany = selectedCompanyId != null
+                          ? companies
+                              .firstWhere((c) => c.id == selectedCompanyId)
+                          : null;
+
+                      final companyIds = selectedCompany != null
+                          ? [selectedCompany.id]
+                          : <String>[];
+                      final companyNames = selectedCompany != null
+                          ? [selectedCompany.name]
+                          : <String>[];
+
+                      final user = User(
+                        id: DateTime.now().millisecondsSinceEpoch.toString(),
+                        name: nameController.text,
+                        email: emailController.text,
+                        phoneNumber: phoneController.text,
+                        role: UserRole.employee,
+                        createdAt: DateTime.now(),
+                        totalPoints: 0,
+                        companyIds: companyIds,
+                        companyNames: companyNames,
+                        primaryCompanyId: selectedCompany?.id,
+                      );
+                      await appProvider.addUser(user);
+                      Navigator.pop(context);
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(
+                          content: Text('Employee added successfully' +
+                              (selectedCompany != null
+                                  ? ' to ${selectedCompany.name}'
+                                  : '')),
+                        ),
+                      );
+                    }
+                  },
+                  child: const Text('Add'),
+                ),
+              ],
+            );
+          },
         ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text('Cancel'),
-          ),
-          ElevatedButton(
-            onPressed: () async {
-              if (nameController.text.isNotEmpty &&
-                  emailController.text.isNotEmpty &&
-                  phoneController.text.isNotEmpty &&
-                  passwordController.text.isNotEmpty) {
-                final user = User(
-                  id: DateTime.now().millisecondsSinceEpoch.toString(),
-                  name: nameController.text,
-                  email: emailController.text,
-                  phoneNumber: phoneController.text,
-                  role: UserRole.employee,
-                  createdAt: DateTime.now(),
-                  totalPoints: 0,
-                );
-                await appProvider.addUser(user);
-                Navigator.pop(context);
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(content: Text('Employee added successfully')),
-                );
-              }
-            },
-            child: const Text('Add'),
-          ),
-        ],
       ),
     );
   }
@@ -4984,11 +5236,16 @@ class _AdminDashboardState extends State<AdminDashboard> {
 class EmployeeProfileScreen extends StatefulWidget {
   final User employee;
   final AppProvider appProvider;
+  final bool showBackButton; // Whether to show back button in AppBar
+  final String?
+      companyContext; // Optional: which company context to show points for
 
   const EmployeeProfileScreen({
     Key? key,
     required this.employee,
     required this.appProvider,
+    this.showBackButton = true, // Default to true for backwards compatibility
+    this.companyContext, // Optional company context
   }) : super(key: key);
 
   @override
@@ -5018,10 +5275,14 @@ class _EmployeeProfileScreenState extends State<EmployeeProfileScreen> {
         ),
         backgroundColor: Colors.blue[700],
         elevation: 0,
-        leading: IconButton(
-          icon: const Icon(Icons.arrow_back, color: Colors.white),
-          onPressed: () => Navigator.pop(context),
-        ),
+        leading: widget.showBackButton
+            ? IconButton(
+                icon: const Icon(Icons.arrow_back, color: Colors.white),
+                onPressed: () => Navigator.pop(context),
+              )
+            : null, // No back button when viewing own profile from tab bar
+        automaticallyImplyLeading:
+            widget.showBackButton, // Prevent default back button
         actions: [
           IconButton(
             icon: const Icon(Icons.edit, color: Colors.white),
@@ -5092,8 +5353,13 @@ class _EmployeeProfileScreenState extends State<EmployeeProfileScreen> {
                           const SizedBox(width: 8),
                           Consumer<AppProvider>(
                             builder: (context, provider, child) {
-                              final currentPoints = provider
-                                  .getUserTotalPoints(currentEmployee.id);
+                              // Get company-specific points based on company context or admin's current company
+                              final companyId = widget.companyContext ??
+                                  provider.currentUser?.primaryCompanyId;
+                              final currentPoints = companyId != null
+                                  ? provider.getUserCompanyPoints(
+                                      currentEmployee.id, companyId)
+                                  : 0;
                               return Text(
                                 '$currentPoints points',
                                 style: const TextStyle(
@@ -5203,11 +5469,16 @@ class _EmployeeProfileScreenState extends State<EmployeeProfileScreen> {
                     [
                       Consumer<AppProvider>(
                         builder: (context, provider, child) {
-                          final currentPoints =
-                              provider.getUserTotalPoints(currentEmployee.id);
+                          // Get company-specific points based on company context or admin's current company
+                          final companyId = widget.companyContext ??
+                              provider.currentUser?.primaryCompanyId;
+                          final currentPoints = companyId != null
+                              ? provider.getUserCompanyPoints(
+                                  currentEmployee.id, companyId)
+                              : 0;
                           return _buildProfileField(
                             Icons.stars,
-                            'Total Points',
+                            'Points',
                             '$currentPoints points',
                             null,
                           );
@@ -5219,6 +5490,16 @@ class _EmployeeProfileScreenState extends State<EmployeeProfileScreen> {
                             Icons.work,
                             'Role',
                             currentEmployee.role,
+                          );
+                        },
+                      ),
+                      Consumer<AppProvider>(
+                        builder: (context, provider, child) {
+                          return _buildCompanyDropdownField(
+                            Icons.business,
+                            'Company',
+                            currentEmployee,
+                            provider,
                           );
                         },
                       ),
@@ -5635,6 +5916,160 @@ class _EmployeeProfileScreenState extends State<EmployeeProfileScreen> {
     );
   }
 
+  Widget _buildCompanyDropdownField(
+      IconData icon, String label, User employee, AppProvider provider) {
+    return Container(
+      margin: const EdgeInsets.only(bottom: 12),
+      child: Padding(
+        padding: const EdgeInsets.all(12),
+        child: Row(
+          children: [
+            Icon(icon, color: Colors.blue[600], size: 20),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    label,
+                    style: const TextStyle(
+                      fontSize: 12,
+                      color: Colors.grey,
+                      fontWeight: FontWeight.w500,
+                    ),
+                  ),
+                  const SizedBox(height: 2),
+                  FutureBuilder<List<Company>>(
+                    future: provider.getCompanies(),
+                    builder: (context, snapshot) {
+                      if (!snapshot.hasData) {
+                        return const Text('Loading...');
+                      }
+
+                      final companies = snapshot.data!;
+                      final currentCompanyId = employee.primaryCompanyId;
+
+                      return DropdownButtonHideUnderline(
+                        child: DropdownButton<String?>(
+                          value: currentCompanyId,
+                          icon: Icon(Icons.arrow_drop_down,
+                              color: Colors.grey[400]),
+                          isExpanded: true,
+                          items: [
+                            const DropdownMenuItem<String?>(
+                              value: null,
+                              child: Row(
+                                children: [
+                                  Icon(Icons.business_outlined,
+                                      size: 16, color: Colors.grey),
+                                  SizedBox(width: 8),
+                                  Text(
+                                    'None',
+                                    style: TextStyle(
+                                      fontSize: 16,
+                                      fontWeight: FontWeight.w500,
+                                      color: Colors.grey,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                            ...companies.map((company) {
+                              return DropdownMenuItem<String?>(
+                                value: company.id,
+                                child: Row(
+                                  children: [
+                                    const Icon(Icons.business,
+                                        size: 16, color: Colors.blue),
+                                    const SizedBox(width: 8),
+                                    Text(
+                                      company.name,
+                                      style: const TextStyle(
+                                        fontSize: 16,
+                                        fontWeight: FontWeight.w500,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              );
+                            }),
+                          ],
+                          onChanged: (String? newCompanyId) {
+                            if (newCompanyId != currentCompanyId) {
+                              _showCompanyChangeConfirmation(
+                                  employee, newCompanyId, companies, provider);
+                            }
+                          },
+                        ),
+                      );
+                    },
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  void _showCompanyChangeConfirmation(User employee, String? newCompanyId,
+      List<Company> companies, AppProvider provider) {
+    final newCompany = newCompanyId != null
+        ? companies.firstWhere((c) => c.id == newCompanyId)
+        : null;
+
+    final oldCompanyName =
+        employee.companyNames.isNotEmpty ? employee.companyNames.first : 'None';
+    final newCompanyName = newCompany?.name ?? 'None';
+
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Confirm Company Change'),
+        content: Text(
+          'Change company from "$oldCompanyName" to "$newCompanyName"?',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Cancel'),
+          ),
+          ElevatedButton(
+            onPressed: () async {
+              final companyIds =
+                  newCompany != null ? [newCompany.id] : <String>[];
+              final companyNames =
+                  newCompany != null ? [newCompany.name] : <String>[];
+
+              final updatedEmployee = employee.copyWith(
+                companyIds: companyIds,
+                companyNames: companyNames,
+                primaryCompanyId: newCompany?.id,
+              );
+
+              await provider.updateUser(updatedEmployee);
+              setState(() {
+                currentEmployee = updatedEmployee;
+              });
+
+              if (context.mounted) {
+                Navigator.pop(context);
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(
+                    content: Text('Company updated to $newCompanyName'),
+                    backgroundColor: Colors.green,
+                  ),
+                );
+              }
+            },
+            child: const Text('Confirm'),
+          ),
+        ],
+      ),
+    );
+  }
+
   void _showRoleChangeConfirmation(UserRole newRole) {
     showDialog(
       context: context,
@@ -5787,6 +6222,10 @@ class _EmployeeProfileScreenState extends State<EmployeeProfileScreen> {
     final pointsController = TextEditingController();
     String selectedAction = 'add';
 
+    // Get company ID from context or admin's current company
+    final adminCompanyId = widget.companyContext ??
+        widget.appProvider.currentUser?.primaryCompanyId;
+
     showDialog(
       context: context,
       builder: (context) => StatefulBuilder(
@@ -5797,8 +6236,10 @@ class _EmployeeProfileScreenState extends State<EmployeeProfileScreen> {
             children: [
               Consumer<AppProvider>(
                 builder: (context, provider, child) {
-                  final currentPoints =
-                      provider.getUserTotalPoints(currentEmployee.id);
+                  final currentPoints = adminCompanyId != null
+                      ? provider.getUserCompanyPoints(
+                          currentEmployee.id, adminCompanyId)
+                      : 0;
                   return Text('Current points: $currentPoints');
                 },
               ),
@@ -5840,7 +6281,7 @@ class _EmployeeProfileScreenState extends State<EmployeeProfileScreen> {
               onPressed: () async {
                 final points = int.tryParse(pointsController.text);
                 print(
-                    'DEBUG: UI - Entered points: $points, Action: $selectedAction');
+                    'DEBUG: UI - Entered points: $points, Action: $selectedAction, Company: $adminCompanyId');
                 if (points != null && points > 0) {
                   Navigator.pop(context);
 
@@ -5853,9 +6294,10 @@ class _EmployeeProfileScreenState extends State<EmployeeProfileScreen> {
                       : 'Admin removed $points points';
 
                   try {
-                    // Update the employee's points
+                    // Update the employee's points for the current company
                     await widget.appProvider.updateUserPoints(
-                        currentEmployee.id, pointsChange, description);
+                        currentEmployee.id, pointsChange, description,
+                        companyId: adminCompanyId);
 
                     // Refresh the employee data from the provider
                     final updatedUsers = await StorageService.getUsers();
@@ -7965,8 +8407,16 @@ class _TargetListScreenState extends State<TargetListScreen> {
 
 class EmployeesListScreen extends StatefulWidget {
   final AppProvider appProvider;
+  final String?
+      filterCompanyId; // Optional: filter to show only employees from this company
+  final String? customTitle; // Optional: custom title for the screen
 
-  const EmployeesListScreen({super.key, required this.appProvider});
+  const EmployeesListScreen({
+    super.key,
+    required this.appProvider,
+    this.filterCompanyId,
+    this.customTitle,
+  });
 
   @override
   State<EmployeesListScreen> createState() => _EmployeesListScreenState();
@@ -7976,6 +8426,7 @@ class _EmployeesListScreenState extends State<EmployeesListScreen> {
   Set<String> _selectedEmployeeIds = <String>{};
   bool _isSelectionMode = false;
   List<String> _allEmployeeIds = [];
+  String? _filterCompanyId; // For manual filtering (not pre-set)
 
   void _toggleSelectionMode() {
     setState(() {
@@ -8082,66 +8533,166 @@ class _EmployeesListScreenState extends State<EmployeesListScreen> {
     final phoneController = TextEditingController();
     final passwordController = TextEditingController();
 
+    // Default to admin's current company if available
+    String? selectedCompanyId =
+        widget.appProvider.currentUser?.primaryCompanyId;
+
+    showDialog(
+      context: context,
+      builder: (context) => StatefulBuilder(
+        builder: (context, setState) => FutureBuilder<List<Company>>(
+          future: widget.appProvider.getCompanies(),
+          builder: (context, snapshot) {
+            final companies = snapshot.data ?? [];
+
+            return AlertDialog(
+              title: const Text('Add Employee'),
+              content: SingleChildScrollView(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    TextField(
+                      controller: nameController,
+                      decoration: const InputDecoration(labelText: 'Name'),
+                    ),
+                    TextField(
+                      controller: emailController,
+                      decoration: const InputDecoration(labelText: 'Email'),
+                      keyboardType: TextInputType.emailAddress,
+                    ),
+                    TextField(
+                      controller: phoneController,
+                      decoration: const InputDecoration(labelText: 'Phone'),
+                      keyboardType: TextInputType.phone,
+                    ),
+                    TextField(
+                      controller: passwordController,
+                      decoration: const InputDecoration(labelText: 'Password'),
+                      obscureText: true,
+                    ),
+                    const SizedBox(height: 16),
+                    DropdownButtonFormField<String?>(
+                      decoration: const InputDecoration(
+                        labelText: 'Company (Optional)',
+                        border: OutlineInputBorder(),
+                      ),
+                      value: selectedCompanyId,
+                      items: [
+                        const DropdownMenuItem<String?>(
+                          value: null,
+                          child: Text('None'),
+                        ),
+                        ...companies.map((company) {
+                          return DropdownMenuItem<String?>(
+                            value: company.id,
+                            child: Text(company.name),
+                          );
+                        }),
+                      ],
+                      onChanged: (value) {
+                        setState(() {
+                          selectedCompanyId = value;
+                        });
+                      },
+                    ),
+                  ],
+                ),
+              ),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.pop(context),
+                  child: const Text('Cancel'),
+                ),
+                ElevatedButton(
+                  onPressed: () async {
+                    if (nameController.text.isNotEmpty &&
+                        emailController.text.isNotEmpty &&
+                        phoneController.text.isNotEmpty &&
+                        passwordController.text.isNotEmpty) {
+                      // Find the selected company by ID
+                      final selectedCompany = selectedCompanyId != null
+                          ? companies
+                              .firstWhere((c) => c.id == selectedCompanyId)
+                          : null;
+
+                      final companyIds = selectedCompany != null
+                          ? [selectedCompany.id]
+                          : <String>[];
+                      final companyNames = selectedCompany != null
+                          ? [selectedCompany.name]
+                          : <String>[];
+
+                      final user = User(
+                        id: DateTime.now().millisecondsSinceEpoch.toString(),
+                        name: nameController.text,
+                        email: emailController.text,
+                        phoneNumber: phoneController.text,
+                        role: UserRole.employee,
+                        createdAt: DateTime.now(),
+                        totalPoints: 0,
+                        companyIds: companyIds,
+                        companyNames: companyNames,
+                        primaryCompanyId: selectedCompany?.id,
+                      );
+                      await widget.appProvider.addUser(user);
+                      Navigator.pop(context);
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(
+                          content: Text('Employee added successfully' +
+                              (selectedCompany != null
+                                  ? ' to ${selectedCompany.name}'
+                                  : '')),
+                        ),
+                      );
+                    }
+                  },
+                  child: const Text('Add'),
+                ),
+              ],
+            );
+          },
+        ),
+      ),
+    );
+  }
+
+  void _showCompanyFilterDialog() async {
+    final companies = await widget.appProvider.getCompanies();
+
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text('Add Employee'),
-        content: SingleChildScrollView(
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              TextField(
-                controller: nameController,
-                decoration: const InputDecoration(labelText: 'Name'),
-              ),
-              TextField(
-                controller: emailController,
-                decoration: const InputDecoration(labelText: 'Email'),
-                keyboardType: TextInputType.emailAddress,
-              ),
-              TextField(
-                controller: phoneController,
-                decoration: const InputDecoration(labelText: 'Phone'),
-                keyboardType: TextInputType.phone,
-              ),
-              TextField(
-                controller: passwordController,
-                decoration: const InputDecoration(labelText: 'Password'),
-                obscureText: true,
-              ),
-            ],
-          ),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text('Cancel'),
-          ),
-          ElevatedButton(
-            onPressed: () async {
-              if (nameController.text.isNotEmpty &&
-                  emailController.text.isNotEmpty &&
-                  phoneController.text.isNotEmpty &&
-                  passwordController.text.isNotEmpty) {
-                final user = User(
-                  id: DateTime.now().millisecondsSinceEpoch.toString(),
-                  name: nameController.text,
-                  email: emailController.text,
-                  phoneNumber: phoneController.text,
-                  role: UserRole.employee,
-                  createdAt: DateTime.now(),
-                  totalPoints: 0,
-                );
-                await widget.appProvider.addUser(user);
+        title: const Text('Filter by Company'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            RadioListTile<String?>(
+              title: const Text('All Companies'),
+              value: null,
+              groupValue: _filterCompanyId ?? widget.filterCompanyId,
+              onChanged: (value) {
+                setState(() {
+                  _filterCompanyId = value;
+                });
                 Navigator.pop(context);
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(content: Text('Employee added successfully')),
-                );
-              }
-            },
-            child: const Text('Add'),
-          ),
-        ],
+              },
+            ),
+            const Divider(),
+            ...companies.map((company) {
+              return RadioListTile<String?>(
+                title: Text(company.name),
+                value: company.id,
+                groupValue: _filterCompanyId ?? widget.filterCompanyId,
+                onChanged: (value) {
+                  setState(() {
+                    _filterCompanyId = value;
+                  });
+                  Navigator.pop(context);
+                },
+              );
+            }),
+          ],
+        ),
       ),
     );
   }
@@ -8150,7 +8701,7 @@ class _EmployeesListScreenState extends State<EmployeesListScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Employees List'),
+        title: Text(widget.customTitle ?? 'Employees List'),
         backgroundColor: Colors.transparent,
         elevation: 0,
         leading: IconButton(
@@ -8158,6 +8709,17 @@ class _EmployeesListScreenState extends State<EmployeesListScreen> {
           onPressed: () => Navigator.pop(context),
         ),
         actions: [
+          // Show filter icon when not in selection mode
+          if (!_isSelectionMode)
+            IconButton(
+              icon: Icon(
+                (_filterCompanyId ?? widget.filterCompanyId) != null
+                    ? Icons.filter_alt
+                    : Icons.filter_list,
+              ),
+              onPressed: _showCompanyFilterDialog,
+              tooltip: 'Filter by Company',
+            ),
           _isSelectionMode
               ? IconButton(
                   icon: const Icon(Icons.close),
@@ -8183,10 +8745,21 @@ class _EmployeesListScreenState extends State<EmployeesListScreen> {
                 return const Center(child: CircularProgressIndicator());
               }
 
-              final employees = snapshot.data!
+              var employees = snapshot.data!
                   .where((u) =>
                       u.role == UserRole.employee || u.role == UserRole.admin)
                   .toList();
+
+              // Determine which company filter to use
+              final activeCompanyFilter =
+                  _filterCompanyId ?? widget.filterCompanyId;
+
+              // Filter by company if a filter is active
+              if (activeCompanyFilter != null) {
+                employees = employees
+                    .where((u) => u.companyIds.contains(activeCompanyFilter))
+                    .toList();
+              }
 
               // Update employee IDs for selection
               final currentUserId = widget.appProvider.currentUser?.id;
@@ -8247,8 +8820,13 @@ class _EmployeesListScreenState extends State<EmployeesListScreen> {
                       itemCount: employees.length,
                       itemBuilder: (context, index) {
                         final employee = employees[index];
-                        final userPoints =
-                            provider.getUserTotalPoints(employee.id);
+                        // Get company-specific points based on active filter
+                        final displayCompanyId = activeCompanyFilter ??
+                            provider.currentUser?.primaryCompanyId;
+                        final userPoints = displayCompanyId != null
+                            ? provider.getUserCompanyPoints(
+                                employee.id, displayCompanyId)
+                            : 0;
                         final isSelected =
                             _selectedEmployeeIds.contains(employee.id);
                         final isCurrentUser =
@@ -8270,6 +8848,8 @@ class _EmployeesListScreenState extends State<EmployeesListScreen> {
                                     builder: (context) => EmployeeProfileScreen(
                                       employee: employee,
                                       appProvider: provider,
+                                      companyContext:
+                                          displayCompanyId, // Pass the company context
                                     ),
                                   ),
                                 );

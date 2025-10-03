@@ -13,6 +13,7 @@ class PointsTransaction {
   final String description;
   final DateTime date;
   final String? relatedTargetId; // For earned points, link to sales target
+  final String? companyId; // Company context for this transaction
 
   PointsTransaction({
     required this.id,
@@ -22,6 +23,7 @@ class PointsTransaction {
     required this.description,
     required this.date,
     this.relatedTargetId,
+    this.companyId,
   });
 
   Map<String, dynamic> toJson() {
@@ -33,6 +35,7 @@ class PointsTransaction {
       'description': description,
       'date': date.toIso8601String(),
       'relatedTargetId': relatedTargetId,
+      'companyId': companyId,
     };
   }
 
@@ -48,6 +51,7 @@ class PointsTransaction {
       description: json['description'],
       date: DateTime.parse(json['date']),
       relatedTargetId: json['relatedTargetId'],
+      companyId: json['companyId'],
     );
   }
 
@@ -59,6 +63,7 @@ class PointsTransaction {
     String? description,
     DateTime? date,
     String? relatedTargetId,
+    String? companyId,
   }) {
     return PointsTransaction(
       id: id ?? this.id,
@@ -68,6 +73,7 @@ class PointsTransaction {
       description: description ?? this.description,
       date: date ?? this.date,
       relatedTargetId: relatedTargetId ?? this.relatedTargetId,
+      companyId: companyId ?? this.companyId,
     );
   }
 }

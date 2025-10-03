@@ -28,6 +28,7 @@ class SalesTarget {
   final bool isApproved; // Whether admin has approved the submission
   final String? approvedBy; // Admin ID who approved
   final DateTime? approvedAt; // When it was approved
+  final String? companyId; // Company context for this target (from workplace)
 
   SalesTarget({
     required this.id,
@@ -48,6 +49,7 @@ class SalesTarget {
     this.collaborativeEmployeeNames = const [],
     this.isSubmitted = false,
     this.isApproved = false,
+    this.companyId,
     this.approvedBy,
     this.approvedAt,
   });
@@ -74,6 +76,7 @@ class SalesTarget {
       'isApproved': isApproved,
       'approvedBy': approvedBy,
       'approvedAt': approvedAt?.toIso8601String(),
+      'companyId': companyId,
     };
   }
 
@@ -105,6 +108,7 @@ class SalesTarget {
       approvedAt: json['approvedAt'] != null
           ? DateTime.parse(json['approvedAt'])
           : null,
+      companyId: json['companyId'],
     );
   }
 
@@ -129,6 +133,7 @@ class SalesTarget {
     bool? isApproved,
     String? approvedBy,
     DateTime? approvedAt,
+    String? companyId,
   }) {
     return SalesTarget(
       id: id ?? this.id,
@@ -157,6 +162,7 @@ class SalesTarget {
       isApproved: isApproved ?? this.isApproved,
       approvedBy: approvedBy ?? this.approvedBy,
       approvedAt: approvedAt ?? this.approvedAt,
+      companyId: companyId ?? this.companyId,
     );
   }
 

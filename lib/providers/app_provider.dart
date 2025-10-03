@@ -4,6 +4,7 @@ import '../models/sales_target.dart';
 import '../models/points_transaction.dart';
 import '../models/bonus.dart';
 import '../models/workplace.dart';
+import '../models/company.dart';
 import '../models/approval_request.dart';
 import '../services/storage_service.dart';
 import '../services/auth_service.dart';
@@ -15,6 +16,7 @@ class AppProvider with ChangeNotifier {
   List<PointsTransaction> _pointsTransactions = [];
   List<Bonus> _bonuses = [];
   List<Workplace> _workplaces = [];
+  List<Company> _companies = [];
   List<ApprovalRequest> _approvalRequests = [];
   bool _isLoading = false;
   PointsRules _pointsRules = PointsRules.defaults();
@@ -24,6 +26,7 @@ class AppProvider with ChangeNotifier {
   List<PointsTransaction> get pointsTransactions => _pointsTransactions;
   List<Bonus> get bonuses => _bonuses;
   List<Workplace> get workplaces => _workplaces;
+  List<Company> get companies => _companies;
   List<ApprovalRequest> get approvalRequests => _approvalRequests;
   bool get isLoading => _isLoading;
   bool get isAdmin => _currentUser?.role == UserRole.admin;
@@ -60,6 +63,7 @@ class AppProvider with ChangeNotifier {
     _pointsTransactions = await StorageService.getPointsTransactions();
     _bonuses = await StorageService.getBonuses();
     _workplaces = await StorageService.getWorkplaces();
+    _companies = await StorageService.getCompanies();
     _approvalRequests = await StorageService.getApprovalRequests();
     _pointsRules = await StorageService.getPointsRules();
 
@@ -438,15 +442,16 @@ class AppProvider with ChangeNotifier {
     // Check if the current user is the assigned employee for this target
     if (target.assignedEmployeeId == user.id) {
       // The assigned employee is adding team members - directly update the target
-      print('DEBUG: Assigned employee adding team members - updating target directly');
-      
+      print(
+          'DEBUG: Assigned employee adding team members - updating target directly');
+
       final updatedTarget = target.copyWith(
         collaborativeEmployeeIds: newTeamMemberIds,
         collaborativeEmployeeNames: newTeamMemberNames,
       );
 
       await StorageService.updateSalesTarget(updatedTarget);
-      
+
       // Update the local list
       final index = _salesTargets.indexWhere((t) => t.id == targetId);
       if (index != -1) {
@@ -458,7 +463,7 @@ class AppProvider with ChangeNotifier {
     } else {
       // Different user changing team - requires approval
       print('DEBUG: Non-assigned user changing team - sending for approval');
-      
+
       final approvalRequest = ApprovalRequest(
         id: DateTime.now().millisecondsSinceEpoch.toString(),
         targetId: targetId,
@@ -787,10 +792,10 @@ class AppProvider with ChangeNotifier {
     await StorageService.updateBonus(updatedBonus);
 
     // Deduct points from user
-    final secretCodeMessage = updatedBonus.secretCode?.isNotEmpty == true 
+    final secretCodeMessage = updatedBonus.secretCode?.isNotEmpty == true
         ? ' (Secret Code: ${updatedBonus.secretCode})'
         : '';
-    
+
     final pointsTransaction = PointsTransaction(
       id: '${DateTime.now().millisecondsSinceEpoch}_redeem_$bonusId',
       userId: userId,
@@ -827,21 +832,24 @@ class AppProvider with ChangeNotifier {
   }) {
     final now = DateTime.now();
     final startDate = DateTime(now.year, now.month - monthsBack, 1);
-    
+
     // Filter targets by criteria
     var filteredTargets = _salesTargets.where((target) {
       if (target.date.isBefore(startDate)) return false;
-      if (employeeId != null && target.assignedEmployeeId != employeeId) return false;
-      if (workplaceId != null && target.assignedWorkplaceId != workplaceId) return false;
+      if (employeeId != null && target.assignedEmployeeId != employeeId)
+        return false;
+      if (workplaceId != null && target.assignedWorkplaceId != workplaceId)
+        return false;
       return true;
     }).toList();
 
     // Group by month and aggregate
     final Map<String, Map<String, dynamic>> monthlyData = {};
-    
+
     for (final target in filteredTargets) {
-      final monthKey = '${target.date.year}-${target.date.month.toString().padLeft(2, '0')}';
-      
+      final monthKey =
+          '${target.date.year}-${target.date.month.toString().padLeft(2, '0')}';
+
       if (!monthlyData.containsKey(monthKey)) {
         monthlyData[monthKey] = {
           'month': monthKey,
@@ -851,10 +859,12 @@ class AppProvider with ChangeNotifier {
           'metCount': 0,
         };
       }
-      
+
       final data = monthlyData[monthKey]!;
-      data['targetTotal'] = (data['targetTotal'] as double) + target.targetAmount;
-      data['actualTotal'] = (data['actualTotal'] as double) + target.actualAmount;
+      data['targetTotal'] =
+          (data['targetTotal'] as double) + target.targetAmount;
+      data['actualTotal'] =
+          (data['actualTotal'] as double) + target.actualAmount;
       data['targetCount'] = (data['targetCount'] as int) + 1;
       if (target.actualAmount >= target.targetAmount) {
         data['metCount'] = (data['metCount'] as int) + 1;
@@ -863,8 +873,9 @@ class AppProvider with ChangeNotifier {
 
     // Convert to list and sort by month
     final result = monthlyData.values.toList();
-    result.sort((a, b) => (a['month'] as String).compareTo(b['month'] as String));
-    
+    result
+        .sort((a, b) => (a['month'] as String).compareTo(b['month'] as String));
+
     return result;
   }
 
@@ -878,28 +889,73 @@ class AppProvider with ChangeNotifier {
     try {
       // Get workplace before deleting to find its name
       final placeToDelete = _workplaces.firstWhere((w) => w.id == id);
-      
+
       await StorageService.deleteWorkplace(id);
       _workplaces.removeWhere((w) => w.id == id);
-      
+
       // Load users and remove workplace-conditional workplace names
       final users = await StorageService.getUsers();
-      final needToUpdate = users.where((user) => 
-        user.workplaceNames.contains(placeToDelete.name)
-      ).toList();
-      
+      final needToUpdate = users
+          .where((user) => user.workplaceNames.contains(placeToDelete.name))
+          .toList();
+
       for (var user in needToUpdate) {
         final withoutPlaceName = user.workplaceNames
-          .where((name) => name != placeToDelete.name)
-          .toList();
+            .where((name) => name != placeToDelete.name)
+            .toList();
         if (withoutPlaceName.length != user.workplaceNames.length) {
-          await StorageService.updateUser(user.copyWith(workplaceNames: withoutPlaceName));
+          await StorageService.updateUser(
+              user.copyWith(workplaceNames: withoutPlaceName));
         }
       }
-      
+
       notifyListeners();
     } catch (e) {
       print("Error deleting workplace: $e");
+    }
+  }
+
+  // Company management methods
+  Future<List<Company>> getCompanies() async {
+    return await StorageService.getCompanies();
+  }
+
+  Future<void> addCompany(Company company) async {
+    await StorageService.addCompany(company);
+    _companies.add(company);
+    notifyListeners();
+  }
+
+  Future<void> updateCompany(Company company) async {
+    await StorageService.updateCompany(company);
+    final index = _companies.indexWhere((c) => c.id == company.id);
+    if (index != -1) {
+      _companies[index] = company;
+    }
+    notifyListeners();
+  }
+
+  Future<void> deleteCompany(String id) async {
+    try {
+      await StorageService.deleteCompany(id);
+      _companies.removeWhere((c) => c.id == id);
+
+      // Remove company from users
+      final users = await StorageService.getUsers();
+      for (var user in users) {
+        if (user.companyIds.contains(id)) {
+          final updatedUser = user.copyWith(
+            companyIds: user.companyIds.where((cid) => cid != id).toList(),
+            primaryCompanyId:
+                user.primaryCompanyId == id ? null : user.primaryCompanyId,
+          );
+          await StorageService.updateUser(updatedUser);
+        }
+      }
+
+      notifyListeners();
+    } catch (e) {
+      print("Error deleting company: $e");
     }
   }
 
@@ -938,7 +994,8 @@ class AppProvider with ChangeNotifier {
   }
 
   Future<void> updateUserPoints(
-      String userId, int pointsChange, String description) async {
+      String userId, int pointsChange, String description,
+      {String? companyId}) async {
     // Get all users
     final users = await StorageService.getUsers();
     final userIndex = users.indexWhere((u) => u.id == userId);
@@ -950,23 +1007,22 @@ class AppProvider with ChangeNotifier {
 
     final user = users[userIndex];
 
-    // Calculate current points from transactions (not from user.totalPoints)
-    final currentPoints = getUserTotalPoints(userId);
+    // Calculate current points from transactions for this specific company
+    final currentPoints = companyId != null
+        ? getUserCompanyPoints(userId, companyId)
+        : getUserTotalPoints(userId);
     final newTotalPoints = currentPoints + pointsChange;
 
     print(
-        'DEBUG: updateUserPoints - User: ${user.name}, Current points: $currentPoints, Change: $pointsChange, New total: $newTotalPoints');
+        'DEBUG: updateUserPoints - User: ${user.name}, Company: $companyId, Current points: $currentPoints, Change: $pointsChange, New total: $newTotalPoints');
 
     // Ensure points don't go below 0
     if (newTotalPoints < 0) {
-      print('DEBUG: Cannot reduce points below 0');
+      print('DEBUG: Cannot reduce points below 0 for company $companyId');
       return;
     }
 
-    // Note: We don't update user.totalPoints here because points are calculated from transactions
-    // The getUserTotalPoints method calculates the total from all transactions
-
-    // Create a points transaction
+    // Create a points transaction with company context
     final transaction = PointsTransaction(
       id: '${DateTime.now().millisecondsSinceEpoch}_admin_adjust_$userId',
       userId: userId,
@@ -976,6 +1032,7 @@ class AppProvider with ChangeNotifier {
       points: pointsChange.abs(),
       description: description,
       date: DateTime.now(),
+      companyId: companyId,
     );
 
     await StorageService.addPointsTransaction(transaction);
@@ -983,10 +1040,37 @@ class AppProvider with ChangeNotifier {
     // Update local data
     _pointsTransactions.add(transaction);
 
-    // Note: We don't update _currentUser here because points are calculated from transactions
-    // The getUserTotalPoints method calculates the total from all transactions
+    // Update user's companyPoints map
+    final updatedUser = user.setCompanyPoints(
+      companyId ?? 'global',
+      newTotalPoints,
+    );
+    users[userIndex] = updatedUser;
+    await StorageService.saveUsers(users);
+
+    // Update current user if it's the same user
+    if (_currentUser != null && _currentUser!.id == userId) {
+      _currentUser = updatedUser;
+    }
 
     notifyListeners();
+  }
+
+  // Helper method to get points for a specific company from transactions
+  int getUserCompanyPoints(String userId, String companyId) {
+    final userTransactions = _pointsTransactions
+        .where((t) => t.userId == userId && t.companyId == companyId);
+    int points = 0;
+    for (final transaction in userTransactions) {
+      if (transaction.type == PointsTransactionType.earned ||
+          transaction.type == PointsTransactionType.bonus ||
+          transaction.type == PointsTransactionType.adjustment) {
+        points += transaction.points;
+      } else if (transaction.type == PointsTransactionType.redeemed) {
+        points -= transaction.points;
+      }
+    }
+    return points;
   }
 
   void _setLoading(bool loading) {

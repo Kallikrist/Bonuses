@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'calendar_widget.dart';
 import '../models/sales_target.dart';
+import '../models/company.dart';
 
 class ProfileHeaderWidget extends StatelessWidget {
   final String userName;
@@ -10,6 +11,9 @@ class ProfileHeaderWidget extends StatelessWidget {
   final List<ActionButton> actionButtons;
   final VoidCallback? onProfileTap;
   final List<SalesTarget>? salesTargets;
+  final List<Company>? userCompanies;
+  final String? currentCompanyId;
+  final Function(String companyId)? onCompanyChanged;
 
   const ProfileHeaderWidget({
     super.key,
@@ -19,6 +23,9 @@ class ProfileHeaderWidget extends StatelessWidget {
     required this.actionButtons,
     this.onProfileTap,
     this.salesTargets,
+    this.userCompanies,
+    this.currentCompanyId,
+    this.onCompanyChanged,
   });
 
   @override
@@ -43,8 +50,13 @@ class ProfileHeaderWidget extends StatelessWidget {
         children: [
           // Profile Picture and Greeting
           _buildProfileSection(context),
+
+          // Company Switcher (if user has multiple companies)
+          if (userCompanies != null && userCompanies!.length > 1)
+            _buildCompanySwitcher(context),
+
           const SizedBox(height: 16),
-          
+
           // Action Buttons Grid
           _buildActionButtonsGrid(context),
         ],
@@ -77,8 +89,9 @@ class ProfileHeaderWidget extends StatelessWidget {
             ),
             child: CircleAvatar(
               radius: 28,
-              backgroundColor: Theme.of(context).colorScheme.primary.withOpacity(0.1),
-              backgroundImage: profileImageUrl != null 
+              backgroundColor:
+                  Theme.of(context).colorScheme.primary.withOpacity(0.1),
+              backgroundImage: profileImageUrl != null
                   ? NetworkImage(profileImageUrl!)
                   : null,
               child: profileImageUrl == null
@@ -92,7 +105,7 @@ class ProfileHeaderWidget extends StatelessWidget {
           ),
         ),
         const SizedBox(width: 12),
-        
+
         // Greeting and User Info
         Expanded(
           child: Column(
@@ -101,25 +114,25 @@ class ProfileHeaderWidget extends StatelessWidget {
               Text(
                 _getTimeBasedGreeting(),
                 style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                  color: Colors.grey[600],
-                  fontSize: 14,
-                ),
+                      color: Colors.grey[600],
+                      fontSize: 14,
+                    ),
               ),
               const SizedBox(height: 2),
               Text(
                 userName,
                 style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                  fontWeight: FontWeight.bold,
-                  color: Theme.of(context).colorScheme.onSurface,
-                ),
+                      fontWeight: FontWeight.bold,
+                      color: Theme.of(context).colorScheme.onSurface,
+                    ),
               ),
               const SizedBox(height: 2),
               Text(
                 userEmail,
                 style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                  color: Colors.grey[600],
-                  fontSize: 12,
-                ),
+                      color: Colors.grey[600],
+                      fontSize: 12,
+                    ),
                 overflow: TextOverflow.ellipsis,
               ),
             ],
@@ -131,14 +144,16 @@ class ProfileHeaderWidget extends StatelessWidget {
 
   Widget _buildActionButtonsGrid(BuildContext context) {
     return Row(
-      children: actionButtons.map((button) => 
-        Expanded(
-          child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 4),
-            child: _buildActionButton(context, button),
-          ),
-        ),
-      ).toList(),
+      children: actionButtons
+          .map(
+            (button) => Expanded(
+              child: Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 4),
+                child: _buildActionButton(context, button),
+              ),
+            ),
+          )
+          .toList(),
     );
   }
 
@@ -178,10 +193,10 @@ class ProfileHeaderWidget extends StatelessWidget {
             Text(
               button.label,
               style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                fontWeight: FontWeight.w600,
-                color: Theme.of(context).colorScheme.onSurface,
-                fontSize: 10,
-              ),
+                    fontWeight: FontWeight.w600,
+                    color: Theme.of(context).colorScheme.onSurface,
+                    fontSize: 10,
+                  ),
               textAlign: TextAlign.center,
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
@@ -194,7 +209,8 @@ class ProfileHeaderWidget extends StatelessWidget {
 
   void _handleButtonTap(BuildContext context, ActionButton button) {
     // Check if this is a calendar button (first button with calendar icon)
-    if (button.icon == Icons.calendar_today || button.label.toLowerCase().contains('calendar')) {
+    if (button.icon == Icons.calendar_today ||
+        button.label.toLowerCase().contains('calendar')) {
       _showCalendarDialog(context);
     } else {
       // Call the original onTap for other buttons
@@ -213,7 +229,8 @@ class ProfileHeaderWidget extends StatelessWidget {
             // Handle date selection
             ScaffoldMessenger.of(context).showSnackBar(
               SnackBar(
-                content: Text('Selected date: ${DateFormat('MMM dd, yyyy').format(selectedDate)}'),
+                content: Text(
+                    'Selected date: ${DateFormat('MMM dd, yyyy').format(selectedDate)}'),
                 duration: const Duration(seconds: 2),
               ),
             );
@@ -223,9 +240,63 @@ class ProfileHeaderWidget extends StatelessWidget {
     );
   }
 
+  Widget _buildCompanySwitcher(BuildContext context) {
+    if (userCompanies == null ||
+        userCompanies!.isEmpty ||
+        onCompanyChanged == null) {
+      return const SizedBox.shrink();
+    }
+
+    final currentCompany = userCompanies!.firstWhere(
+      (c) => c.id == currentCompanyId,
+      orElse: () => userCompanies!.first,
+    );
+
+    return Container(
+      margin: const EdgeInsets.only(top: 12),
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+      decoration: BoxDecoration(
+        color: Colors.white.withOpacity(0.7),
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: Colors.blue.withOpacity(0.3)),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          const Icon(Icons.business, size: 16, color: Colors.blue),
+          const SizedBox(width: 8),
+          DropdownButtonHideUnderline(
+            child: DropdownButton<String>(
+              value: currentCompanyId ?? userCompanies!.first.id,
+              isDense: true,
+              style: const TextStyle(
+                fontSize: 14,
+                fontWeight: FontWeight.w600,
+                color: Colors.black87,
+              ),
+              icon: const Icon(Icons.arrow_drop_down,
+                  size: 18, color: Colors.blue),
+              items: userCompanies!.map((company) {
+                return DropdownMenuItem<String>(
+                  value: company.id,
+                  child: Text(company.name),
+                );
+              }).toList(),
+              onChanged: (String? newCompanyId) {
+                if (newCompanyId != null && newCompanyId != currentCompanyId) {
+                  onCompanyChanged!(newCompanyId);
+                }
+              },
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
   String _getTimeBasedGreeting() {
     final hour = DateTime.now().hour;
-    
+
     if (hour < 12) {
       return 'Good Morning';
     } else if (hour < 17) {

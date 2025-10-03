@@ -5,6 +5,7 @@ import '../models/sales_target.dart';
 import '../models/points_transaction.dart';
 import '../models/bonus.dart';
 import '../models/workplace.dart';
+import '../models/company.dart';
 import '../models/approval_request.dart';
 import '../models/points_rules.dart';
 
@@ -15,6 +16,7 @@ class StorageService {
   static const String _pointsTransactionsKey = 'points_transactions';
   static const String _bonusesKey = 'bonuses';
   static const String _workplacesKey = 'workplaces';
+  static const String _companiesKey = 'companies';
   static const String _approvalRequestsKey = 'approval_requests';
   static const String _pointsRulesKey = 'points_rules';
 
@@ -147,6 +149,7 @@ class StorageService {
     await prefs.remove(_pointsTransactionsKey);
     await prefs.remove(_bonusesKey);
     await prefs.remove(_workplacesKey);
+    await prefs.remove(_companiesKey);
     await prefs.remove(_currentUserKey);
   }
 
@@ -247,6 +250,43 @@ class StorageService {
     await saveWorkplaces(workplaces);
   }
 
+  // Company management
+  static Future<List<Company>> getCompanies() async {
+    final prefs = await _prefs;
+    final companiesJson = prefs.getStringList(_companiesKey) ?? [];
+    return companiesJson
+        .map((json) => Company.fromJson(jsonDecode(json)))
+        .toList();
+  }
+
+  static Future<void> saveCompanies(List<Company> companies) async {
+    final prefs = await _prefs;
+    final companiesJson =
+        companies.map((company) => jsonEncode(company.toJson())).toList();
+    await prefs.setStringList(_companiesKey, companiesJson);
+  }
+
+  static Future<void> addCompany(Company company) async {
+    final companies = await getCompanies();
+    companies.add(company);
+    await saveCompanies(companies);
+  }
+
+  static Future<void> updateCompany(Company company) async {
+    final companies = await getCompanies();
+    final index = companies.indexWhere((c) => c.id == company.id);
+    if (index != -1) {
+      companies[index] = company;
+      await saveCompanies(companies);
+    }
+  }
+
+  static Future<void> deleteCompany(String companyId) async {
+    final companies = await getCompanies();
+    companies.removeWhere((c) => c.id == companyId);
+    await saveCompanies(companies);
+  }
+
   // Initialize with sample data
   static Future<void> initializeSampleData() async {
     // Initialize workplaces first
@@ -327,20 +367,22 @@ class StorageService {
     if (targets.isEmpty) {
       final now = DateTime.now();
       final sampleTargets = <SalesTarget>[];
-      
+
       // Create 12 targets for the last 12 years (2024-2013)
       for (int i = 0; i < 12; i++) {
         final year = now.year - i;
         final targetDate = DateTime(year, 9, 26); // September 26th each year
-        
+
         // Vary the target amounts and actual amounts for realistic data
-        final targetAmount = 1000.0 + (i * 100.0); // Increasing targets over time
-        final actualAmount = targetAmount * (0.7 + (i * 0.05)); // Varying performance
-        
+        final targetAmount =
+            1000.0 + (i * 100.0); // Increasing targets over time
+        final actualAmount =
+            targetAmount * (0.7 + (i * 0.05)); // Varying performance
+
         // Determine if target was met
         final isMet = actualAmount >= targetAmount;
         final status = isMet ? TargetStatus.met : TargetStatus.missed;
-        
+
         sampleTargets.add(SalesTarget(
           id: 'sample_target_$year',
           date: targetDate,
@@ -348,7 +390,9 @@ class StorageService {
           actualAmount: actualAmount,
           isMet: isMet,
           status: status,
-          percentageAboveTarget: isMet ? ((actualAmount - targetAmount) / targetAmount * 100) : 0.0,
+          percentageAboveTarget: isMet
+              ? ((actualAmount - targetAmount) / targetAmount * 100)
+              : 0.0,
           pointsAwarded: isMet ? (5 + i) : 0, // More points for recent targets
           createdAt: targetDate,
           createdBy: 'admin1',
@@ -360,7 +404,7 @@ class StorageService {
           collaborativeEmployeeNames: [],
         ));
       }
-      
+
       // Add all sample targets
       for (final target in sampleTargets) {
         await addSalesTarget(target);
