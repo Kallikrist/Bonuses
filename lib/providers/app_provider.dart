@@ -19,7 +19,7 @@ class AppProvider with ChangeNotifier {
   List<Company> _companies = [];
   List<ApprovalRequest> _approvalRequests = [];
   bool _isLoading = false;
-  PointsRules _pointsRules = PointsRules.defaults();
+  Map<String, PointsRules> _companyPointsRules = {};
 
   User? get currentUser => _currentUser;
   List<SalesTarget> get salesTargets => _salesTargets;
@@ -53,7 +53,18 @@ class AppProvider with ChangeNotifier {
   }
 
   bool get isEmployee => !isAdmin;
-  PointsRules get pointsRules => _pointsRules;
+
+  // Get points rules for a specific company (or current company if not specified)
+  PointsRules getPointsRules([String? companyId]) {
+    final targetCompanyId = companyId ?? _currentUser?.primaryCompanyId;
+    if (targetCompanyId == null) {
+      return PointsRules.defaults();
+    }
+    return _companyPointsRules[targetCompanyId] ?? PointsRules.defaults();
+  }
+
+  // For backward compatibility
+  PointsRules get pointsRules => getPointsRules();
 
   // Onboarding state
   Future<bool> isOnboardingComplete() async {
@@ -106,7 +117,7 @@ class AppProvider with ChangeNotifier {
     _workplaces = await StorageService.getWorkplaces();
     _companies = await StorageService.getCompanies();
     _approvalRequests = await StorageService.getApprovalRequests();
-    _pointsRules = await StorageService.getPointsRules();
+    _companyPointsRules = await StorageService.getCompanyPointsRules();
 
     // Process existing targets that should be marked as missed
     await processExistingTargets();
@@ -114,9 +125,12 @@ class AppProvider with ChangeNotifier {
     notifyListeners();
   }
 
-  Future<void> updatePointsRules(PointsRules rules) async {
-    _pointsRules = rules;
-    await StorageService.setPointsRules(rules);
+  Future<void> updatePointsRules(PointsRules rules, [String? companyId]) async {
+    final targetCompanyId = companyId ?? _currentUser?.primaryCompanyId;
+    if (targetCompanyId == null) return;
+
+    _companyPointsRules[targetCompanyId] = rules;
+    await StorageService.setCompanyPointsRules(_companyPointsRules);
     notifyListeners();
   }
 
@@ -444,7 +458,8 @@ class AppProvider with ChangeNotifier {
       // Update target to show as submitted for approval
       // Pre-calc points preview using current rules (supports custom thresholds)
       final effectivePercent = (actualAmount / target.targetAmount) * 100.0;
-      final prePoints = getPointsForEffectivePercent(effectivePercent);
+      final prePoints =
+          getPointsForEffectivePercent(effectivePercent, target.companyId);
 
       final updatedTarget = target.copyWith(
         actualAmount: actualAmount,
@@ -548,7 +563,8 @@ class AppProvider with ChangeNotifier {
       int awarded = 0;
       if (calculatedTarget.isMet) {
         final effectivePercent = 100.0 + calculatedTarget.percentageAboveTarget;
-        awarded = getPointsForEffectivePercent(effectivePercent);
+        awarded = getPointsForEffectivePercent(
+            effectivePercent, calculatedTarget.companyId);
       }
 
       final updatedTarget = calculatedTarget.copyWith(
@@ -1204,7 +1220,8 @@ class AppProvider with ChangeNotifier {
     int awarded = 0;
     if (calculatedTarget.isMet) {
       final effectivePercent = 100.0 + calculatedTarget.percentageAboveTarget;
-      awarded = getPointsForEffectivePercent(effectivePercent);
+      awarded = getPointsForEffectivePercent(
+          effectivePercent, calculatedTarget.companyId);
     }
 
     // Mark as approved with correct points
@@ -1267,12 +1284,15 @@ class AppProvider with ChangeNotifier {
     }
   }
 
-  int getPointsForEffectivePercent(double effectivePercent) {
-    print('DEBUG: Calculating points for ${effectivePercent}%');
-    print('DEBUG: Custom rules entries: ${_pointsRules.entries.length}');
+  int getPointsForEffectivePercent(double effectivePercent,
+      [String? companyId]) {
+    final rules = getPointsRules(companyId);
+    print(
+        'DEBUG: Calculating points for ${effectivePercent}% in company $companyId');
+    print('DEBUG: Custom rules entries: ${rules.entries.length}');
 
-    if (_pointsRules.entries.isNotEmpty) {
-      final sorted = [..._pointsRules.entries]..sort((a, b) =>
+    if (rules.entries.isNotEmpty) {
+      final sorted = [...rules.entries]..sort((a, b) =>
           b.thresholdPercent.compareTo(a.thresholdPercent)); // Sort descending
       print(
           'DEBUG: Sorted rules: ${sorted.map((e) => '${e.thresholdPercent}% -> ${e.points}pts').join(', ')}');
@@ -1290,20 +1310,18 @@ class AppProvider with ChangeNotifier {
     }
 
     print(
-        'DEBUG: Using legacy rules - 200%: ${_pointsRules.pointsForDoubleTarget}, 110%: ${_pointsRules.pointsForTenPercentAbove}, 100%: ${_pointsRules.pointsForMet}');
+        'DEBUG: Using legacy rules - 200%: ${rules.pointsForDoubleTarget}, 110%: ${rules.pointsForTenPercentAbove}, 100%: ${rules.pointsForMet}');
     if (effectivePercent >= 200.0) {
-      print(
-          'DEBUG: Using 200% rule: ${_pointsRules.pointsForDoubleTarget} points');
-      return _pointsRules.pointsForDoubleTarget;
+      print('DEBUG: Using 200% rule: ${rules.pointsForDoubleTarget} points');
+      return rules.pointsForDoubleTarget;
     }
     if (effectivePercent >= 110.0) {
-      print(
-          'DEBUG: Using 110% rule: ${_pointsRules.pointsForTenPercentAbove} points');
-      return _pointsRules.pointsForTenPercentAbove;
+      print('DEBUG: Using 110% rule: ${rules.pointsForTenPercentAbove} points');
+      return rules.pointsForTenPercentAbove;
     }
     if (effectivePercent >= 100.0) {
-      print('DEBUG: Using 100% rule: ${_pointsRules.pointsForMet} points');
-      return _pointsRules.pointsForMet;
+      print('DEBUG: Using 100% rule: ${rules.pointsForMet} points');
+      return rules.pointsForMet;
     }
     print('DEBUG: No rule matched, returning 0');
     return 0;

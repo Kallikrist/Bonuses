@@ -52,7 +52,10 @@ class _TargetProfileScreenState extends State<TargetProfileScreen> {
           final dateStr = DateFormat('MMM d, yyyy').format(_currentTarget.date);
           final statusColor = _statusColor(_currentTarget.status);
           final percent = _currentTarget.targetAmount > 0
-              ? ((_currentTarget.actualAmount / _currentTarget.targetAmount) * 100).clamp(0, 100000).toDouble()
+              ? ((_currentTarget.actualAmount / _currentTarget.targetAmount) *
+                      100)
+                  .clamp(0, 100000)
+                  .toDouble()
               : 0.0;
 
           return SingleChildScrollView(
@@ -77,7 +80,8 @@ class _TargetProfileScreenState extends State<TargetProfileScreen> {
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           Text(
-                            _currentTarget.assignedWorkplaceName ?? 'No Workplace',
+                            _currentTarget.assignedWorkplaceName ??
+                                'No Workplace',
                             style: const TextStyle(
                               fontSize: 18,
                               fontWeight: FontWeight.bold,
@@ -89,7 +93,8 @@ class _TargetProfileScreenState extends State<TargetProfileScreen> {
                           ),
                           const SizedBox(height: 4),
                           Chip(
-                            label: Text(_currentTarget.status.name.toUpperCase()),
+                            label:
+                                Text(_currentTarget.status.name.toUpperCase()),
                             backgroundColor: statusColor.withOpacity(0.15),
                             labelStyle: TextStyle(color: statusColor),
                             visualDensity: VisualDensity.compact,
@@ -109,12 +114,18 @@ class _TargetProfileScreenState extends State<TargetProfileScreen> {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        _kpiRow('Employee', _currentTarget.assignedEmployeeName ?? 'No Employee'),
-                        _kpiRow('Target', _currentTarget.targetAmount.toStringAsFixed(0)),
-                        _kpiRow('Actual', _currentTarget.actualAmount.toStringAsFixed(0)),
+                        _kpiRow(
+                            'Employee',
+                            _currentTarget.assignedEmployeeName ??
+                                'No Employee'),
+                        _kpiRow('Target',
+                            _currentTarget.targetAmount.toStringAsFixed(0)),
+                        _kpiRow('Actual',
+                            _currentTarget.actualAmount.toStringAsFixed(0)),
                         _kpiRow('Progress', '${percent.toStringAsFixed(0)}%'),
                         if (_currentTarget.pointsAwarded > 0)
-                          _kpiRow('Points', _currentTarget.pointsAwarded.toString()),
+                          _kpiRow('Points',
+                              _currentTarget.pointsAwarded.toString()),
                       ],
                     ),
                   ),
@@ -132,22 +143,27 @@ class _TargetProfileScreenState extends State<TargetProfileScreen> {
                       icon: const Icon(Icons.edit),
                       label: const Text('Edit'),
                     ),
-                    if (_currentTarget.isSubmitted && !_currentTarget.isApproved)
+                    if (_currentTarget.isSubmitted &&
+                        !_currentTarget.isApproved)
                       ElevatedButton.icon(
                         onPressed: () async {
                           try {
                             final pending = app.approvalRequests.firstWhere(
-                              (r) => r.targetId == _currentTarget.id &&
-                                      r.type == ApprovalRequestType.salesSubmission &&
-                                      r.status == ApprovalStatus.pending,
+                              (r) =>
+                                  r.targetId == _currentTarget.id &&
+                                  r.type ==
+                                      ApprovalRequestType.salesSubmission &&
+                                  r.status == ApprovalStatus.pending,
                             );
                             await app.approveRequest(pending);
                             ScaffoldMessenger.of(context).showSnackBar(
-                              const SnackBar(content: Text('Submission approved')),
+                              const SnackBar(
+                                  content: Text('Submission approved')),
                             );
                           } catch (_) {
                             ScaffoldMessenger.of(context).showSnackBar(
-                              const SnackBar(content: Text('No pending submission found')),
+                              const SnackBar(
+                                  content: Text('No pending submission found')),
                             );
                           }
                         },
@@ -261,8 +277,10 @@ class _TargetProfileScreenState extends State<TargetProfileScreen> {
   }
 
   void _showEditTargetDialog(BuildContext context, AppProvider app) {
-    final targetAmountController = TextEditingController(text: _currentTarget.targetAmount.toString());
-    final actualAmountController = TextEditingController(text: _currentTarget.actualAmount.toString());
+    final targetAmountController =
+        TextEditingController(text: _currentTarget.targetAmount.toString());
+    final actualAmountController =
+        TextEditingController(text: _currentTarget.actualAmount.toString());
     User? selectedEmployee;
     Workplace? selectedWorkplace;
     DateTime selectedDate = _currentTarget.date;
@@ -283,7 +301,8 @@ class _TargetProfileScreenState extends State<TargetProfileScreen> {
                       final pickedDate = await showDatePicker(
                         context: context,
                         initialDate: selectedDate,
-                        firstDate: DateTime.now().subtract(const Duration(days: 365)),
+                        firstDate:
+                            DateTime.now().subtract(const Duration(days: 365)),
                         lastDate: DateTime.now().add(const Duration(days: 365)),
                       );
                       if (pickedDate != null) {
@@ -293,14 +312,16 @@ class _TargetProfileScreenState extends State<TargetProfileScreen> {
                       }
                     },
                     child: Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 16),
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 12, vertical: 16),
                       decoration: BoxDecoration(
                         border: Border.all(color: Colors.grey.shade400),
                         borderRadius: BorderRadius.circular(4),
                       ),
                       child: Row(
                         children: [
-                          Icon(Icons.calendar_today, color: Colors.grey.shade600),
+                          Icon(Icons.calendar_today,
+                              color: Colors.grey.shade600),
                           const SizedBox(width: 8),
                           Text(
                             DateFormat('MMM d, yyyy').format(selectedDate),
@@ -311,7 +332,7 @@ class _TargetProfileScreenState extends State<TargetProfileScreen> {
                     ),
                   ),
                   const SizedBox(height: 16),
-                  
+
                   // Target Amount
                   TextField(
                     controller: targetAmountController,
@@ -321,7 +342,7 @@ class _TargetProfileScreenState extends State<TargetProfileScreen> {
                     keyboardType: TextInputType.number,
                   ),
                   const SizedBox(height: 16),
-                  
+
                   // Actual Amount
                   TextField(
                     controller: actualAmountController,
@@ -331,7 +352,7 @@ class _TargetProfileScreenState extends State<TargetProfileScreen> {
                     keyboardType: TextInputType.number,
                   ),
                   const SizedBox(height: 16),
-                  
+
                   // Employee Dropdown
                   FutureBuilder<List<User>>(
                     future: app.getUsers(),
@@ -348,11 +369,14 @@ class _TargetProfileScreenState extends State<TargetProfileScreen> {
                       if (snapshot.hasData) {
                         final allUsers = snapshot.data!;
                         final users = allUsers
-                            .where((u) => u.role == UserRole.employee || u.role == UserRole.admin)
+                            .where((u) =>
+                                u.role == UserRole.employee ||
+                                u.role == UserRole.admin)
                             .toList();
 
                         // Set initial selected employee
-                        if (selectedEmployee == null && _currentTarget.assignedEmployeeId != null) {
+                        if (selectedEmployee == null &&
+                            _currentTarget.assignedEmployeeId != null) {
                           selectedEmployee = users.firstWhere(
                             (u) => u.id == _currentTarget.assignedEmployeeId,
                             orElse: () => users.first,
@@ -360,21 +384,27 @@ class _TargetProfileScreenState extends State<TargetProfileScreen> {
                         }
 
                         // Ensure selectedEmployee matches exactly one item in the filtered list
-                        final validSelectedEmployee = selectedEmployee != null &&
-                            users.any((user) => user.id == selectedEmployee!.id)
-                            ? users.firstWhere((user) => user.id == selectedEmployee!.id)
+                        final validSelectedEmployee = selectedEmployee !=
+                                    null &&
+                                users.any(
+                                    (user) => user.id == selectedEmployee!.id)
+                            ? users.firstWhere(
+                                (user) => user.id == selectedEmployee!.id)
                             : null;
 
                         return DropdownButtonFormField<User>(
                           value: validSelectedEmployee,
-                          decoration: const InputDecoration(labelText: 'Employee'),
+                          decoration:
+                              const InputDecoration(labelText: 'Employee'),
                           items: users
                               .map((user) => DropdownMenuItem(
                                     value: user,
-                                    child: Text('${user.name} (${user.role.name})'),
+                                    child: Text(
+                                        '${user.name} (${user.role.name})'),
                                   ))
                               .toList(),
-                          onChanged: (User? user) => setState(() => selectedEmployee = user),
+                          onChanged: (User? user) =>
+                              setState(() => selectedEmployee = user),
                         );
                       }
                       return Container(
@@ -383,7 +413,7 @@ class _TargetProfileScreenState extends State<TargetProfileScreen> {
                       );
                     },
                   ),
-                  
+
                   // Workplace Dropdown
                   FutureBuilder<List<Workplace>>(
                     future: app.getWorkplaces(),
@@ -401,7 +431,8 @@ class _TargetProfileScreenState extends State<TargetProfileScreen> {
                         final workplaces = snapshot.data!;
 
                         // Set initial selected workplace
-                        if (selectedWorkplace == null && _currentTarget.assignedWorkplaceId != null) {
+                        if (selectedWorkplace == null &&
+                            _currentTarget.assignedWorkplaceId != null) {
                           selectedWorkplace = workplaces.firstWhere(
                             (w) => w.id == _currentTarget.assignedWorkplaceId,
                             orElse: () => workplaces.first,
@@ -409,21 +440,26 @@ class _TargetProfileScreenState extends State<TargetProfileScreen> {
                         }
 
                         // Ensure selectedWorkplace matches exactly one item in the workplaces list
-                        final validSelectedWorkplace = selectedWorkplace != null &&
-                            workplaces.any((workplace) => workplace.id == selectedWorkplace!.id)
-                            ? workplaces.firstWhere((workplace) => workplace.id == selectedWorkplace!.id)
-                            : null;
+                        final validSelectedWorkplace =
+                            selectedWorkplace != null &&
+                                    workplaces.any((workplace) =>
+                                        workplace.id == selectedWorkplace!.id)
+                                ? workplaces.firstWhere((workplace) =>
+                                    workplace.id == selectedWorkplace!.id)
+                                : null;
 
                         return DropdownButtonFormField<Workplace>(
                           value: validSelectedWorkplace,
-                          decoration: const InputDecoration(labelText: 'Workplace'),
+                          decoration:
+                              const InputDecoration(labelText: 'Workplace'),
                           items: workplaces
                               .map((workplace) => DropdownMenuItem(
                                     value: workplace,
                                     child: Text(workplace.name),
                                   ))
                               .toList(),
-                          onChanged: (Workplace? workplace) => setState(() => selectedWorkplace = workplace),
+                          onChanged: (Workplace? workplace) =>
+                              setState(() => selectedWorkplace = workplace),
                         );
                       }
                       return Container(
@@ -448,18 +484,23 @@ class _TargetProfileScreenState extends State<TargetProfileScreen> {
                       selectedEmployee != null &&
                       selectedWorkplace != null &&
                       currentUser != null) {
-                    final targetAmount = double.tryParse(targetAmountController.text);
-                    final actualAmount = double.tryParse(actualAmountController.text);
+                    final targetAmount =
+                        double.tryParse(targetAmountController.text);
+                    final actualAmount =
+                        double.tryParse(actualAmountController.text);
 
-                    if (targetAmount != null && targetAmount > 0 && 
-                        actualAmount != null && actualAmount >= 0) {
+                    if (targetAmount != null &&
+                        targetAmount > 0 &&
+                        actualAmount != null &&
+                        actualAmount >= 0) {
                       // Recalculate target status based on new target amount vs new actual amount
                       final isTargetMet = actualAmount >= targetAmount;
-                      
+
                       // Only mark as missed if the date has passed
                       final now = DateTime.now();
-                      final dateHasPassed = selectedDate.isBefore(DateTime(now.year, now.month, now.day));
-                      
+                      final dateHasPassed = selectedDate
+                          .isBefore(DateTime(now.year, now.month, now.day));
+
                       TargetStatus newStatus;
                       if (isTargetMet) {
                         newStatus = TargetStatus.met;
@@ -468,7 +509,7 @@ class _TargetProfileScreenState extends State<TargetProfileScreen> {
                       } else {
                         newStatus = TargetStatus.pending;
                       }
-                      
+
                       final percentageAbove = isTargetMet
                           ? ((actualAmount - targetAmount) / targetAmount) * 100
                           : 0.0;
@@ -477,12 +518,20 @@ class _TargetProfileScreenState extends State<TargetProfileScreen> {
                       int pointsAwarded = 0;
                       if (isTargetMet) {
                         final effectivePercent = 100.0 + percentageAbove;
-                        print('DEBUG: Target edit - effectivePercent: $effectivePercent, percentageAbove: $percentageAbove');
-                        print('DEBUG: Target edit - actualAmount: $actualAmount, targetAmount: $targetAmount');
-                        print('DEBUG: Target edit - pointsRules: ${app.pointsRules.entries.length} custom rules');
-                        print('DEBUG: Target edit - legacy rules - 200%: ${app.pointsRules.pointsForDoubleTarget}, 110%: ${app.pointsRules.pointsForTenPercentAbove}, 100%: ${app.pointsRules.pointsForMet}');
-                        pointsAwarded = app.getPointsForEffectivePercent(effectivePercent);
-                        print('DEBUG: Target edit - pointsAwarded: $pointsAwarded');
+                        final targetRules =
+                            app.getPointsRules(_currentTarget.companyId);
+                        print(
+                            'DEBUG: Target edit - effectivePercent: $effectivePercent, percentageAbove: $percentageAbove');
+                        print(
+                            'DEBUG: Target edit - actualAmount: $actualAmount, targetAmount: $targetAmount');
+                        print(
+                            'DEBUG: Target edit - pointsRules: ${targetRules.entries.length} custom rules');
+                        print(
+                            'DEBUG: Target edit - legacy rules - 200%: ${targetRules.pointsForDoubleTarget}, 110%: ${targetRules.pointsForTenPercentAbove}, 100%: ${targetRules.pointsForMet}');
+                        pointsAwarded = app.getPointsForEffectivePercent(
+                            effectivePercent, _currentTarget.companyId);
+                        print(
+                            'DEBUG: Target edit - pointsAwarded: $pointsAwarded');
                       }
 
                       final updatedTarget = _currentTarget.copyWith(
@@ -500,7 +549,7 @@ class _TargetProfileScreenState extends State<TargetProfileScreen> {
                       );
 
                       await app.updateSalesTarget(updatedTarget);
-                      
+
                       // Award points to team members if target is met and points are available
                       if (isTargetMet && pointsAwarded > 0) {
                         // Get all team members (primary assignee + collaborators)
@@ -509,44 +558,49 @@ class _TargetProfileScreenState extends State<TargetProfileScreen> {
 
                         if (updatedTarget.assignedEmployeeId != null) {
                           teamMemberIds.add(updatedTarget.assignedEmployeeId!);
-                          teamMemberNames.add(updatedTarget.assignedEmployeeName ?? 'Unknown');
+                          teamMemberNames.add(
+                              updatedTarget.assignedEmployeeName ?? 'Unknown');
                         }
 
                         // Add collaborative team members
-                        teamMemberIds.addAll(updatedTarget.collaborativeEmployeeIds);
-                        teamMemberNames.addAll(updatedTarget.collaborativeEmployeeNames);
+                        teamMemberIds
+                            .addAll(updatedTarget.collaborativeEmployeeIds);
+                        teamMemberNames
+                            .addAll(updatedTarget.collaborativeEmployeeNames);
 
                         // Award points to each team member
                         for (int i = 0; i < teamMemberIds.length; i++) {
                           final memberId = teamMemberIds[i];
-                          
+
                           final transaction = PointsTransaction(
                             id: '${DateTime.now().millisecondsSinceEpoch}_edit_${memberId}_${updatedTarget.id}',
                             userId: memberId,
                             type: PointsTransactionType.earned,
                             points: pointsAwarded,
-                            description: 'Target completed: ${updatedTarget.assignedWorkplaceName ?? 'Unknown Store'} - ${updatedTarget.date.day}/${updatedTarget.date.month}/${updatedTarget.date.year}',
+                            description:
+                                'Target completed: ${updatedTarget.assignedWorkplaceName ?? 'Unknown Store'} - ${updatedTarget.date.day}/${updatedTarget.date.month}/${updatedTarget.date.year}',
                             date: DateTime.now(),
                             relatedTargetId: updatedTarget.id,
                           );
-                          
+
                           await app.addPointsTransaction(transaction);
                         }
                       }
-                      
+
                       Navigator.pop(context);
                       ScaffoldMessenger.of(context).showSnackBar(
                         SnackBar(
-                          content: Text(isTargetMet && pointsAwarded > 0 
-                            ? 'Target updated successfully! ${pointsAwarded} points awarded to team members.'
-                            : 'Target updated successfully'),
+                          content: Text(isTargetMet && pointsAwarded > 0
+                              ? 'Target updated successfully! ${pointsAwarded} points awarded to team members.'
+                              : 'Target updated successfully'),
                           backgroundColor: Colors.green,
                         ),
                       );
                     } else {
                       ScaffoldMessenger.of(context).showSnackBar(
                         const SnackBar(
-                          content: Text('Please enter valid target and actual amounts'),
+                          content: Text(
+                              'Please enter valid target and actual amounts'),
                           backgroundColor: Colors.red,
                         ),
                       );
@@ -578,27 +632,33 @@ class _TargetProfileScreenState extends State<TargetProfileScreen> {
 
   Widget _buildPerformanceChart(AppProvider app) {
     // Get all targets for the same employee/workplace (no date filtering for now)
-    print('DEBUG: Current target - employeeId: ${_currentTarget.assignedEmployeeId}, workplaceId: ${_currentTarget.assignedWorkplaceId}');
+    print(
+        'DEBUG: Current target - employeeId: ${_currentTarget.assignedEmployeeId}, workplaceId: ${_currentTarget.assignedWorkplaceId}');
     print('DEBUG: Total targets in app: ${app.salesTargets.length}');
-    
+
     final filteredTargets = app.salesTargets.where((target) {
-      print('DEBUG: Checking target ${target.id}: date=${target.date}, employeeId=${target.assignedEmployeeId}, workplaceId=${target.assignedWorkplaceId}');
-      
+      print(
+          'DEBUG: Checking target ${target.id}: date=${target.date}, employeeId=${target.assignedEmployeeId}, workplaceId=${target.assignedWorkplaceId}');
+
       // Match workplace - this is the key filter
       if (_currentTarget.assignedWorkplaceId != target.assignedWorkplaceId) {
-        print('DEBUG: Target ${target.id} filtered out - different workplace (${_currentTarget.assignedWorkplaceId} vs ${target.assignedWorkplaceId})');
+        print(
+            'DEBUG: Target ${target.id} filtered out - different workplace (${_currentTarget.assignedWorkplaceId} vs ${target.assignedWorkplaceId})');
         return false;
       }
-      
+
       // Only show targets for the same date (month and day) to show historical trends
       // e.g., if viewing Oct 1, 2025, show Oct 1 from 2024, 2023, 2022, etc.
       // regardless of which employee was assigned
-      if (target.date.month != _currentTarget.date.month || target.date.day != _currentTarget.date.day) {
-        print('DEBUG: Target ${target.id} filtered out - different date (${target.date.month}/${target.date.day} vs ${_currentTarget.date.month}/${_currentTarget.date.day})');
+      if (target.date.month != _currentTarget.date.month ||
+          target.date.day != _currentTarget.date.day) {
+        print(
+            'DEBUG: Target ${target.id} filtered out - different date (${target.date.month}/${target.date.day} vs ${_currentTarget.date.month}/${_currentTarget.date.day})');
         return false;
       }
-      
-      print('DEBUG: Target ${target.id} included in chart - same workplace (${target.assignedWorkplaceName}) and same date (${target.date.month}/${target.date.day})');
+
+      print(
+          'DEBUG: Target ${target.id} included in chart - same workplace (${target.assignedWorkplaceName}) and same date (${target.date.month}/${target.date.day})');
       return true;
     }).toList();
 
@@ -609,7 +669,8 @@ class _TargetProfileScreenState extends State<TargetProfileScreen> {
     print('DEBUG: Found ${finalTargets.length} targets for chart');
     print('DEBUG: Will use scrollable chart: ${finalTargets.length >= 12}');
     for (final target in finalTargets) {
-      print('DEBUG: Target ${target.id}: date=${target.date}, targetAmount=${target.targetAmount}, actualAmount=${target.actualAmount}, employee=${target.assignedEmployeeName}');
+      print(
+          'DEBUG: Target ${target.id}: date=${target.date}, targetAmount=${target.targetAmount}, actualAmount=${target.actualAmount}, employee=${target.assignedEmployeeName}');
     }
 
     if (finalTargets.isEmpty) {
@@ -635,14 +696,15 @@ class _TargetProfileScreenState extends State<TargetProfileScreen> {
 
     for (int i = 0; i < finalTargets.length; i++) {
       final target = finalTargets[i];
-      
+
       spots.add(FlSpot(i.toDouble(), target.actualAmount));
       targetSpots.add(FlSpot(i.toDouble(), target.targetAmount));
-      
+
       // Format date label to show just the year (last 2 digits)
       final year = target.date.year;
-      final yearShort = year.toString().substring(2); // Just "24", "25", "26" etc.
-      
+      final yearShort =
+          year.toString().substring(2); // Just "24", "25", "26" etc.
+
       print('DEBUG: Target date: ${target.date}, label: $yearShort');
       labels.add(yearShort);
     }
@@ -688,192 +750,199 @@ class _TargetProfileScreenState extends State<TargetProfileScreen> {
             borderRadius: BorderRadius.circular(8),
             border: Border.all(color: Colors.grey.shade300),
           ),
-          child: finalTargets.length >= 12 
-            ? SingleChildScrollView(
-                scrollDirection: Axis.horizontal,
-                physics: const BouncingScrollPhysics(),
-                child: SizedBox(
-                  width: finalTargets.length * 60.0, // 60px per bar group for better spacing
-                  child: BarChart(
-            BarChartData(
-              gridData: FlGridData(show: true),
-              barTouchData: BarTouchData(
-                enabled: true,
-                touchTooltipData: BarTouchTooltipData(
-                  getTooltipItem: (group, groupIndex, rod, rodIndex) {
-                    final target = finalTargets[groupIndex];
-                    final isTarget = rodIndex == 0;
-                    return BarTooltipItem(
-                      isTarget 
-                          ? 'Target: ${target.targetAmount.toStringAsFixed(0)}'
-                          : 'Actual: ${target.actualAmount.toStringAsFixed(0)}',
-                      const TextStyle(
-                        color: Colors.white,
-                        fontWeight: FontWeight.bold,
-                        fontSize: 12,
-                      ),
-                    );
-                  },
-                  fitInsideHorizontally: true,
-                  fitInsideVertically: true,
-                ),
-              ),
-              titlesData: FlTitlesData(
-                leftTitles: AxisTitles(
-                  sideTitles: SideTitles(
-                    showTitles: true,
-                    reservedSize: 40,
-                    getTitlesWidget: (value, meta) {
-                      return Text(
-                        value.toInt().toString(),
-                        style: const TextStyle(fontSize: 10),
-                      );
-                    },
-                  ),
-                ),
-                bottomTitles: AxisTitles(
-                  sideTitles: SideTitles(
-                    showTitles: true,
-                    reservedSize: 30,
-                    getTitlesWidget: (value, meta) {
-                      if (value.toInt() >= 0 && value.toInt() < labels.length) {
-                        return Text(
-                          labels[value.toInt()],
-                          style: const TextStyle(fontSize: 10),
-                        );
-                      }
-                      return const Text('');
-                    },
-                  ),
-                ),
-                topTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
-                rightTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
-              ),
-              borderData: FlBorderData(show: true),
-              barGroups: [
-                for (int i = 0; i < finalTargets.length; i++)
-                  BarChartGroupData(
-                    x: i,
-                    barRods: [
-                      BarChartRodData(
-                        toY: finalTargets[i].targetAmount,
-                        color: Colors.blue,
-                        width: 8,
-                        borderRadius: const BorderRadius.only(
-                          topLeft: Radius.circular(2),
-                          topRight: Radius.circular(2),
-                        ),
-                      ),
-                      BarChartRodData(
-                        toY: finalTargets[i].actualAmount,
-                        color: finalTargets[i].actualAmount >= finalTargets[i].targetAmount 
-                            ? Colors.green 
-                            : Colors.red,
-                        width: 8,
-                        borderRadius: const BorderRadius.only(
-                          topLeft: Radius.circular(2),
-                          topRight: Radius.circular(2),
-                        ),
-                      ),
-                    ],
-                    barsSpace: 4,
-                  ),
-              ],
-            ),
-                  ),
-                ),
-              )
-            : BarChart(
-                BarChartData(
-                  gridData: FlGridData(show: true),
-                  barTouchData: BarTouchData(
-                    enabled: true,
-                    touchTooltipData: BarTouchTooltipData(
-                      getTooltipItem: (group, groupIndex, rod, rodIndex) {
-                        final target = finalTargets[groupIndex];
-                        final isTarget = rodIndex == 0;
-                        return BarTooltipItem(
-                          isTarget 
-                              ? 'Target: ${target.targetAmount.toStringAsFixed(0)}'
-                              : 'Actual: ${target.actualAmount.toStringAsFixed(0)}',
-                          const TextStyle(
-                            color: Colors.white,
-                            fontWeight: FontWeight.bold,
-                            fontSize: 12,
+          child: finalTargets.length >= 12
+              ? SingleChildScrollView(
+                  scrollDirection: Axis.horizontal,
+                  physics: const BouncingScrollPhysics(),
+                  child: SizedBox(
+                    width: finalTargets.length *
+                        60.0, // 60px per bar group for better spacing
+                    child: BarChart(
+                      BarChartData(
+                        gridData: FlGridData(show: true),
+                        barTouchData: BarTouchData(
+                          enabled: true,
+                          touchTooltipData: BarTouchTooltipData(
+                            getTooltipItem: (group, groupIndex, rod, rodIndex) {
+                              final target = finalTargets[groupIndex];
+                              final isTarget = rodIndex == 0;
+                              return BarTooltipItem(
+                                isTarget
+                                    ? 'Target: ${target.targetAmount.toStringAsFixed(0)}'
+                                    : 'Actual: ${target.actualAmount.toStringAsFixed(0)}',
+                                const TextStyle(
+                                  color: Colors.white,
+                                  fontWeight: FontWeight.bold,
+                                  fontSize: 12,
+                                ),
+                              );
+                            },
+                            fitInsideHorizontally: true,
+                            fitInsideVertically: true,
                           ),
-                        );
-                      },
-                      fitInsideHorizontally: true,
-                      fitInsideVertically: true,
+                        ),
+                        titlesData: FlTitlesData(
+                          leftTitles: AxisTitles(
+                            sideTitles: SideTitles(
+                              showTitles: true,
+                              reservedSize: 40,
+                              getTitlesWidget: (value, meta) {
+                                return Text(
+                                  value.toInt().toString(),
+                                  style: const TextStyle(fontSize: 10),
+                                );
+                              },
+                            ),
+                          ),
+                          bottomTitles: AxisTitles(
+                            sideTitles: SideTitles(
+                              showTitles: true,
+                              reservedSize: 30,
+                              getTitlesWidget: (value, meta) {
+                                if (value.toInt() >= 0 &&
+                                    value.toInt() < labels.length) {
+                                  return Text(
+                                    labels[value.toInt()],
+                                    style: const TextStyle(fontSize: 10),
+                                  );
+                                }
+                                return const Text('');
+                              },
+                            ),
+                          ),
+                          topTitles: const AxisTitles(
+                              sideTitles: SideTitles(showTitles: false)),
+                          rightTitles: const AxisTitles(
+                              sideTitles: SideTitles(showTitles: false)),
+                        ),
+                        borderData: FlBorderData(show: true),
+                        barGroups: [
+                          for (int i = 0; i < finalTargets.length; i++)
+                            BarChartGroupData(
+                              x: i,
+                              barRods: [
+                                BarChartRodData(
+                                  toY: finalTargets[i].targetAmount,
+                                  color: Colors.blue,
+                                  width: 8,
+                                  borderRadius: const BorderRadius.only(
+                                    topLeft: Radius.circular(2),
+                                    topRight: Radius.circular(2),
+                                  ),
+                                ),
+                                BarChartRodData(
+                                  toY: finalTargets[i].actualAmount,
+                                  color: finalTargets[i].actualAmount >=
+                                          finalTargets[i].targetAmount
+                                      ? Colors.green
+                                      : Colors.red,
+                                  width: 8,
+                                  borderRadius: const BorderRadius.only(
+                                    topLeft: Radius.circular(2),
+                                    topRight: Radius.circular(2),
+                                  ),
+                                ),
+                              ],
+                              barsSpace: 4,
+                            ),
+                        ],
+                      ),
                     ),
                   ),
-                  titlesData: FlTitlesData(
-                    leftTitles: AxisTitles(
-                      sideTitles: SideTitles(
-                        showTitles: true,
-                        reservedSize: 40,
-                        getTitlesWidget: (value, meta) {
-                          return Text(
-                            value.toInt().toString(),
-                            style: const TextStyle(fontSize: 10),
+                )
+              : BarChart(
+                  BarChartData(
+                    gridData: FlGridData(show: true),
+                    barTouchData: BarTouchData(
+                      enabled: true,
+                      touchTooltipData: BarTouchTooltipData(
+                        getTooltipItem: (group, groupIndex, rod, rodIndex) {
+                          final target = finalTargets[groupIndex];
+                          final isTarget = rodIndex == 0;
+                          return BarTooltipItem(
+                            isTarget
+                                ? 'Target: ${target.targetAmount.toStringAsFixed(0)}'
+                                : 'Actual: ${target.actualAmount.toStringAsFixed(0)}',
+                            const TextStyle(
+                              color: Colors.white,
+                              fontWeight: FontWeight.bold,
+                              fontSize: 12,
+                            ),
                           );
                         },
+                        fitInsideHorizontally: true,
+                        fitInsideVertically: true,
                       ),
                     ),
-                    bottomTitles: AxisTitles(
-                      sideTitles: SideTitles(
-                        showTitles: true,
-                        reservedSize: 30,
-                        getTitlesWidget: (value, meta) {
-                          if (value.toInt() >= 0 && value.toInt() < labels.length) {
+                    titlesData: FlTitlesData(
+                      leftTitles: AxisTitles(
+                        sideTitles: SideTitles(
+                          showTitles: true,
+                          reservedSize: 40,
+                          getTitlesWidget: (value, meta) {
                             return Text(
-                              labels[value.toInt()],
+                              value.toInt().toString(),
                               style: const TextStyle(fontSize: 10),
                             );
-                          }
-                          return const Text('');
-                        },
+                          },
+                        ),
                       ),
+                      bottomTitles: AxisTitles(
+                        sideTitles: SideTitles(
+                          showTitles: true,
+                          reservedSize: 30,
+                          getTitlesWidget: (value, meta) {
+                            if (value.toInt() >= 0 &&
+                                value.toInt() < labels.length) {
+                              return Text(
+                                labels[value.toInt()],
+                                style: const TextStyle(fontSize: 10),
+                              );
+                            }
+                            return const Text('');
+                          },
+                        ),
+                      ),
+                      topTitles: const AxisTitles(
+                          sideTitles: SideTitles(showTitles: false)),
+                      rightTitles: const AxisTitles(
+                          sideTitles: SideTitles(showTitles: false)),
                     ),
-                    topTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
-                    rightTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
+                    borderData: FlBorderData(show: true),
+                    barGroups: [
+                      for (int i = 0; i < finalTargets.length; i++)
+                        BarChartGroupData(
+                          x: i,
+                          barRods: [
+                            BarChartRodData(
+                              toY: finalTargets[i].targetAmount,
+                              color: Colors.blue,
+                              width: 8,
+                              borderRadius: const BorderRadius.only(
+                                topLeft: Radius.circular(2),
+                                topRight: Radius.circular(2),
+                              ),
+                            ),
+                            BarChartRodData(
+                              toY: finalTargets[i].actualAmount,
+                              color: finalTargets[i].actualAmount >=
+                                      finalTargets[i].targetAmount
+                                  ? Colors.green
+                                  : Colors.red,
+                              width: 8,
+                              borderRadius: const BorderRadius.only(
+                                topLeft: Radius.circular(2),
+                                topRight: Radius.circular(2),
+                              ),
+                            ),
+                          ],
+                          barsSpace: 4,
+                        ),
+                    ],
                   ),
-                  borderData: FlBorderData(show: true),
-                  barGroups: [
-                    for (int i = 0; i < finalTargets.length; i++)
-                      BarChartGroupData(
-                        x: i,
-                        barRods: [
-                          BarChartRodData(
-                            toY: finalTargets[i].targetAmount,
-                            color: Colors.blue,
-                            width: 8,
-                            borderRadius: const BorderRadius.only(
-                              topLeft: Radius.circular(2),
-                              topRight: Radius.circular(2),
-                            ),
-                          ),
-                          BarChartRodData(
-                            toY: finalTargets[i].actualAmount,
-                            color: finalTargets[i].actualAmount >= finalTargets[i].targetAmount 
-                                ? Colors.green 
-                                : Colors.red,
-                            width: 8,
-                            borderRadius: const BorderRadius.only(
-                              topLeft: Radius.circular(2),
-                              topRight: Radius.circular(2),
-                            ),
-                          ),
-                        ],
-                        barsSpace: 4,
-                      ),
-                  ],
                 ),
-              ),
         ),
       ],
     );
   }
 }
-
-

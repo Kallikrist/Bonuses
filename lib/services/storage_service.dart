@@ -90,7 +90,29 @@ class StorageService {
     await prefs.remove(_currentUserKey);
   }
 
-  // Points rules
+  // Points rules - company-specific
+  static Future<Map<String, PointsRules>> getCompanyPointsRules() async {
+    final prefs = await _prefs;
+    final jsonStr = prefs.getString(_pointsRulesKey);
+    if (jsonStr == null) return {};
+    try {
+      final Map<String, dynamic> jsonMap = jsonDecode(jsonStr);
+      return jsonMap.map((key, value) =>
+          MapEntry(key, PointsRules.fromJson(value as Map<String, dynamic>)));
+    } catch (_) {
+      return {};
+    }
+  }
+
+  static Future<void> setCompanyPointsRules(
+      Map<String, PointsRules> companyRules) async {
+    final prefs = await _prefs;
+    final jsonMap =
+        companyRules.map((key, value) => MapEntry(key, value.toJson()));
+    await prefs.setString(_pointsRulesKey, jsonEncode(jsonMap));
+  }
+
+  // Backward compatibility - kept for migration
   static Future<PointsRules> getPointsRules() async {
     final prefs = await _prefs;
     final jsonStr = prefs.getString(_pointsRulesKey);

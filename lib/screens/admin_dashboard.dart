@@ -7529,10 +7529,14 @@ class _PointsRulesScreenState extends State<PointsRulesScreen> {
                                     ),
                                     onChanged: (value) {
                                       final newValue = double.tryParse(value);
-                                      if (newValue != null && newValue > 0) {
+                                      if (newValue != null &&
+                                          newValue > 0 &&
+                                          currentCompanyId != null) {
                                         appProvider.updatePointsRules(
-                                          appProvider.pointsRules
+                                          appProvider
+                                              .getPointsRules(currentCompanyId)
                                               .copyWith(pointValue: newValue),
+                                          currentCompanyId,
                                         );
                                       }
                                     },
@@ -7548,10 +7552,13 @@ class _PointsRulesScreenState extends State<PointsRulesScreen> {
                                       hintText: 'ISK',
                                     ),
                                     onChanged: (value) {
-                                      if (value.isNotEmpty) {
+                                      if (value.isNotEmpty &&
+                                          currentCompanyId != null) {
                                         appProvider.updatePointsRules(
-                                          appProvider.pointsRules
+                                          appProvider
+                                              .getPointsRules(currentCompanyId)
                                               .copyWith(currencySymbol: value),
+                                          currentCompanyId,
                                         );
                                       }
                                     },
@@ -7647,7 +7654,9 @@ class _PointsRulesScreenState extends State<PointsRulesScreen> {
                                         percentController.text.trim());
                                     final pts = int.tryParse(
                                         pointsController.text.trim());
-                                    if (p != null && pts != null) {
+                                    if (p != null &&
+                                        pts != null &&
+                                        currentCompanyId != null) {
                                       final updatedEntries =
                                           List<PointsRuleEntry>.from(
                                               rules.entries)
@@ -7657,8 +7666,10 @@ class _PointsRulesScreenState extends State<PointsRulesScreen> {
                                             ..sort((a, b) => a.thresholdPercent
                                                 .compareTo(b.thresholdPercent));
                                       appProvider.updatePointsRules(
-                                        appProvider.pointsRules
+                                        appProvider
+                                            .getPointsRules(currentCompanyId)
                                             .copyWith(entries: updatedEntries),
+                                        currentCompanyId,
                                       );
                                       percentController.clear();
                                       pointsController.clear();
@@ -7714,7 +7725,9 @@ class _PointsRulesScreenState extends State<PointsRulesScreen> {
                                                   onChanged: (value) {
                                                     final newPercent =
                                                         double.tryParse(value);
-                                                    if (newPercent != null) {
+                                                    if (newPercent != null &&
+                                                        currentCompanyId !=
+                                                            null) {
                                                       final updatedEntries =
                                                           List<PointsRuleEntry>.from(
                                                               rules.entries);
@@ -7726,10 +7739,13 @@ class _PointsRulesScreenState extends State<PointsRulesScreen> {
                                                       );
                                                       appProvider
                                                           .updatePointsRules(
-                                                        appProvider.pointsRules
+                                                        appProvider
+                                                            .getPointsRules(
+                                                                currentCompanyId)
                                                             .copyWith(
                                                                 entries:
                                                                     updatedEntries),
+                                                        currentCompanyId,
                                                       );
                                                     }
                                                   },
@@ -7751,7 +7767,8 @@ class _PointsRulesScreenState extends State<PointsRulesScreen> {
                                               onChanged: (value) {
                                                 final newPoints =
                                                     int.tryParse(value);
-                                                if (newPoints != null) {
+                                                if (newPoints != null &&
+                                                    currentCompanyId != null) {
                                                   final updatedEntries = List<
                                                           PointsRuleEntry>.from(
                                                       rules.entries);
@@ -7762,10 +7779,13 @@ class _PointsRulesScreenState extends State<PointsRulesScreen> {
                                                     points: newPoints,
                                                   );
                                                   appProvider.updatePointsRules(
-                                                    appProvider.pointsRules
+                                                    appProvider
+                                                        .getPointsRules(
+                                                            currentCompanyId)
                                                         .copyWith(
                                                             entries:
                                                                 updatedEntries),
+                                                    currentCompanyId,
                                                   );
                                                 }
                                               },
@@ -7790,13 +7810,18 @@ class _PointsRulesScreenState extends State<PointsRulesScreen> {
                                               size: 18),
                                           tooltip: 'Remove',
                                           onPressed: () {
+                                            if (currentCompanyId == null)
+                                              return;
                                             final updated =
                                                 List<PointsRuleEntry>.from(
                                                     rules.entries)
                                                   ..removeAt(i);
                                             appProvider.updatePointsRules(
-                                              appProvider.pointsRules
+                                              appProvider
+                                                  .getPointsRules(
+                                                      currentCompanyId)
                                                   .copyWith(entries: updated),
+                                              currentCompanyId,
                                             );
                                             ScaffoldMessenger.of(context)
                                                 .showSnackBar(
