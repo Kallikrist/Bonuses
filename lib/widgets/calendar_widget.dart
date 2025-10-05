@@ -86,7 +86,9 @@ class _CalendarPageState extends State<CalendarPage> {
             ),
           ),
           // Floating action buttons for admins
-          floatingActionButton: appProvider.isAdmin ? _buildAdminFABs(context, appProvider) : null,
+          floatingActionButton: appProvider.isAdmin
+              ? _buildAdminFABs(context, appProvider)
+              : null,
           floatingActionButtonLocation: FloatingActionButtonLocation.endFloat,
         );
       },
@@ -695,15 +697,17 @@ class _CalendarPageState extends State<CalendarPage> {
 
   Widget _buildAdminFABs(BuildContext context, AppProvider appProvider) {
     // Get targets for the selected date
-    final selectedDateTargets = _getSalesTargetsForDate(_selectedDate, widget.salesTargets ?? []);
-    
+    final selectedDateTargets =
+        _getSalesTargetsForDate(_selectedDate, widget.salesTargets ?? []);
+
     // Find met targets that need approval
-    final metTargetsToApprove = selectedDateTargets.where((target) => 
-      target.actualAmount >= target.targetAmount &&  // Met the target
-      !target.isApproved && 
-      target.status != TargetStatus.approved &&
-      target.actualAmount > 0
-    ).toList();
+    final metTargetsToApprove = selectedDateTargets
+        .where((target) =>
+            target.actualAmount >= target.targetAmount && // Met the target
+            !target.isApproved &&
+            target.status != TargetStatus.approved &&
+            target.actualAmount > 0)
+        .toList();
 
     // If there are met targets to approve, show both buttons
     if (metTargetsToApprove.isNotEmpty) {
@@ -712,7 +716,8 @@ class _CalendarPageState extends State<CalendarPage> {
         children: [
           // Approve All button
           FloatingActionButton.extended(
-            onPressed: () => _approveAllMetTargets(context, metTargetsToApprove, appProvider),
+            onPressed: () => _approveAllMetTargets(
+                context, metTargetsToApprove, appProvider),
             backgroundColor: Colors.green,
             foregroundColor: Colors.white,
             icon: const Icon(Icons.check_circle),
@@ -745,7 +750,8 @@ class _CalendarPageState extends State<CalendarPage> {
     }
   }
 
-  void _approveAllMetTargets(BuildContext context, List<SalesTarget> targets, AppProvider appProvider) async {
+  void _approveAllMetTargets(BuildContext context, List<SalesTarget> targets,
+      AppProvider appProvider) async {
     if (targets.isEmpty) return;
 
     // Show confirmation dialog
@@ -757,33 +763,37 @@ class _CalendarPageState extends State<CalendarPage> {
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text('This will approve ${targets.length} met targets for ${DateFormat('MMM dd, yyyy').format(_selectedDate)}:'),
+            Text(
+                'This will approve ${targets.length} met targets for ${DateFormat('MMM dd, yyyy').format(_selectedDate)}:'),
             const SizedBox(height: 12),
             Container(
               constraints: const BoxConstraints(maxHeight: 200),
               child: SingleChildScrollView(
                 child: Column(
-                  children: targets.map((target) => Container(
-                    margin: const EdgeInsets.only(bottom: 8),
-                    padding: const EdgeInsets.all(8),
-                    decoration: BoxDecoration(
-                      color: Colors.green.shade50,
-                      borderRadius: BorderRadius.circular(8),
-                      border: Border.all(color: Colors.green.shade200),
-                    ),
-                    child: Row(
-                      children: [
-                        Icon(Icons.check_circle, color: Colors.green, size: 16),
-                        const SizedBox(width: 8),
-                        Expanded(
-                          child: Text(
-                            '${target.assignedEmployeeName ?? 'Unassigned'}: \$${target.actualAmount.toStringAsFixed(0)}/\$${target.targetAmount.toStringAsFixed(0)}',
-                            style: const TextStyle(fontSize: 12),
-                          ),
-                        ),
-                      ],
-                    ),
-                  )).toList(),
+                  children: targets
+                      .map((target) => Container(
+                            margin: const EdgeInsets.only(bottom: 8),
+                            padding: const EdgeInsets.all(8),
+                            decoration: BoxDecoration(
+                              color: Colors.green.shade50,
+                              borderRadius: BorderRadius.circular(8),
+                              border: Border.all(color: Colors.green.shade200),
+                            ),
+                            child: Row(
+                              children: [
+                                Icon(Icons.check_circle,
+                                    color: Colors.green, size: 16),
+                                const SizedBox(width: 8),
+                                Expanded(
+                                  child: Text(
+                                    '${target.assignedEmployeeName ?? 'Unassigned'}: \$${target.actualAmount.toStringAsFixed(0)}/\$${target.targetAmount.toStringAsFixed(0)}',
+                                    style: const TextStyle(fontSize: 12),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ))
+                      .toList(),
                 ),
               ),
             ),
@@ -797,7 +807,8 @@ class _CalendarPageState extends State<CalendarPage> {
           ElevatedButton(
             onPressed: () => Navigator.pop(context, true),
             style: ElevatedButton.styleFrom(backgroundColor: Colors.green),
-            child: const Text('Approve All', style: TextStyle(color: Colors.white)),
+            child: const Text('Approve All',
+                style: TextStyle(color: Colors.white)),
           ),
         ],
       ),
@@ -811,9 +822,11 @@ class _CalendarPageState extends State<CalendarPage> {
       for (final target in targets) {
         // Find pending approval request for this target
         final pendingRequest = appProvider.approvalRequests.firstWhere(
-          (request) => request.targetId == target.id && 
-                       request.status == ApprovalStatus.pending,
-          orElse: () => throw Exception('No pending approval request found for ${target.id}'),
+          (request) =>
+              request.targetId == target.id &&
+              request.status == ApprovalStatus.pending,
+          orElse: () => throw Exception(
+              'No pending approval request found for ${target.id}'),
         );
 
         // Use the existing approval system
@@ -827,7 +840,6 @@ class _CalendarPageState extends State<CalendarPage> {
           backgroundColor: Colors.green,
         ),
       );
-
     } catch (e) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
@@ -883,7 +895,8 @@ class _AddTargetDialogState extends State<AddTargetDialog> {
 
     // Filter to show employees and admins (admins can participate as team members)
     _availableEmployees = _availableEmployees
-        .where((user) => user.role == UserRole.employee || user.role == UserRole.admin)
+        .where((user) =>
+            user.role == UserRole.employee || user.role == UserRole.admin)
         .toList();
 
     setState(() => _isLoading = false);
@@ -1316,5 +1329,4 @@ class _MultiSelectDialogState extends State<MultiSelectDialog> {
       ],
     );
   }
-
 }

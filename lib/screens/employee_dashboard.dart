@@ -1636,6 +1636,8 @@ class _EmployeeDashboardState extends State<EmployeeDashboard> {
       appProvider: appProvider,
       showBackButton:
           false, // No back button when viewing own profile from tab bar
+      companyContext:
+          user.primaryCompanyId, // Use user's current company context
     );
   }
 

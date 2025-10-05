@@ -82,39 +82,13 @@ class _AdminDashboardState extends State<AdminDashboard> {
           body: Column(
             children: [
               // Profile Header with Action Buttons
-              FutureBuilder<List<Company>>(
-                future: appProvider.getCompanies(),
-                builder: (context, snapshot) {
-                  final allCompanies = snapshot.data ?? [];
-                  final userCompanies = allCompanies
-                      .where((c) => user.companyIds.contains(c.id))
-                      .toList();
-
-                  return ProfileHeaderWidget(
-                    userName: user.name,
-                    userEmail: user.email,
-                    onProfileTap: () => setState(
-                        () => _selectedIndex = 3), // Navigate to Profile tab
-                    actionButtons: _getAdminActionButtons(context, appProvider),
-                    salesTargets: allTargets,
-                    userCompanies: userCompanies,
-                    currentCompanyId: user.primaryCompanyId,
-                    onCompanyChanged: (newCompanyId) async {
-                      final updatedUser = user.copyWith(
-                        primaryCompanyId: newCompanyId,
-                      );
-                      await appProvider.updateUser(updatedUser);
-                      setState(() {}); // Refresh UI
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        SnackBar(
-                          content: Text(
-                              'Switched to ${userCompanies.firstWhere((c) => c.id == newCompanyId).name}'),
-                          backgroundColor: Colors.green,
-                        ),
-                      );
-                    },
-                  );
-                },
+              ProfileHeaderWidget(
+                userName: user.name,
+                userEmail: user.email,
+                onProfileTap: () => setState(
+                    () => _selectedIndex = 3), // Navigate to Profile tab
+                actionButtons: _getAdminActionButtons(context, appProvider),
+                salesTargets: allTargets,
               ),
               // Main Content
               Expanded(
@@ -145,7 +119,6 @@ class _AdminDashboardState extends State<AdminDashboard> {
                   children: [
                     _buildNavItem(0, Icons.dashboard, 'Dashboard'),
                     _buildNavItem(1, Icons.card_giftcard, 'Bonuses'),
-                    _buildAddButton(),
                     _buildNavItem(2, Icons.settings, 'Settings'),
                   ],
                 ),
@@ -1722,6 +1695,67 @@ class _AdminDashboardState extends State<AdminDashboard> {
     );
   }
 
+  void _showLoadDemoDataDialog(BuildContext context, AppProvider appProvider) {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Load Demo Data'),
+        content: const Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text('This will add demo users and data for testing:'),
+            SizedBox(height: 8),
+            Text('• John Doe (Admin)'),
+            Text('• Jane Smith (Employee)'),
+            Text('• Karl Kristjansson (Employee)'),
+            Text('• Sample bonuses, targets, and workplaces'),
+            SizedBox(height: 16),
+            Text(
+              'Your existing data will NOT be deleted.',
+              style: TextStyle(fontWeight: FontWeight.bold),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Cancel'),
+          ),
+          ElevatedButton(
+            onPressed: () async {
+              Navigator.pop(context);
+              // Show loading indicator
+              showDialog(
+                context: context,
+                barrierDismissible: false,
+                builder: (context) => const Center(
+                  child: CircularProgressIndicator(),
+                ),
+              );
+
+              // Load demo data
+              await StorageService.initializeSampleData();
+              await appProvider.initialize();
+
+              if (context.mounted) {
+                Navigator.pop(context); // Close loading
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(
+                    content: Text('Demo data loaded successfully!'),
+                    backgroundColor: Colors.green,
+                  ),
+                );
+              }
+            },
+            style: ElevatedButton.styleFrom(backgroundColor: Colors.blue),
+            child: const Text('Load Demo Data'),
+          ),
+        ],
+      ),
+    );
+  }
+
   void _showLogoutDialog(BuildContext context, AppProvider appProvider) {
     showDialog(
       context: context,
@@ -2541,32 +2575,6 @@ class _AdminDashboardState extends State<AdminDashboard> {
     );
   }
 
-  Widget _buildAddButton() {
-    return GestureDetector(
-      onTap: () => _showAddOptionsDialog(),
-      child: Container(
-        width: 56,
-        height: 56,
-        decoration: BoxDecoration(
-          color: Colors.blue[600],
-          shape: BoxShape.circle,
-          boxShadow: [
-            BoxShadow(
-              color: Colors.blue.withOpacity(0.3),
-              blurRadius: 8,
-              offset: const Offset(0, 2),
-            ),
-          ],
-        ),
-        child: const Icon(
-          Icons.add,
-          color: Colors.white,
-          size: 28,
-        ),
-      ),
-    );
-  }
-
   List<ActionButton> _getAdminActionButtons(
       BuildContext context, AppProvider appProvider) {
     return [
@@ -3029,6 +3037,12 @@ class _AdminDashboardState extends State<AdminDashboard> {
                     appProvider.approvalRequests
                         .where((r) => r.status == ApprovalStatus.pending)
                         .length,
+                  ),
+                  _buildSettingsItem(
+                    Icons.science,
+                    'Load Demo Data',
+                    'Load sample users, targets, and bonuses for testing',
+                    () => _showLoadDemoDataDialog(context, appProvider),
                   ),
                   _buildSettingsItem(
                     Icons.logout,
@@ -3631,53 +3645,6 @@ class _AdminDashboardState extends State<AdminDashboard> {
             ),
           ],
         ),
-      ),
-    );
-  }
-
-  void _showAddOptionsDialog() {
-    showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Add New'),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            ListTile(
-              leading: const Icon(Icons.people),
-              title: const Text('Add Employee'),
-              onTap: () {
-                Navigator.pop(context);
-                _showAddEmployeeDialog(
-                    context, Provider.of<AppProvider>(context, listen: false));
-              },
-            ),
-            ListTile(
-              leading: const Icon(Icons.business),
-              title: const Text('Add Workplace'),
-              onTap: () {
-                Navigator.pop(context);
-                _showAddWorkplaceDialog(
-                    context, Provider.of<AppProvider>(context, listen: false));
-              },
-            ),
-            ListTile(
-              leading: const Icon(Icons.track_changes),
-              title: const Text('Add Target'),
-              onTap: () {
-                Navigator.pop(context);
-                _showAddTargetDialog(
-                    context, Provider.of<AppProvider>(context, listen: false));
-              },
-            ),
-          ],
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text('Cancel'),
-          ),
-        ],
       ),
     );
   }
@@ -5261,6 +5228,21 @@ class _EmployeeProfileScreenState extends State<EmployeeProfileScreen> {
     currentEmployee = widget.employee;
   }
 
+  // Check if current user is admin in the company context
+  bool _isAdminInContext() {
+    final currentUser = widget.appProvider.currentUser;
+    if (currentUser == null) return false;
+
+    // Get the company context - use provided context or current user's primary company
+    final contextCompanyId =
+        widget.companyContext ?? currentUser.primaryCompanyId;
+    if (contextCompanyId == null) return false;
+
+    // Check if current user has admin role in this company
+    final role = currentUser.getRoleForCompany(contextCompanyId);
+    return role == UserRole.admin;
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -5486,10 +5468,21 @@ class _EmployeeProfileScreenState extends State<EmployeeProfileScreen> {
                       ),
                       Consumer<AppProvider>(
                         builder: (context, provider, child) {
+                          // Get company-specific role
+                          final companyId = widget.companyContext ??
+                              provider.currentUser?.primaryCompanyId;
+                          final currentRole = companyId != null
+                              ? currentEmployee.getRoleForCompany(companyId)
+                              : currentEmployee.role;
+                          // Check if viewing own profile
+                          final isOwnProfile =
+                              provider.currentUser?.id == currentEmployee.id;
                           return _buildRoleDropdownField(
                             Icons.work,
                             'Role',
-                            currentEmployee.role,
+                            currentRole,
+                            companyId, // Pass company ID for context
+                            isOwnProfile, // Pass flag to disable editing own role
                           );
                         },
                       ),
@@ -5533,28 +5526,11 @@ class _EmployeeProfileScreenState extends State<EmployeeProfileScreen> {
                     ],
                   ),
                   const SizedBox(height: 24),
+                  // Always show Points History
                   _buildProfileSection(
-                    'Administrative Actions',
-                    Icons.admin_panel_settings,
+                    'Points & History',
+                    Icons.history,
                     [
-                      _buildProfileField(
-                        Icons.lock_reset,
-                        'Reset Password',
-                        'Send password reset email',
-                        () => _showResetPasswordDialog(),
-                      ),
-                      _buildProfileField(
-                        Icons.stars,
-                        'Adjust Points',
-                        'Add or remove points',
-                        () => _showAdjustPointsDialog(),
-                      ),
-                      _buildProfileField(
-                        Icons.notifications,
-                        'Send Notification',
-                        'Send message to employee',
-                        () => _showSendNotificationDialog(),
-                      ),
                       _buildProfileField(
                         Icons.history,
                         'Points History',
@@ -5563,6 +5539,33 @@ class _EmployeeProfileScreenState extends State<EmployeeProfileScreen> {
                       ),
                     ],
                   ),
+                  const SizedBox(height: 24),
+                  // Only show Administrative Actions if current user is admin in this company context
+                  if (_isAdminInContext())
+                    _buildProfileSection(
+                      'Administrative Actions',
+                      Icons.admin_panel_settings,
+                      [
+                        _buildProfileField(
+                          Icons.lock_reset,
+                          'Reset Password',
+                          'Send password reset email',
+                          () => _showResetPasswordDialog(),
+                        ),
+                        _buildProfileField(
+                          Icons.stars,
+                          'Adjust Points',
+                          'Add or remove points',
+                          () => _showAdjustPointsDialog(),
+                        ),
+                        _buildProfileField(
+                          Icons.notifications,
+                          'Send Notification',
+                          'Send message to employee',
+                          () => _showSendNotificationDialog(),
+                        ),
+                      ],
+                    ),
                 ],
               ),
             ),
@@ -5840,8 +5843,18 @@ class _EmployeeProfileScreenState extends State<EmployeeProfileScreen> {
     }
   }
 
-  Widget _buildRoleDropdownField(
-      IconData icon, String label, UserRole currentRole) {
+  Widget _buildRoleDropdownField(IconData icon, String label,
+      UserRole currentRole, String? companyId, bool isOwnProfile) {
+    // If viewing own profile, show read-only field instead of dropdown
+    if (isOwnProfile) {
+      return _buildProfileField(
+        icon,
+        label,
+        _getRoleDisplayName(currentRole),
+        null, // No tap action - read-only
+      );
+    }
+
     return Container(
       margin: const EdgeInsets.only(bottom: 12),
       child: InkWell(
@@ -5901,7 +5914,7 @@ class _EmployeeProfileScreenState extends State<EmployeeProfileScreen> {
                         onChanged: (UserRole? newRole) {
                           if (newRole != null && newRole != currentRole) {
                             // Show confirmation dialog when a different role is selected
-                            _showRoleChangeConfirmation(newRole);
+                            _showRoleChangeConfirmation(newRole, companyId);
                           }
                         },
                       ),
@@ -5946,12 +5959,36 @@ class _EmployeeProfileScreenState extends State<EmployeeProfileScreen> {
                         return const Text('Loading...');
                       }
 
-                      final companies = snapshot.data!;
+                      final allCompanies = snapshot.data!;
                       final currentCompanyId = employee.primaryCompanyId;
+                      final currentUser = provider.currentUser;
+
+                      // Determine which companies to show
+                      final List<Company> displayCompanies;
+
+                      // If viewing own profile, show ALL user's companies
+                      if (currentUser?.id == employee.id) {
+                        displayCompanies = allCompanies
+                            .where((c) => employee.companyIds.contains(c.id))
+                            .toList();
+                      } else {
+                        // If viewing another employee, only show shared companies
+                        displayCompanies = allCompanies.where((company) {
+                          final employeeInCompany =
+                              employee.companyIds.contains(company.id);
+                          final adminInCompany =
+                              currentUser?.companyIds.contains(company.id) ??
+                                  false;
+                          return employeeInCompany && adminInCompany;
+                        }).toList();
+                      }
 
                       return DropdownButtonHideUnderline(
                         child: DropdownButton<String?>(
-                          value: currentCompanyId,
+                          value: displayCompanies
+                                  .any((c) => c.id == currentCompanyId)
+                              ? currentCompanyId
+                              : null,
                           icon: Icon(Icons.arrow_drop_down,
                               color: Colors.grey[400]),
                           isExpanded: true,
@@ -5974,7 +6011,7 @@ class _EmployeeProfileScreenState extends State<EmployeeProfileScreen> {
                                 ],
                               ),
                             ),
-                            ...companies.map((company) {
+                            ...displayCompanies.map((company) {
                               return DropdownMenuItem<String?>(
                                 value: company.id,
                                 child: Row(
@@ -5996,8 +6033,8 @@ class _EmployeeProfileScreenState extends State<EmployeeProfileScreen> {
                           ],
                           onChanged: (String? newCompanyId) {
                             if (newCompanyId != currentCompanyId) {
-                              _showCompanyChangeConfirmation(
-                                  employee, newCompanyId, companies, provider);
+                              _showCompanyChangeConfirmation(employee,
+                                  newCompanyId, displayCompanies, provider);
                             }
                           },
                         ),
@@ -6037,14 +6074,8 @@ class _EmployeeProfileScreenState extends State<EmployeeProfileScreen> {
           ),
           ElevatedButton(
             onPressed: () async {
-              final companyIds =
-                  newCompany != null ? [newCompany.id] : <String>[];
-              final companyNames =
-                  newCompany != null ? [newCompany.name] : <String>[];
-
+              // Only update the primary company, keep all existing companies
               final updatedEmployee = employee.copyWith(
-                companyIds: companyIds,
-                companyNames: companyNames,
                 primaryCompanyId: newCompany?.id,
               );
 
@@ -6057,7 +6088,7 @@ class _EmployeeProfileScreenState extends State<EmployeeProfileScreen> {
                 Navigator.pop(context);
                 ScaffoldMessenger.of(context).showSnackBar(
                   SnackBar(
-                    content: Text('Company updated to $newCompanyName'),
+                    content: Text('Switched to $newCompanyName'),
                     backgroundColor: Colors.green,
                   ),
                 );
@@ -6070,7 +6101,12 @@ class _EmployeeProfileScreenState extends State<EmployeeProfileScreen> {
     );
   }
 
-  void _showRoleChangeConfirmation(UserRole newRole) {
+  void _showRoleChangeConfirmation(UserRole newRole, String? companyId) {
+    // Get current role for the company context
+    final currentRole = companyId != null
+        ? currentEmployee.getRoleForCompany(companyId)
+        : currentEmployee.role;
+
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
@@ -6082,16 +6118,16 @@ class _EmployeeProfileScreenState extends State<EmployeeProfileScreen> {
             Row(
               children: [
                 Icon(
-                  currentEmployee.role == UserRole.admin
+                  currentRole == UserRole.admin
                       ? Icons.admin_panel_settings
                       : Icons.person,
-                  color: currentEmployee.role == UserRole.admin
+                  color: currentRole == UserRole.admin
                       ? Colors.purple
                       : Colors.blue,
                   size: 20,
                 ),
                 const SizedBox(width: 8),
-                Text(_getRoleDisplayName(currentEmployee.role)),
+                Text(_getRoleDisplayName(currentRole)),
                 const Text(' → '),
                 Icon(
                   newRole == UserRole.admin
@@ -6146,8 +6182,17 @@ class _EmployeeProfileScreenState extends State<EmployeeProfileScreen> {
               try {
                 Navigator.pop(context);
 
-                // Update the employee's role
-                final updatedEmployee = currentEmployee.copyWith(role: newRole);
+                // Update the employee's role for this company
+                User updatedEmployee;
+                if (companyId != null) {
+                  // Update company-specific role
+                  updatedEmployee =
+                      currentEmployee.setRoleForCompany(companyId, newRole);
+                } else {
+                  // Update global role (fallback)
+                  updatedEmployee = currentEmployee.copyWith(role: newRole);
+                }
+
                 await widget.appProvider.updateUser(updatedEmployee);
 
                 // Update the local currentEmployee instance
@@ -6159,7 +6204,7 @@ class _EmployeeProfileScreenState extends State<EmployeeProfileScreen> {
                 ScaffoldMessenger.of(context).showSnackBar(
                   SnackBar(
                     content: Text(
-                      '${currentEmployee.name} role changed to ${_getRoleDisplayName(newRole)} successfully',
+                      '${currentEmployee.name} role changed to ${_getRoleDisplayName(newRole)} successfully${companyId != null ? ' for this company' : ''}',
                     ),
                     backgroundColor: newRole == UserRole.admin
                         ? Colors.purple
@@ -6427,27 +6472,64 @@ class _EmployeeProfileScreenState extends State<EmployeeProfileScreen> {
                   children: [
                     Consumer<AppProvider>(
                       builder: (context, provider, child) {
-                        final currentPoints =
-                            provider.getUserTotalPoints(currentEmployee.id);
-                        return _buildPointsSummaryCard(
-                          'Current Points',
-                          '$currentPoints',
-                          Icons.stars,
-                          Colors.blue,
+                        // Get the company context for filtering
+                        final companyId = widget.companyContext ??
+                            provider.currentUser?.primaryCompanyId;
+
+                        final currentPoints = companyId != null
+                            ? provider.getUserCompanyPoints(
+                                currentEmployee.id, companyId)
+                            : provider.getUserTotalPoints(currentEmployee.id);
+
+                        // Calculate earned and spent from company-filtered transactions
+                        final companyTransactions = provider.pointsTransactions
+                            .where((t) =>
+                                t.userId == currentEmployee.id &&
+                                (companyId == null || t.companyId == companyId))
+                            .toList();
+
+                        final totalEarned =
+                            companyTransactions.fold(0, (sum, t) {
+                          if (t.type == PointsTransactionType.earned ||
+                              t.type == PointsTransactionType.adjustment) {
+                            return sum + t.points;
+                          }
+                          return sum;
+                        });
+
+                        final totalSpent =
+                            companyTransactions.fold(0, (sum, t) {
+                          if (t.type == PointsTransactionType.redeemed ||
+                              t.type == PointsTransactionType.bonus) {
+                            return sum + t.points;
+                          }
+                          return sum;
+                        });
+
+                        return Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceAround,
+                          children: [
+                            _buildPointsSummaryCard(
+                              'Current Points',
+                              '$currentPoints',
+                              Icons.stars,
+                              Colors.blue,
+                            ),
+                            _buildPointsSummaryCard(
+                              'Total Earned',
+                              '$totalEarned',
+                              Icons.trending_up,
+                              Colors.green,
+                            ),
+                            _buildPointsSummaryCard(
+                              'Total Spent',
+                              '$totalSpent',
+                              Icons.trending_down,
+                              Colors.red,
+                            ),
+                          ],
                         );
                       },
-                    ),
-                    _buildPointsSummaryCard(
-                      'Total Earned',
-                      '${_calculateTotalEarned()}',
-                      Icons.trending_up,
-                      Colors.green,
-                    ),
-                    _buildPointsSummaryCard(
-                      'Total Spent',
-                      '${_calculateTotalSpent()}',
-                      Icons.trending_down,
-                      Colors.red,
                     ),
                   ],
                 ),
@@ -6470,9 +6552,15 @@ class _EmployeeProfileScreenState extends State<EmployeeProfileScreen> {
                           child: Text('No points history found'));
                     }
 
-                    // Filter transactions for this employee
+                    // Get the company context for filtering
+                    final companyId = widget.companyContext ??
+                        widget.appProvider.currentUser?.primaryCompanyId;
+
+                    // Filter transactions for this employee AND company
                     final employeeTransactions = snapshot.data!
-                        .where((t) => t.userId == currentEmployee.id)
+                        .where((t) =>
+                            t.userId == currentEmployee.id &&
+                            (companyId == null || t.companyId == companyId))
                         .toList()
                       ..sort((a, b) => b.date
                           .compareTo(a.date)); // Sort by date, newest first
@@ -6511,8 +6599,13 @@ class _EmployeeProfileScreenState extends State<EmployeeProfileScreen> {
                             children: [
                               Consumer<AppProvider>(
                                 builder: (context, provider, child) {
-                                  final currentPoints = provider
-                                      .getUserTotalPoints(currentEmployee.id);
+                                  // Get company-specific points
+                                  final companyId = widget.companyContext ??
+                                      provider.currentUser?.primaryCompanyId;
+                                  final currentPoints = companyId != null
+                                      ? provider.getUserCompanyPoints(
+                                          currentEmployee.id, companyId)
+                                      : 0;
                                   return _buildPointsSummaryCard(
                                     'Current Points',
                                     '$currentPoints',
@@ -7368,241 +7461,305 @@ class _PointsRulesScreenState extends State<PointsRulesScreen> {
     return Consumer<AppProvider>(
       builder: (context, appProvider, child) {
         final rules = appProvider.pointsRules;
+        final currentCompanyId = appProvider.currentUser?.primaryCompanyId;
 
-        return Scaffold(
-          appBar: AppBar(
-            title: const Text('Configure Points Rules'),
-            backgroundColor: Colors.blue[600],
-            foregroundColor: Colors.white,
-            leading: IconButton(
-              icon: const Icon(Icons.arrow_back),
-              onPressed: () => Navigator.of(context).pop(),
-            ),
-          ),
-          body: SingleChildScrollView(
-            padding: const EdgeInsets.all(16),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                // Currency Value Section
-                Text(
-                  'Point Currency Value',
-                  style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                        fontWeight: FontWeight.bold,
-                        color: Colors.blue[700],
-                      ),
+        return FutureBuilder<List<Company>>(
+          future: appProvider.getCompanies(),
+          builder: (context, companySnapshot) {
+            final currentCompany = companySnapshot.data?.firstWhere(
+              (c) => c.id == currentCompanyId,
+              orElse: () => Company(
+                id: '',
+                name: 'Unknown',
+                address: '',
+                createdAt: DateTime.now(),
+                adminUserId: '',
+              ),
+            );
+
+            return Scaffold(
+              appBar: AppBar(
+                title: Text(
+                    'Points Rules${currentCompany != null && currentCompany.id.isNotEmpty ? ' - ${currentCompany.name}' : ''}'),
+                backgroundColor: Colors.blue[600],
+                foregroundColor: Colors.white,
+                leading: IconButton(
+                  icon: const Icon(Icons.arrow_back),
+                  onPressed: () => Navigator.of(context).pop(),
                 ),
-                const SizedBox(height: 12),
-                Card(
-                  child: Padding(
-                    padding: const EdgeInsets.all(16),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          'Define how much 1 point is worth in your local currency',
-                          style: TextStyle(color: Colors.grey[600]),
-                        ),
-                        const SizedBox(height: 16),
-                        Row(
-                          children: [
-                            Expanded(
-                              flex: 2,
-                              child: TextField(
-                                controller: pointValueController,
-                                keyboardType:
-                                    const TextInputType.numberWithOptions(
-                                        decimal: true),
-                                decoration: const InputDecoration(
-                                  labelText: 'Value per Point',
-                                  border: OutlineInputBorder(),
-                                  hintText: 'e.g., 100',
-                                ),
-                                onChanged: (value) {
-                                  final newValue = double.tryParse(value);
-                                  if (newValue != null && newValue > 0) {
-                                    appProvider.updatePointsRules(
-                                      appProvider.pointsRules
-                                          .copyWith(pointValue: newValue),
-                                    );
-                                  }
-                                },
-                              ),
-                            ),
-                            const SizedBox(width: 12),
-                            Expanded(
-                              child: TextField(
-                                controller: currencySymbolController,
-                                decoration: const InputDecoration(
-                                  labelText: 'Currency',
-                                  border: OutlineInputBorder(),
-                                  hintText: 'ISK',
-                                ),
-                                onChanged: (value) {
-                                  if (value.isNotEmpty) {
-                                    appProvider.updatePointsRules(
-                                      appProvider.pointsRules
-                                          .copyWith(currencySymbol: value),
-                                    );
-                                  }
-                                },
-                              ),
-                            ),
-                          ],
-                        ),
-                        const SizedBox(height: 12),
-                        Container(
-                          padding: const EdgeInsets.all(12),
-                          decoration: BoxDecoration(
-                            color: Colors.blue[50],
-                            borderRadius: BorderRadius.circular(8),
+              ),
+              body: SingleChildScrollView(
+                padding: const EdgeInsets.all(16),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    // Currency Value Section
+                    Text(
+                      'Point Currency Value',
+                      style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                            fontWeight: FontWeight.bold,
+                            color: Colors.blue[700],
                           ),
-                          child: Row(
-                            children: [
-                              Icon(Icons.info_outline, color: Colors.blue[700]),
-                              const SizedBox(width: 8),
-                              Expanded(
-                                child: Text(
-                                  '1 point = ${rules.pointValue.toStringAsFixed(0)} ${rules.currencySymbol}',
-                                  style: TextStyle(
-                                    fontWeight: FontWeight.bold,
-                                    color: Colors.blue[700],
-                                  ),
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                      ],
                     ),
-                  ),
-                ),
-                const SizedBox(height: 24),
-
-                // Custom Rules Section
-                Text(
-                  'Custom Rules',
-                  style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                        fontWeight: FontWeight.bold,
-                        color: Colors.blue[700],
-                      ),
-                ),
-                const SizedBox(height: 12),
-                // Add new custom rule
-                Card(
-                  child: Padding(
-                    padding: const EdgeInsets.all(16),
-                    child: Column(
-                      children: [
-                        Text(
-                          'Add New Rule',
-                          style:
-                              Theme.of(context).textTheme.titleMedium?.copyWith(
-                                    fontWeight: FontWeight.bold,
-                                  ),
-                        ),
-                        const SizedBox(height: 12),
-                        Row(
+                    const SizedBox(height: 12),
+                    Card(
+                      child: Padding(
+                        padding: const EdgeInsets.all(16),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            Expanded(
-                              child: TextField(
-                                controller: percentController,
-                                keyboardType:
-                                    const TextInputType.numberWithOptions(
-                                        decimal: true),
-                                decoration: const InputDecoration(
-                                  labelText: 'Custom threshold % (e.g. 125)',
-                                  border: OutlineInputBorder(),
-                                ),
-                              ),
+                            Text(
+                              'Define how much 1 point is worth in your local currency',
+                              style: TextStyle(color: Colors.grey[600]),
                             ),
-                            const SizedBox(width: 12),
-                            Expanded(
-                              child: TextField(
-                                controller: pointsController,
-                                keyboardType: TextInputType.number,
-                                decoration: const InputDecoration(
-                                  labelText: 'Points (e.g. 25)',
-                                  border: OutlineInputBorder(),
+                            const SizedBox(height: 16),
+                            Row(
+                              children: [
+                                Expanded(
+                                  flex: 2,
+                                  child: TextField(
+                                    controller: pointValueController,
+                                    keyboardType:
+                                        const TextInputType.numberWithOptions(
+                                            decimal: true),
+                                    decoration: const InputDecoration(
+                                      labelText: 'Value per Point',
+                                      border: OutlineInputBorder(),
+                                      hintText: 'e.g., 100',
+                                    ),
+                                    onChanged: (value) {
+                                      final newValue = double.tryParse(value);
+                                      if (newValue != null && newValue > 0) {
+                                        appProvider.updatePointsRules(
+                                          appProvider.pointsRules
+                                              .copyWith(pointValue: newValue),
+                                        );
+                                      }
+                                    },
+                                  ),
                                 ),
-                              ),
+                                const SizedBox(width: 12),
+                                Expanded(
+                                  child: TextField(
+                                    controller: currencySymbolController,
+                                    decoration: const InputDecoration(
+                                      labelText: 'Currency',
+                                      border: OutlineInputBorder(),
+                                      hintText: 'ISK',
+                                    ),
+                                    onChanged: (value) {
+                                      if (value.isNotEmpty) {
+                                        appProvider.updatePointsRules(
+                                          appProvider.pointsRules
+                                              .copyWith(currencySymbol: value),
+                                        );
+                                      }
+                                    },
+                                  ),
+                                ),
+                              ],
                             ),
-                            const SizedBox(width: 12),
-                            ElevatedButton(
-                              onPressed: () {
-                                final p = double.tryParse(
-                                    percentController.text.trim());
-                                final pts =
-                                    int.tryParse(pointsController.text.trim());
-                                if (p != null && pts != null) {
-                                  final updatedEntries =
-                                      List<PointsRuleEntry>.from(rules.entries)
-                                        ..add(PointsRuleEntry(
-                                            thresholdPercent: p, points: pts))
-                                        ..sort((a, b) => a.thresholdPercent
-                                            .compareTo(b.thresholdPercent));
-                                  appProvider.updatePointsRules(
-                                    appProvider.pointsRules
-                                        .copyWith(entries: updatedEntries),
-                                  );
-                                  percentController.clear();
-                                  pointsController.clear();
-                                  ScaffoldMessenger.of(context).showSnackBar(
-                                    const SnackBar(
-                                        content: Text(
-                                            'Custom rule added successfully!')),
-                                  );
-                                }
-                              },
-                              child: const Text('Add Rule'),
+                            const SizedBox(height: 12),
+                            Container(
+                              padding: const EdgeInsets.all(12),
+                              decoration: BoxDecoration(
+                                color: Colors.blue[50],
+                                borderRadius: BorderRadius.circular(8),
+                              ),
+                              child: Row(
+                                children: [
+                                  Icon(Icons.info_outline,
+                                      color: Colors.blue[700]),
+                                  const SizedBox(width: 8),
+                                  Expanded(
+                                    child: Text(
+                                      '1 point = ${rules.pointValue.toStringAsFixed(0)} ${rules.currencySymbol}',
+                                      style: TextStyle(
+                                        fontWeight: FontWeight.bold,
+                                        color: Colors.blue[700],
+                                      ),
+                                    ),
+                                  ),
+                                ],
+                              ),
                             ),
                           ],
                         ),
-                        const SizedBox(height: 16),
-                        Align(
-                          alignment: Alignment.centerLeft,
-                          child: Text(
-                            'Existing rules',
-                            style: Theme.of(context)
-                                .textTheme
-                                .bodySmall
-                                ?.copyWith(fontWeight: FontWeight.bold),
-                          ),
-                        ),
-                        const SizedBox(height: 8),
-                        if (rules.entries.isEmpty)
-                          const Text('No custom rules added yet.')
-                        else
-                          ...rules.entries.asMap().entries.map((entry) {
-                            final i = entry.key;
-                            final e = entry.value;
-                            final isEditing = editingIndex == i;
+                      ),
+                    ),
+                    const SizedBox(height: 24),
 
-                            return Column(
+                    // Custom Rules Section
+                    Text(
+                      'Custom Rules',
+                      style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                            fontWeight: FontWeight.bold,
+                            color: Colors.blue[700],
+                          ),
+                    ),
+                    const SizedBox(height: 12),
+                    // Add new custom rule
+                    Card(
+                      child: Padding(
+                        padding: const EdgeInsets.all(16),
+                        child: Column(
+                          children: [
+                            Text(
+                              'Add New Rule',
+                              style: Theme.of(context)
+                                  .textTheme
+                                  .titleMedium
+                                  ?.copyWith(
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                            ),
+                            const SizedBox(height: 12),
+                            Row(
                               children: [
-                                Row(
+                                Expanded(
+                                  child: TextField(
+                                    controller: percentController,
+                                    keyboardType:
+                                        const TextInputType.numberWithOptions(
+                                            decimal: true),
+                                    decoration: const InputDecoration(
+                                      labelText:
+                                          'Custom threshold % (e.g. 125)',
+                                      border: OutlineInputBorder(),
+                                    ),
+                                  ),
+                                ),
+                                const SizedBox(width: 12),
+                                Expanded(
+                                  child: TextField(
+                                    controller: pointsController,
+                                    keyboardType: TextInputType.number,
+                                    decoration: const InputDecoration(
+                                      labelText: 'Points (e.g. 25)',
+                                      border: OutlineInputBorder(),
+                                    ),
+                                  ),
+                                ),
+                                const SizedBox(width: 12),
+                                ElevatedButton(
+                                  onPressed: () {
+                                    final p = double.tryParse(
+                                        percentController.text.trim());
+                                    final pts = int.tryParse(
+                                        pointsController.text.trim());
+                                    if (p != null && pts != null) {
+                                      final updatedEntries =
+                                          List<PointsRuleEntry>.from(
+                                              rules.entries)
+                                            ..add(PointsRuleEntry(
+                                                thresholdPercent: p,
+                                                points: pts))
+                                            ..sort((a, b) => a.thresholdPercent
+                                                .compareTo(b.thresholdPercent));
+                                      appProvider.updatePointsRules(
+                                        appProvider.pointsRules
+                                            .copyWith(entries: updatedEntries),
+                                      );
+                                      percentController.clear();
+                                      pointsController.clear();
+                                      ScaffoldMessenger.of(context)
+                                          .showSnackBar(
+                                        const SnackBar(
+                                            content: Text(
+                                                'Custom rule added successfully!')),
+                                      );
+                                    }
+                                  },
+                                  child: const Text('Add Rule'),
+                                ),
+                              ],
+                            ),
+                            const SizedBox(height: 16),
+                            Align(
+                              alignment: Alignment.centerLeft,
+                              child: Text(
+                                'Existing rules',
+                                style: Theme.of(context)
+                                    .textTheme
+                                    .bodySmall
+                                    ?.copyWith(fontWeight: FontWeight.bold),
+                              ),
+                            ),
+                            const SizedBox(height: 8),
+                            if (rules.entries.isEmpty)
+                              const Text('No custom rules added yet.')
+                            else
+                              ...rules.entries.asMap().entries.map((entry) {
+                                final i = entry.key;
+                                final e = entry.value;
+                                final isEditing = editingIndex == i;
+
+                                return Column(
                                   children: [
-                                    Expanded(
-                                      child: isEditing
-                                          ? TextField(
+                                    Row(
+                                      children: [
+                                        Expanded(
+                                          child: isEditing
+                                              ? TextField(
+                                                  controller:
+                                                      TextEditingController(
+                                                          text: e
+                                                              .thresholdPercent
+                                                              .toStringAsFixed(
+                                                                  0)),
+                                                  keyboardType:
+                                                      const TextInputType
+                                                          .numberWithOptions(
+                                                          decimal: true),
+                                                  onChanged: (value) {
+                                                    final newPercent =
+                                                        double.tryParse(value);
+                                                    if (newPercent != null) {
+                                                      final updatedEntries =
+                                                          List<PointsRuleEntry>.from(
+                                                              rules.entries);
+                                                      updatedEntries[i] =
+                                                          PointsRuleEntry(
+                                                        thresholdPercent:
+                                                            newPercent,
+                                                        points: e.points,
+                                                      );
+                                                      appProvider
+                                                          .updatePointsRules(
+                                                        appProvider.pointsRules
+                                                            .copyWith(
+                                                                entries:
+                                                                    updatedEntries),
+                                                      );
+                                                    }
+                                                  },
+                                                )
+                                              : Text(
+                                                  '${e.thresholdPercent.toStringAsFixed(0)}% → ${e.points} pts',
+                                                  style: Theme.of(context)
+                                                      .textTheme
+                                                      .bodySmall,
+                                                ),
+                                        ),
+                                        if (isEditing)
+                                          Expanded(
+                                            child: TextField(
                                               controller: TextEditingController(
-                                                  text: e.thresholdPercent
-                                                      .toStringAsFixed(0)),
-                                              keyboardType: const TextInputType
-                                                  .numberWithOptions(
-                                                  decimal: true),
+                                                  text: e.points.toString()),
+                                              keyboardType:
+                                                  TextInputType.number,
                                               onChanged: (value) {
-                                                final newPercent =
-                                                    double.tryParse(value);
-                                                if (newPercent != null) {
+                                                final newPoints =
+                                                    int.tryParse(value);
+                                                if (newPoints != null) {
                                                   final updatedEntries = List<
                                                           PointsRuleEntry>.from(
                                                       rules.entries);
                                                   updatedEntries[i] =
                                                       PointsRuleEntry(
                                                     thresholdPercent:
-                                                        newPercent,
-                                                    points: e.points,
+                                                        e.thresholdPercent,
+                                                    points: newPoints,
                                                   );
                                                   appProvider.updatePointsRules(
                                                     appProvider.pointsRules
@@ -7612,86 +7769,57 @@ class _PointsRulesScreenState extends State<PointsRulesScreen> {
                                                   );
                                                 }
                                               },
-                                            )
-                                          : Text(
-                                              '${e.thresholdPercent.toStringAsFixed(0)}% → ${e.points} pts',
-                                              style: Theme.of(context)
-                                                  .textTheme
-                                                  .bodySmall,
                                             ),
-                                    ),
-                                    if (isEditing)
-                                      Expanded(
-                                        child: TextField(
-                                          controller: TextEditingController(
-                                              text: e.points.toString()),
-                                          keyboardType: TextInputType.number,
-                                          onChanged: (value) {
-                                            final newPoints =
-                                                int.tryParse(value);
-                                            if (newPoints != null) {
-                                              final updatedEntries =
-                                                  List<PointsRuleEntry>.from(
-                                                      rules.entries);
-                                              updatedEntries[i] =
-                                                  PointsRuleEntry(
-                                                thresholdPercent:
-                                                    e.thresholdPercent,
-                                                points: newPoints,
-                                              );
-                                              appProvider.updatePointsRules(
-                                                appProvider.pointsRules
-                                                    .copyWith(
-                                                        entries:
-                                                            updatedEntries),
-                                              );
-                                            }
+                                          ),
+                                        IconButton(
+                                          icon: Icon(
+                                              isEditing
+                                                  ? Icons.check
+                                                  : Icons.edit,
+                                              size: 18),
+                                          tooltip: isEditing ? 'Save' : 'Edit',
+                                          onPressed: () {
+                                            setState(() {
+                                              editingIndex =
+                                                  isEditing ? null : i;
+                                            });
                                           },
                                         ),
-                                      ),
-                                    IconButton(
-                                      icon: Icon(
-                                          isEditing ? Icons.check : Icons.edit,
-                                          size: 18),
-                                      tooltip: isEditing ? 'Save' : 'Edit',
-                                      onPressed: () {
-                                        setState(() {
-                                          editingIndex = isEditing ? null : i;
-                                        });
-                                      },
+                                        IconButton(
+                                          icon: const Icon(Icons.delete,
+                                              size: 18),
+                                          tooltip: 'Remove',
+                                          onPressed: () {
+                                            final updated =
+                                                List<PointsRuleEntry>.from(
+                                                    rules.entries)
+                                                  ..removeAt(i);
+                                            appProvider.updatePointsRules(
+                                              appProvider.pointsRules
+                                                  .copyWith(entries: updated),
+                                            );
+                                            ScaffoldMessenger.of(context)
+                                                .showSnackBar(
+                                              const SnackBar(
+                                                  content: Text(
+                                                      'Rule deleted successfully!')),
+                                            );
+                                          },
+                                        )
+                                      ],
                                     ),
-                                    IconButton(
-                                      icon: const Icon(Icons.delete, size: 18),
-                                      tooltip: 'Remove',
-                                      onPressed: () {
-                                        final updated =
-                                            List<PointsRuleEntry>.from(
-                                                rules.entries)
-                                              ..removeAt(i);
-                                        appProvider.updatePointsRules(
-                                          appProvider.pointsRules
-                                              .copyWith(entries: updated),
-                                        );
-                                        ScaffoldMessenger.of(context)
-                                            .showSnackBar(
-                                          const SnackBar(
-                                              content: Text(
-                                                  'Rule deleted successfully!')),
-                                        );
-                                      },
-                                    )
                                   ],
-                                ),
-                              ],
-                            );
-                          }).toList(),
-                      ],
+                                );
+                              }).toList(),
+                          ],
+                        ),
+                      ),
                     ),
-                  ),
+                  ],
                 ),
-              ],
-            ),
-          ),
+              ),
+            );
+          },
         );
       },
     );
@@ -8533,131 +8661,153 @@ class _EmployeesListScreenState extends State<EmployeesListScreen> {
     final phoneController = TextEditingController();
     final passwordController = TextEditingController();
 
-    // Default to admin's current company if available
-    String? selectedCompanyId =
-        widget.appProvider.currentUser?.primaryCompanyId;
-
     showDialog(
       context: context,
-      builder: (context) => StatefulBuilder(
-        builder: (context, setState) => FutureBuilder<List<Company>>(
-          future: widget.appProvider.getCompanies(),
-          builder: (context, snapshot) {
-            final companies = snapshot.data ?? [];
+      builder: (context) {
+        // Initialize with admin's current company
+        String? selectedCompanyId =
+            widget.appProvider.currentUser?.primaryCompanyId;
 
-            return AlertDialog(
-              title: const Text('Add Employee'),
-              content: SingleChildScrollView(
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    TextField(
-                      controller: nameController,
-                      decoration: const InputDecoration(labelText: 'Name'),
-                    ),
-                    TextField(
-                      controller: emailController,
-                      decoration: const InputDecoration(labelText: 'Email'),
-                      keyboardType: TextInputType.emailAddress,
-                    ),
-                    TextField(
-                      controller: phoneController,
-                      decoration: const InputDecoration(labelText: 'Phone'),
-                      keyboardType: TextInputType.phone,
-                    ),
-                    TextField(
-                      controller: passwordController,
-                      decoration: const InputDecoration(labelText: 'Password'),
-                      obscureText: true,
-                    ),
-                    const SizedBox(height: 16),
-                    DropdownButtonFormField<String?>(
-                      decoration: const InputDecoration(
-                        labelText: 'Company (Optional)',
-                        border: OutlineInputBorder(),
+        return StatefulBuilder(
+          builder: (context, setState) => FutureBuilder<List<Company>>(
+            future: widget.appProvider.getCompanies(),
+            builder: (context, snapshot) {
+              final allCompanies = snapshot.data ?? [];
+              final currentUser = widget.appProvider.currentUser;
+
+              // Filter companies to only show those where the current user is a member
+              final companies = allCompanies.where((company) {
+                return currentUser != null &&
+                    currentUser.companyIds.contains(company.id);
+              }).toList();
+
+              // Validate selectedCompanyId is in the filtered list
+              if (selectedCompanyId != null &&
+                  !companies.any((c) => c.id == selectedCompanyId)) {
+                selectedCompanyId = null;
+              }
+
+              return AlertDialog(
+                title: const Text('Add Employee'),
+                content: SingleChildScrollView(
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      TextField(
+                        controller: nameController,
+                        decoration: const InputDecoration(labelText: 'Name'),
                       ),
-                      value: selectedCompanyId,
-                      items: [
-                        const DropdownMenuItem<String?>(
-                          value: null,
-                          child: Text('None'),
+                      TextField(
+                        controller: emailController,
+                        decoration: const InputDecoration(labelText: 'Email'),
+                        keyboardType: TextInputType.emailAddress,
+                      ),
+                      TextField(
+                        controller: phoneController,
+                        decoration: const InputDecoration(labelText: 'Phone'),
+                        keyboardType: TextInputType.phone,
+                      ),
+                      TextField(
+                        controller: passwordController,
+                        decoration:
+                            const InputDecoration(labelText: 'Password'),
+                        obscureText: true,
+                      ),
+                      const SizedBox(height: 16),
+                      DropdownButtonFormField<String?>(
+                        decoration: const InputDecoration(
+                          labelText: 'Company (Optional)',
+                          border: OutlineInputBorder(),
                         ),
-                        ...companies.map((company) {
-                          return DropdownMenuItem<String?>(
-                            value: company.id,
-                            child: Text(company.name),
-                          );
-                        }),
-                      ],
-                      onChanged: (value) {
-                        setState(() {
-                          selectedCompanyId = value;
-                        });
-                      },
-                    ),
-                  ],
+                        value: selectedCompanyId,
+                        items: [
+                          const DropdownMenuItem<String?>(
+                            value: null,
+                            child: Text('None'),
+                          ),
+                          ...companies.map((company) {
+                            return DropdownMenuItem<String?>(
+                              value: company.id,
+                              child: Text(company.name),
+                            );
+                          }),
+                        ],
+                        onChanged: (value) {
+                          setState(() {
+                            selectedCompanyId = value;
+                          });
+                        },
+                      ),
+                    ],
+                  ),
                 ),
-              ),
-              actions: [
-                TextButton(
-                  onPressed: () => Navigator.pop(context),
-                  child: const Text('Cancel'),
-                ),
-                ElevatedButton(
-                  onPressed: () async {
-                    if (nameController.text.isNotEmpty &&
-                        emailController.text.isNotEmpty &&
-                        phoneController.text.isNotEmpty &&
-                        passwordController.text.isNotEmpty) {
-                      // Find the selected company by ID
-                      final selectedCompany = selectedCompanyId != null
-                          ? companies
-                              .firstWhere((c) => c.id == selectedCompanyId)
-                          : null;
+                actions: [
+                  TextButton(
+                    onPressed: () => Navigator.pop(context),
+                    child: const Text('Cancel'),
+                  ),
+                  ElevatedButton(
+                    onPressed: () async {
+                      if (nameController.text.isNotEmpty &&
+                          emailController.text.isNotEmpty &&
+                          phoneController.text.isNotEmpty &&
+                          passwordController.text.isNotEmpty) {
+                        // Find the selected company by ID
+                        final selectedCompany = selectedCompanyId != null
+                            ? companies
+                                .firstWhere((c) => c.id == selectedCompanyId)
+                            : null;
 
-                      final companyIds = selectedCompany != null
-                          ? [selectedCompany.id]
-                          : <String>[];
-                      final companyNames = selectedCompany != null
-                          ? [selectedCompany.name]
-                          : <String>[];
+                        final companyIds = selectedCompany != null
+                            ? [selectedCompany.id]
+                            : <String>[];
+                        final companyNames = selectedCompany != null
+                            ? [selectedCompany.name]
+                            : <String>[];
 
-                      final user = User(
-                        id: DateTime.now().millisecondsSinceEpoch.toString(),
-                        name: nameController.text,
-                        email: emailController.text,
-                        phoneNumber: phoneController.text,
-                        role: UserRole.employee,
-                        createdAt: DateTime.now(),
-                        totalPoints: 0,
-                        companyIds: companyIds,
-                        companyNames: companyNames,
-                        primaryCompanyId: selectedCompany?.id,
-                      );
-                      await widget.appProvider.addUser(user);
-                      Navigator.pop(context);
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        SnackBar(
-                          content: Text('Employee added successfully' +
-                              (selectedCompany != null
-                                  ? ' to ${selectedCompany.name}'
-                                  : '')),
-                        ),
-                      );
-                    }
-                  },
-                  child: const Text('Add'),
-                ),
-              ],
-            );
-          },
-        ),
-      ),
+                        final user = User(
+                          id: DateTime.now().millisecondsSinceEpoch.toString(),
+                          name: nameController.text,
+                          email: emailController.text,
+                          phoneNumber: phoneController.text,
+                          role: UserRole.employee,
+                          createdAt: DateTime.now(),
+                          totalPoints: 0,
+                          companyIds: companyIds,
+                          companyNames: companyNames,
+                          primaryCompanyId: selectedCompany?.id,
+                        );
+                        await widget.appProvider.addUser(user);
+                        Navigator.pop(context);
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          SnackBar(
+                            content: Text('Employee added successfully' +
+                                (selectedCompany != null
+                                    ? ' to ${selectedCompany.name}'
+                                    : '')),
+                          ),
+                        );
+                      }
+                    },
+                    child: const Text('Add'),
+                  ),
+                ],
+              );
+            },
+          ),
+        );
+      },
     );
   }
 
   void _showCompanyFilterDialog() async {
-    final companies = await widget.appProvider.getCompanies();
+    final allCompanies = await widget.appProvider.getCompanies();
+    final currentUser = widget.appProvider.currentUser;
+
+    // Filter companies to only show those where the current user is a member
+    final companies = allCompanies.where((company) {
+      return currentUser != null && currentUser.companyIds.contains(company.id);
+    }).toList();
 
     showDialog(
       context: context,
@@ -8751,8 +8901,10 @@ class _EmployeesListScreenState extends State<EmployeesListScreen> {
                   .toList();
 
               // Determine which company filter to use
-              final activeCompanyFilter =
-                  _filterCompanyId ?? widget.filterCompanyId;
+              // Default to current user's primary company if no explicit filter is set
+              final activeCompanyFilter = _filterCompanyId ??
+                  widget.filterCompanyId ??
+                  provider.currentUser?.primaryCompanyId;
 
               // Filter by company if a filter is active
               if (activeCompanyFilter != null) {
@@ -9199,7 +9351,15 @@ class _WorkplacesListScreenState extends State<WorkplacesListScreen> {
               return const Center(child: CircularProgressIndicator());
             }
 
-            final workplaces = snapshot.data!;
+            final allWorkplaces = snapshot.data!;
+            final currentUser = provider.currentUser;
+
+            // Filter workplaces to only show those from the currently active company
+            final workplaces = allWorkplaces.where((workplace) {
+              return currentUser != null &&
+                  workplace.companyId == currentUser.primaryCompanyId;
+            }).toList();
+
             _allWorkplaceIds = workplaces.map((w) => w.id).toList();
 
             return Column(

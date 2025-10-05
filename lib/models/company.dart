@@ -6,6 +6,7 @@ class Company {
   final String? contactPhone;
   final String adminUserId; // The admin who owns/manages this company
   final DateTime createdAt;
+  final String? employeeCount; // For onboarding tracking
 
   Company({
     required this.id,
@@ -15,6 +16,7 @@ class Company {
     this.contactPhone,
     required this.adminUserId,
     required this.createdAt,
+    this.employeeCount,
   });
 
   Map<String, dynamic> toJson() {
@@ -26,6 +28,7 @@ class Company {
       'contactPhone': contactPhone,
       'adminUserId': adminUserId,
       'createdAt': createdAt.toIso8601String(),
+      'employeeCount': employeeCount,
     };
   }
 
@@ -38,6 +41,7 @@ class Company {
       contactPhone: json['contactPhone'],
       adminUserId: json['adminUserId'],
       createdAt: DateTime.parse(json['createdAt']),
+      employeeCount: json['employeeCount'],
     );
   }
 
@@ -49,6 +53,7 @@ class Company {
     String? contactPhone,
     String? adminUserId,
     DateTime? createdAt,
+    String? employeeCount,
   }) {
     return Company(
       id: id ?? this.id,
@@ -58,6 +63,7 @@ class Company {
       contactPhone: contactPhone ?? this.contactPhone,
       adminUserId: adminUserId ?? this.adminUserId,
       createdAt: createdAt ?? this.createdAt,
+      employeeCount: employeeCount ?? this.employeeCount,
     );
   }
 }

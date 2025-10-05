@@ -24,10 +24,13 @@ class PointsRules {
 
   // Preferred dynamic rules: evaluate by highest matching threshold
   final List<PointsRuleEntry> entries;
-  
+
   // Currency value: how much 1 point is worth in local currency
   final double pointValue; // e.g., 100 ISK per point
   final String currencySymbol; // e.g., "ISK", "kr", "$"
+
+  // Company association
+  final String? companyId;
 
   const PointsRules({
     required this.pointsForMet,
@@ -36,6 +39,7 @@ class PointsRules {
     this.entries = const [],
     this.pointValue = 100.0,
     this.currencySymbol = 'ISK',
+    this.companyId,
   });
 
   factory PointsRules.defaults() => const PointsRules(
@@ -56,6 +60,7 @@ class PointsRules {
         'entries': entries.map((e) => e.toJson()).toList(),
         'pointValue': pointValue,
         'currencySymbol': currencySymbol,
+        'companyId': companyId,
       };
 
   factory PointsRules.fromJson(Map<String, dynamic> json) => PointsRules(
@@ -70,6 +75,7 @@ class PointsRules {
             const [],
         pointValue: (json['pointValue'] as num?)?.toDouble() ?? 100.0,
         currencySymbol: (json['currencySymbol'] as String?) ?? 'ISK',
+        companyId: json['companyId'] as String?,
       );
 
   PointsRules copyWith({
@@ -79,6 +85,7 @@ class PointsRules {
     List<PointsRuleEntry>? entries,
     double? pointValue,
     String? currencySymbol,
+    String? companyId,
   }) {
     return PointsRules(
       pointsForMet: pointsForMet ?? this.pointsForMet,
@@ -89,6 +96,7 @@ class PointsRules {
       entries: entries ?? this.entries,
       pointValue: pointValue ?? this.pointValue,
       currencySymbol: currencySymbol ?? this.currencySymbol,
+      companyId: companyId ?? this.companyId,
     );
   }
 }

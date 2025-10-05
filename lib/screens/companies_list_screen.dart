@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../providers/app_provider.dart';
 import '../models/company.dart';
+import '../models/user.dart';
 import 'company_profile_screen.dart';
 
 class CompaniesListScreen extends StatefulWidget {
@@ -103,19 +104,31 @@ class _CompaniesListScreenState extends State<CompaniesListScreen> {
 
               await widget.appProvider.addCompany(newCompany);
 
-              // Assign to current admin
+              // Assign to current admin and set role
               final currentUser = widget.appProvider.currentUser!;
               if (currentUser.primaryCompanyId == null) {
+                final updatedRoles =
+                    Map<String, String>.from(currentUser.companyRoles);
+                updatedRoles[newCompany.id] =
+                    UserRole.admin.toString().split('.').last;
+
                 final updatedUser = currentUser.copyWith(
                   primaryCompanyId: newCompany.id,
                   companyIds: [...currentUser.companyIds, newCompany.id],
                   companyNames: [...currentUser.companyNames, newCompany.name],
+                  companyRoles: updatedRoles,
                 );
                 await widget.appProvider.updateUser(updatedUser);
               } else if (!currentUser.companyIds.contains(newCompany.id)) {
+                final updatedRoles =
+                    Map<String, String>.from(currentUser.companyRoles);
+                updatedRoles[newCompany.id] =
+                    UserRole.admin.toString().split('.').last;
+
                 final updatedUser = currentUser.copyWith(
                   companyIds: [...currentUser.companyIds, newCompany.id],
                   companyNames: [...currentUser.companyNames, newCompany.name],
+                  companyRoles: updatedRoles,
                 );
                 await widget.appProvider.updateUser(updatedUser);
               }
@@ -194,7 +207,41 @@ class _CompaniesListScreenState extends State<CompaniesListScreen> {
                 );
               }
 
-              final companies = snapshot.data!;
+              final allCompanies = snapshot.data!;
+              final currentUser = provider.currentUser;
+
+              // Filter companies to only show the currently active company
+              final companies = allCompanies.where((company) {
+                return currentUser != null &&
+                    company.id == currentUser.primaryCompanyId;
+              }).toList();
+
+              // Show empty state if user has no companies
+              if (companies.isEmpty) {
+                return Center(
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Icon(Icons.business_outlined,
+                          size: 80, color: Colors.grey[400]),
+                      const SizedBox(height: 16),
+                      Text(
+                        'No companies yet',
+                        style: TextStyle(
+                          fontSize: 18,
+                          color: Colors.grey[600],
+                          fontWeight: FontWeight.w500,
+                        ),
+                      ),
+                      const SizedBox(height: 8),
+                      Text(
+                        'Click + to create your first company',
+                        style: TextStyle(color: Colors.grey[500]),
+                      ),
+                    ],
+                  ),
+                );
+              }
 
               return ListView.builder(
                 padding: const EdgeInsets.all(16),

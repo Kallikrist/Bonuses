@@ -4,6 +4,7 @@ import 'providers/app_provider.dart';
 import 'screens/login_screen.dart';
 import 'screens/employee_dashboard.dart';
 import 'screens/admin_dashboard.dart';
+import 'screens/onboarding_screen.dart';
 
 void main() {
   runApp(const BonusesApp());
@@ -44,16 +45,42 @@ class AppWrapper extends StatefulWidget {
 }
 
 class _AppWrapperState extends State<AppWrapper> {
+  bool _isCheckingOnboarding = true;
+  bool _isOnboardingComplete = false;
+
   @override
   void initState() {
     super.initState();
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      context.read<AppProvider>().initialize();
+    _checkOnboardingStatus();
+  }
+
+  Future<void> _checkOnboardingStatus() async {
+    final appProvider = context.read<AppProvider>();
+    final isComplete = await appProvider.isOnboardingComplete();
+    setState(() {
+      _isOnboardingComplete = isComplete;
+      _isCheckingOnboarding = false;
     });
+
+    if (isComplete) {
+      appProvider.initialize();
+    }
   }
 
   @override
   Widget build(BuildContext context) {
+    if (_isCheckingOnboarding) {
+      return const Scaffold(
+        body: Center(
+          child: CircularProgressIndicator(),
+        ),
+      );
+    }
+
+    if (!_isOnboardingComplete) {
+      return const OnboardingScreen();
+    }
+
     return Consumer<AppProvider>(
       builder: (context, appProvider, child) {
         if (appProvider.isLoading) {

@@ -19,6 +19,8 @@ class StorageService {
   static const String _companiesKey = 'companies';
   static const String _approvalRequestsKey = 'approval_requests';
   static const String _pointsRulesKey = 'points_rules';
+  static const String _onboardingCompleteKey = 'onboarding_complete';
+  static const String _passwordsKey = 'user_passwords'; // Map<userId, password>
 
   static Future<SharedPreferences> get _prefs async =>
       await SharedPreferences.getInstance();
@@ -43,11 +45,23 @@ class StorageService {
   }
 
   static Future<void> updateUser(User user) async {
+    print('DEBUG: updateUser - Updating user: ${user.name}');
+    print('DEBUG: updateUser - Companies: ${user.companyIds}');
+    print('DEBUG: updateUser - Roles: ${user.companyRoles}');
+
     final users = await getUsers();
     final index = users.indexWhere((u) => u.id == user.id);
     if (index != -1) {
       users[index] = user;
       await saveUsers(users);
+
+      // Verify the save
+      final verifyUsers = await getUsers();
+      final verifyUser = verifyUsers.firstWhere((u) => u.id == user.id);
+      print(
+          'DEBUG: updateUser - Verified roles after save: ${verifyUser.companyRoles}');
+    } else {
+      print('DEBUG: updateUser - User not found in list!');
     }
   }
 
@@ -289,34 +303,188 @@ class StorageService {
 
   // Initialize with sample data
   static Future<void> initializeSampleData() async {
-    // Initialize workplaces first
+    // Create demo company first
+    const demoCompanyId = 'demo_company_utilif';
+    final companies = await getCompanies();
+    if (!companies.any((c) => c.id == demoCompanyId)) {
+      final demoCompany = Company(
+        id: demoCompanyId,
+        name: 'Utilif',
+        address: 'Reykjavik, Iceland',
+        contactEmail: 'admin@store.com',
+        contactPhone: '+354 555 1234',
+        adminUserId: 'admin1',
+        createdAt: DateTime.now(),
+        employeeCount: '11-30',
+      );
+      await addCompany(demoCompany);
+    }
+
+    // Initialize workplaces with company ID
     final workplaces = await getWorkplaces();
-    if (workplaces.isEmpty) {
+    if (!workplaces.any((w) => w.companyId == demoCompanyId)) {
       final sampleWorkplaces = [
         Workplace(
           id: 'wp1',
           name: 'Downtown Store',
           address: '123 Main St, Downtown',
           createdAt: DateTime.now(),
+          companyId: demoCompanyId,
         ),
         Workplace(
           id: 'wp2',
           name: 'Mall Location',
           address: '456 Mall Ave, Shopping Center',
           createdAt: DateTime.now(),
+          companyId: demoCompanyId,
         ),
         Workplace(
           id: 'wp3',
           name: 'Airport Store',
           address: '789 Airport Blvd, Terminal 2',
           createdAt: DateTime.now(),
+          companyId: demoCompanyId,
         ),
       ];
-      await saveWorkplaces(sampleWorkplaces);
+      for (final wp in sampleWorkplaces) {
+        await addWorkplace(wp);
+      }
     }
 
     final users = await getUsers();
-    if (users.isEmpty) {
+
+    // Add or update Karl Kristjánsson if email matches
+    User? existingKarl = users.cast<User?>().firstWhere(
+          (u) => u?.email == 'Karl@Utilif.is',
+          orElse: () => null,
+        );
+
+    print('DEBUG: Demo Data - Looking for Karl@Utilif.is');
+    print('DEBUG: Demo Data - Found existing Karl: ${existingKarl != null}');
+
+    if (existingKarl != null) {
+      print(
+          'DEBUG: Demo Data - Karl\'s current companies: ${existingKarl.companyIds}');
+      print(
+          'DEBUG: Demo Data - Karl\'s current roles: ${existingKarl.companyRoles}');
+
+      // Check if Karl needs to be added/updated in the demo company
+      final needsCompanyAdded =
+          !existingKarl.companyIds.contains(demoCompanyId);
+      final needsRoleSet =
+          existingKarl.companyRoles[demoCompanyId] != 'employee';
+
+      if (needsCompanyAdded || needsRoleSet) {
+        print(
+            'DEBUG: Demo Data - Updating Karl for Utilif company (Add: $needsCompanyAdded, Set Role: $needsRoleSet)');
+
+        final updatedCompanyIds = needsCompanyAdded
+            ? [...existingKarl.companyIds, demoCompanyId]
+            : existingKarl.companyIds;
+
+        final updatedCompanyNames = needsCompanyAdded
+            ? [...existingKarl.companyNames, 'Utilif']
+            : existingKarl.companyNames;
+
+        final updatedKarl = existingKarl.copyWith(
+          companyIds: updatedCompanyIds,
+          companyNames: updatedCompanyNames,
+          companyRoles: {
+            ...existingKarl.companyRoles,
+            demoCompanyId: 'employee', // Always set as employee in demo company
+          },
+          companyPoints: {
+            ...existingKarl.companyPoints,
+            demoCompanyId: existingKarl.companyPoints[demoCompanyId] ??
+                150, // Give Karl 150 points if not set
+          },
+        );
+        await updateUser(updatedKarl);
+
+        print(
+            'DEBUG: Demo Data - Karl updated! New companies: ${updatedKarl.companyIds}');
+        print(
+            'DEBUG: Demo Data - Karl updated! New roles: ${updatedKarl.companyRoles}');
+
+        existingKarl =
+            updatedKarl; // Update reference for current user check below
+      } else {
+        print(
+            'DEBUG: Demo Data - Karl already properly set up in Utilif company');
+      }
+
+      // Always check if Karl is current user and sync the current user reference
+      final currentUser = await getCurrentUser();
+      if (currentUser?.id == existingKarl.id) {
+        print(
+            'DEBUG: Demo Data - Karl is current user, syncing current user reference');
+        print(
+            'DEBUG: Demo Data - Syncing Karl with companies: ${existingKarl.companyIds}');
+        print(
+            'DEBUG: Demo Data - Syncing Karl with roles: ${existingKarl.companyRoles}');
+        await setCurrentUser(existingKarl);
+
+        // Verify the save by reading it back
+        final verifyCurrentUser = await getCurrentUser();
+        print(
+            'DEBUG: Demo Data - Verified current user companies after save: ${verifyCurrentUser?.companyIds}');
+        print(
+            'DEBUG: Demo Data - Verified current user roles after save: ${verifyCurrentUser?.companyRoles}');
+      }
+    } else {
+      print('DEBUG: Demo Data - No existing Karl found');
+    }
+
+    // Clean up duplicate users with same email (keep the one with more companies/data)
+    final allUsers = await getUsers();
+    final emailMap = <String, List<User>>{};
+
+    // Group users by email
+    for (var user in allUsers) {
+      if (!emailMap.containsKey(user.email)) {
+        emailMap[user.email] = [];
+      }
+      emailMap[user.email]!.add(user);
+    }
+
+    // Find and remove duplicates
+    for (var email in emailMap.keys) {
+      final usersWithEmail = emailMap[email]!;
+      if (usersWithEmail.length > 1) {
+        print('DEBUG: Found ${usersWithEmail.length} users with email: $email');
+
+        // Sort by number of companies (descending) to keep the one with most data
+        usersWithEmail
+            .sort((a, b) => b.companyIds.length.compareTo(a.companyIds.length));
+
+        final userToKeep = usersWithEmail.first;
+        final usersToRemove = usersWithEmail.skip(1).toList();
+
+        print(
+            'DEBUG: Keeping user ${userToKeep.id} with ${userToKeep.companyIds.length} companies');
+        print('DEBUG: Removing ${usersToRemove.length} duplicate users');
+
+        for (var duplicateUser in usersToRemove) {
+          await deleteUser(duplicateUser.id);
+          print('DEBUG: Removed duplicate user ${duplicateUser.id}');
+        }
+
+        // If the current user was a duplicate, update to the kept version
+        final currentUser = await getCurrentUser();
+        if (currentUser != null &&
+            usersToRemove.any((u) => u.id == currentUser.id)) {
+          await setCurrentUser(userToKeep);
+          print('DEBUG: Updated current user to the kept version');
+        }
+      }
+    }
+
+    // Add demo users if they don't exist
+    final demoUserIds = ['admin1', 'emp1', 'emp2', 'emp3', 'emp4'];
+    final existingDemoUsers =
+        users.where((u) => demoUserIds.contains(u.id)).toList();
+
+    if (existingDemoUsers.isEmpty) {
       final sampleUsers = [
         User(
           id: 'admin1',
@@ -327,44 +495,86 @@ class StorageService {
           createdAt: DateTime.now(),
           workplaceIds: ['wp1'],
           workplaceNames: ['Downtown Store'],
+          companyIds: [demoCompanyId],
+          companyNames: ['Utilif'],
+          primaryCompanyId: demoCompanyId,
+          companyRoles: {demoCompanyId: 'admin'},
+          companyPoints: {demoCompanyId: 200},
         ),
         User(
           id: 'emp1',
           name: 'John Doe',
-          email: 'john@store.com',
+          email: 'john.doe@example.com',
           phoneNumber: '+1 (555) 234-5678',
           role: UserRole.employee,
           createdAt: DateTime.now(),
           workplaceIds: ['wp1'],
           workplaceNames: ['Downtown Store'],
+          companyIds: [demoCompanyId],
+          companyNames: ['Utilif'],
+          primaryCompanyId: demoCompanyId,
+          companyRoles: {demoCompanyId: 'employee'},
+          companyPoints: {demoCompanyId: 100},
         ),
         User(
           id: 'emp2',
           name: 'Jane Smith',
-          email: 'jane@store.com',
+          email: 'jane.smith@example.com',
           phoneNumber: '+1 (555) 345-6789',
           role: UserRole.employee,
           createdAt: DateTime.now(),
           workplaceIds: ['wp2'],
           workplaceNames: ['Mall Location'],
+          companyIds: [demoCompanyId],
+          companyNames: ['Utilif'],
+          primaryCompanyId: demoCompanyId,
+          companyRoles: {demoCompanyId: 'employee'},
+          companyPoints: {demoCompanyId: 75},
         ),
         User(
           id: 'emp3',
           name: 'Mike Johnson',
-          email: 'mike@store.com',
+          email: 'mike.johnson@example.com',
           phoneNumber: '+1 (555) 456-7890',
           role: UserRole.employee,
           createdAt: DateTime.now(),
           workplaceIds: ['wp3'],
           workplaceNames: ['Airport Store'],
+          companyIds: [demoCompanyId],
+          companyNames: ['Utilif'],
+          primaryCompanyId: demoCompanyId,
+          companyRoles: {demoCompanyId: 'employee'},
+          companyPoints: {demoCompanyId: 50},
+        ),
+        User(
+          id: 'emp4',
+          name: 'Karl Kristjánsson',
+          email: 'Karl@Utilif.is',
+          phoneNumber: '+3546901233',
+          role: UserRole.employee,
+          createdAt: DateTime.now(),
+          workplaceIds: ['wp2'],
+          workplaceNames: ['Mall Location'],
+          companyIds: [demoCompanyId],
+          companyNames: ['Utilif'],
+          primaryCompanyId: demoCompanyId,
+          companyRoles: {demoCompanyId: 'employee'},
+          companyPoints: {demoCompanyId: 150},
         ),
       ];
-      await saveUsers(sampleUsers);
+      for (final user in sampleUsers) {
+        // Only add if user with this ID doesn't exist
+        if (!users.any((u) => u.id == user.id)) {
+          await addUser(user);
+        }
+      }
     }
 
-    // Create sample targets for the last 12 years
+    // Create sample targets for the last 12 years (demo company only)
     final targets = await getSalesTargets();
-    if (targets.isEmpty) {
+    final demoTargets =
+        targets.where((t) => t.companyId == demoCompanyId).toList();
+    if (demoTargets.isEmpty) {
       final now = DateTime.now();
       final sampleTargets = <SalesTarget>[];
 
@@ -402,6 +612,7 @@ class StorageService {
           assignedWorkplaceName: 'Mall Location',
           collaborativeEmployeeIds: [],
           collaborativeEmployeeNames: [],
+          companyId: demoCompanyId, // Link to demo company
         ));
       }
 
@@ -486,5 +697,37 @@ class StorageService {
     final requests = await getApprovalRequests();
     requests.removeWhere((r) => r.id == requestId);
     await saveApprovalRequests(requests);
+  }
+
+  // Onboarding management
+  static Future<bool> isOnboardingComplete() async {
+    final prefs = await _prefs;
+    return prefs.getBool(_onboardingCompleteKey) ?? false;
+  }
+
+  static Future<void> setOnboardingComplete() async {
+    final prefs = await _prefs;
+    await prefs.setBool(_onboardingCompleteKey, true);
+  }
+
+  // Password management
+  static Future<Map<String, String>> getPasswords() async {
+    final prefs = await _prefs;
+    final jsonString = prefs.getString(_passwordsKey);
+    if (jsonString == null) return {};
+    final Map<String, dynamic> decoded = jsonDecode(jsonString);
+    return decoded.map((key, value) => MapEntry(key, value.toString()));
+  }
+
+  static Future<void> savePassword(String userId, String password) async {
+    final passwords = await getPasswords();
+    passwords[userId] = password;
+    final prefs = await _prefs;
+    await prefs.setString(_passwordsKey, jsonEncode(passwords));
+  }
+
+  static Future<String?> getPassword(String userId) async {
+    final passwords = await getPasswords();
+    return passwords[userId];
   }
 }

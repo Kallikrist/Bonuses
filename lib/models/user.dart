@@ -8,18 +8,20 @@ class User {
   final String name;
   final String email;
   final String? phoneNumber;
-  final UserRole role;
+  final UserRole
+      role; // Deprecated: kept for backward compatibility (global role)
   final DateTime createdAt;
   final List<String> workplaceIds; // List of workplace IDs where the user works
   final List<String> workplaceNames; // List of workplace names for display
   final List<String>
       companyIds; // List of company IDs the user is associated with
   final List<String> companyNames; // List of company names for display
-  final String?
-      primaryCompanyId; // For admins, this is their company; for employees, their main company
+  final String? primaryCompanyId; // Currently active company
   int totalPoints; // Deprecated: kept for backward compatibility
   final Map<String, int>
       companyPoints; // Points per company: {companyId: points}
+  final Map<String, String>
+      companyRoles; // Role per company: {companyId: 'admin' or 'employee'}
 
   User({
     required this.id,
@@ -35,6 +37,7 @@ class User {
     this.primaryCompanyId,
     this.totalPoints = 0,
     this.companyPoints = const {},
+    this.companyRoles = const {}, // Role per company
   });
 
   Map<String, dynamic> toJson() {
@@ -52,6 +55,7 @@ class User {
       'primaryCompanyId': primaryCompanyId,
       'totalPoints': totalPoints,
       'companyPoints': companyPoints,
+      'companyRoles': companyRoles, // Save role per company
     };
   }
 
@@ -75,6 +79,9 @@ class User {
       companyPoints: json['companyPoints'] != null
           ? Map<String, int>.from(json['companyPoints'])
           : {},
+      companyRoles: json['companyRoles'] != null
+          ? Map<String, String>.from(json['companyRoles'])
+          : {},
     );
   }
 
@@ -92,6 +99,7 @@ class User {
     String? primaryCompanyId,
     int? totalPoints,
     Map<String, int>? companyPoints,
+    Map<String, String>? companyRoles,
   }) {
     return User(
       id: id ?? this.id,
@@ -107,6 +115,7 @@ class User {
       primaryCompanyId: primaryCompanyId ?? this.primaryCompanyId,
       totalPoints: totalPoints ?? this.totalPoints,
       companyPoints: companyPoints ?? this.companyPoints,
+      companyRoles: companyRoles ?? this.companyRoles,
     );
   }
 
@@ -121,5 +130,20 @@ class User {
     final newCompanyPoints = Map<String, int>.from(companyPoints);
     newCompanyPoints[companyId] = points;
     return copyWith(companyPoints: newCompanyPoints);
+  }
+
+  // Helper method to get role for a specific company
+  UserRole getRoleForCompany(String? companyId) {
+    if (companyId == null) return role; // Fallback to global role
+    final roleString = companyRoles[companyId];
+    if (roleString == null) return role; // Fallback to global role
+    return roleString == 'admin' ? UserRole.admin : UserRole.employee;
+  }
+
+  // Helper method to set role for a specific company
+  User setRoleForCompany(String companyId, UserRole newRole) {
+    final newCompanyRoles = Map<String, String>.from(companyRoles);
+    newCompanyRoles[companyId] = newRole.name;
+    return copyWith(companyRoles: newCompanyRoles);
   }
 }

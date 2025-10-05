@@ -10,12 +10,16 @@ class AuthService {
     // In a real app, this would validate against a server
     // For demo purposes, we'll use simple email-based authentication
     final users = await StorageService.getUsers();
-    
+
     try {
       final user = users.firstWhere((u) => u.email == email);
-      
-      // Simple password validation (in real app, use proper authentication)
-      if (password == 'password123') {
+
+      // Get stored password for this user
+      final storedPassword = await StorageService.getPassword(user.id);
+
+      // Check if password matches (either stored password or default 'password123' for demo users)
+      if (password == storedPassword ||
+          (storedPassword == null && password == 'password123')) {
         _currentUser = user;
         await StorageService.setCurrentUser(user);
         return true;

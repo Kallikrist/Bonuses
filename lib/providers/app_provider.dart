@@ -29,19 +29,54 @@ class AppProvider with ChangeNotifier {
   List<Company> get companies => _companies;
   List<ApprovalRequest> get approvalRequests => _approvalRequests;
   bool get isLoading => _isLoading;
-  bool get isAdmin => _currentUser?.role == UserRole.admin;
-  bool get isEmployee => _currentUser?.role == UserRole.employee;
+
+  // Check if user is admin for their current company (company-specific role)
+  bool get isAdmin {
+    if (_currentUser == null) {
+      print('DEBUG: isAdmin - No current user');
+      return false;
+    }
+    final primaryCompanyId = _currentUser!.primaryCompanyId;
+    print(
+        'DEBUG: isAdmin - User: ${_currentUser!.name}, Primary Company ID: $primaryCompanyId');
+    print('DEBUG: isAdmin - Company Roles: ${_currentUser!.companyRoles}');
+
+    if (primaryCompanyId != null) {
+      // Check company-specific role
+      final role = _currentUser!.getRoleForCompany(primaryCompanyId);
+      print('DEBUG: isAdmin - Role for company $primaryCompanyId: $role');
+      return role == UserRole.admin;
+    }
+    // Fallback to global role
+    print('DEBUG: isAdmin - Using global role: ${_currentUser!.role}');
+    return _currentUser!.role == UserRole.admin;
+  }
+
+  bool get isEmployee => !isAdmin;
   PointsRules get pointsRules => _pointsRules;
+
+  // Onboarding state
+  Future<bool> isOnboardingComplete() async {
+    return await StorageService.isOnboardingComplete();
+  }
+
+  Future<void> setOnboardingComplete() async {
+    await StorageService.setOnboardingComplete();
+  }
 
   Future<void> initialize() async {
     _setLoading(true);
     try {
-      // Only clear data if no users exist (first time running)
-      final existingUsers = await StorageService.getUsers();
-      if (existingUsers.isEmpty) {
-        await StorageService.clearAllData();
+      // Only initialize sample data if onboarding is NOT complete
+      final onboardingComplete = await StorageService.isOnboardingComplete();
+      if (!onboardingComplete) {
+        // Only clear data if no users exist (first time running)
+        final existingUsers = await StorageService.getUsers();
+        if (existingUsers.isEmpty) {
+          await StorageService.clearAllData();
+        }
+        await StorageService.initializeSampleData();
       }
-      await StorageService.initializeSampleData();
       await _loadData();
     } finally {
       _setLoading(false);
@@ -50,6 +85,12 @@ class AppProvider with ChangeNotifier {
 
   Future<void> _loadData() async {
     _currentUser = await StorageService.getCurrentUser();
+    print('DEBUG: _loadData - Loaded current user: ${_currentUser?.name}');
+    print('DEBUG: _loadData - User companies: ${_currentUser?.companyIds}');
+    print('DEBUG: _loadData - User roles: ${_currentUser?.companyRoles}');
+    print(
+        'DEBUG: _loadData - Primary company: ${_currentUser?.primaryCompanyId}');
+
     _salesTargets = await StorageService.getSalesTargets();
     print('DEBUG: Loaded ${_salesTargets.length} targets');
     for (var target in _salesTargets) {
@@ -768,8 +809,17 @@ class AppProvider with ChangeNotifier {
       return false;
     }
 
-    // Use getUserTotalPoints for accurate point calculation from transactions
-    final currentPoints = getUserTotalPoints(userId);
+    // Get the current company context for points calculation
+    final companyId = user.primaryCompanyId;
+
+    // Use company-specific points for accurate calculation
+    final currentPoints = companyId != null
+        ? getUserCompanyPoints(userId, companyId)
+        : getUserTotalPoints(userId);
+
+    print(
+        'DEBUG: Redeeming in company: $companyId, User has $currentPoints points, Needs ${bonus.pointsRequired}');
+
     if (currentPoints < bonus.pointsRequired) {
       print(
           'DEBUG: Insufficient points. User has $currentPoints, needs ${bonus.pointsRequired}');
@@ -791,7 +841,7 @@ class AppProvider with ChangeNotifier {
     _bonuses[bonusIndex] = updatedBonus;
     await StorageService.updateBonus(updatedBonus);
 
-    // Deduct points from user
+    // Deduct points from user with company context
     final secretCodeMessage = updatedBonus.secretCode?.isNotEmpty == true
         ? ' (Secret Code: ${updatedBonus.secretCode})'
         : '';
@@ -803,15 +853,19 @@ class AppProvider with ChangeNotifier {
       points: bonus.pointsRequired,
       description: 'Redeemed ${bonus.name}${secretCodeMessage}',
       date: DateTime.now(),
+      companyId: companyId, // Add company context to transaction
     );
 
     await StorageService.addPointsTransaction(pointsTransaction);
     _pointsTransactions.add(pointsTransaction);
 
     // Points are now calculated from transactions, so no need to update user.totalPoints directly
-    final newTotalPoints = getUserTotalPoints(userId);
+    final newTotalPoints = companyId != null
+        ? getUserCompanyPoints(userId, companyId)
+        : getUserTotalPoints(userId);
 
-    print('DEBUG: Bonus redeemed successfully. User points: $newTotalPoints');
+    print(
+        'DEBUG: Bonus redeemed successfully. User points in company $companyId: $newTotalPoints');
     notifyListeners();
     return true;
   }

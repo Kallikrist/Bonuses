@@ -231,17 +231,14 @@ class _ImportEmployeesScreenState extends State<ImportEmployeesScreen> {
 
         // Add initial points if any
         final points = data['points'] as int;
-        if (points > 0) {
-          final transaction = PointsTransaction(
-            id: 'import_points_${DateTime.now().millisecondsSinceEpoch}_$imported',
-            userId: newEmployee.id,
-            type: PointsTransactionType.earned,
-            points: points,
-            description: 'Initial points from import',
-            date: DateTime.now(),
+        if (points > 0 && _selectedCompanyId != null) {
+          // Use updateUserPoints to properly set company-specific points
+          await widget.appProvider.updateUserPoints(
+            newEmployee.id,
+            points,
+            'Initial points from import',
+            companyId: _selectedCompanyId!,
           );
-
-          await widget.appProvider.addPointsTransaction(transaction);
         }
 
         imported++;
@@ -432,22 +429,51 @@ class _ImportEmployeesScreenState extends State<ImportEmployeesScreen> {
                             FutureBuilder<List<Company>>(
                               future: widget.appProvider.getCompanies(),
                               builder: (context, snapshot) {
-                                final companies = snapshot.data ?? [];
+                                final allCompanies = snapshot.data ?? [];
+                                final currentUser =
+                                    widget.appProvider.currentUser;
+
+                                // Filter to only show companies where the user is an admin
+                                final adminCompanies =
+                                    allCompanies.where((company) {
+                                  if (currentUser == null) return false;
+                                  final role =
+                                      currentUser.getRoleForCompany(company.id);
+                                  return role == UserRole.admin;
+                                }).toList();
+
+                                // Reset selected company if it's not in the admin companies list
+                                if (_selectedCompanyId != null &&
+                                    !adminCompanies.any(
+                                        (c) => c.id == _selectedCompanyId)) {
+                                  WidgetsBinding.instance
+                                      .addPostFrameCallback((_) {
+                                    if (mounted) {
+                                      setState(() {
+                                        _selectedCompanyId =
+                                            currentUser?.primaryCompanyId;
+                                      });
+                                    }
+                                  });
+                                }
 
                                 return DropdownButtonFormField<String?>(
                                   decoration: const InputDecoration(
-                                    labelText: 'Assign to Company (Optional)',
+                                    labelText: 'Assign to Company (Admin Only)',
                                     border: OutlineInputBorder(),
                                     helperText:
-                                        'All imported employees will be assigned to this company',
+                                        'Only companies where you are an admin are shown',
                                   ),
-                                  value: _selectedCompanyId,
+                                  value: adminCompanies.any(
+                                          (c) => c.id == _selectedCompanyId)
+                                      ? _selectedCompanyId
+                                      : null,
                                   items: [
                                     const DropdownMenuItem<String?>(
                                       value: null,
                                       child: Text('None'),
                                     ),
-                                    ...companies.map((company) {
+                                    ...adminCompanies.map((company) {
                                       return DropdownMenuItem<String?>(
                                         value: company.id,
                                         child: Text(company.name),

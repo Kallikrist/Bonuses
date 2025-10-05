@@ -20,8 +20,10 @@ class _ImportBonusesScreenState extends State<ImportBonusesScreen>
     with SingleTickerProviderStateMixin {
   late TabController _tabController;
   final TextEditingController _bonusNameController = TextEditingController();
-  final TextEditingController _bonusDescriptionController = TextEditingController();
-  final TextEditingController _pointsRequiredController = TextEditingController();
+  final TextEditingController _bonusDescriptionController =
+      TextEditingController();
+  final TextEditingController _pointsRequiredController =
+      TextEditingController();
   final TextEditingController _secretCodeController = TextEditingController();
 
   @override
@@ -70,11 +72,14 @@ class _ImportBonusesScreenState extends State<ImportBonusesScreen>
     );
   }
 
-  // Tab 1: All Bonuses Management
+  // Tab 1: Available Bonuses Management
   Widget _buildAllBonusesTab() {
     return Consumer<AppProvider>(
       builder: (context, appProvider, child) {
-        final bonuses = appProvider.bonuses;
+        // Only show available bonuses (redeemed ones are in Redemptions tab)
+        final bonuses = appProvider.bonuses
+            .where((b) => b.status == BonusStatus.available)
+            .toList();
 
         if (bonuses.isEmpty) {
           return const Center(
@@ -103,8 +108,9 @@ class _ImportBonusesScreenState extends State<ImportBonusesScreen>
           itemBuilder: (context, index) {
             final bonus = bonuses[index];
             final redemptionCount = appProvider.pointsTransactions
-                .where((t) => t.description.contains(bonus.name) && 
-                             t.type == PointsTransactionType.redeemed)
+                .where((t) =>
+                    t.description.contains(bonus.name) &&
+                    t.type == PointsTransactionType.redeemed)
                 .length;
 
             return Card(
@@ -224,7 +230,7 @@ class _ImportBonusesScreenState extends State<ImportBonusesScreen>
             }
 
             final users = snapshot.data!;
-            
+
             return ListView.builder(
               padding: const EdgeInsets.all(16),
               itemCount: redemptions.length,
@@ -241,63 +247,66 @@ class _ImportBonusesScreenState extends State<ImportBonusesScreen>
                   ),
                 );
 
-            return Card(
-              margin: const EdgeInsets.only(bottom: 12),
-              elevation: 2,
-              child: ListTile(
-                leading: CircleAvatar(
-                  backgroundColor: Colors.red,
-                  child: Text(
-                    transaction.points.abs().toString(),
-                    style: const TextStyle(
-                      color: Colors.white,
-                      fontWeight: FontWeight.bold,
-                      fontSize: 12,
+                return Card(
+                  margin: const EdgeInsets.only(bottom: 12),
+                  elevation: 2,
+                  child: ListTile(
+                    leading: CircleAvatar(
+                      backgroundColor: Colors.red,
+                      child: Text(
+                        transaction.points.abs().toString(),
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontWeight: FontWeight.bold,
+                          fontSize: 12,
+                        ),
+                      ),
                     ),
-                  ),
-                ),
-                title: Text(
-                  _cleanDescriptionFromSecretCode(transaction.description),
-                  style: const TextStyle(fontWeight: FontWeight.bold),
-                ),
-                subtitle: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      'Redeemed by: ${user.name}',
-                      style: const TextStyle(fontWeight: FontWeight.w500),
+                    title: Text(
+                      _cleanDescriptionFromSecretCode(transaction.description),
+                      style: const TextStyle(fontWeight: FontWeight.bold),
                     ),
-                    const SizedBox(height: 4),
-                    Row(
+                    subtitle: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Icon(Icons.calendar_today, size: 16, color: Colors.grey),
-                        const SizedBox(width: 4),
                         Text(
-                          DateFormat('MMM dd, yyyy HH:mm').format(transaction.date),
-                          style: const TextStyle(color: Colors.grey),
+                          'Redeemed by: ${user.name}',
+                          style: const TextStyle(fontWeight: FontWeight.w500),
+                        ),
+                        const SizedBox(height: 4),
+                        Row(
+                          children: [
+                            Icon(Icons.calendar_today,
+                                size: 16, color: Colors.grey),
+                            const SizedBox(width: 4),
+                            Text(
+                              DateFormat('MMM dd, yyyy HH:mm')
+                                  .format(transaction.date),
+                              style: const TextStyle(color: Colors.grey),
+                            ),
+                          ],
                         ),
                       ],
                     ),
-                  ],
-                ),
-                trailing: Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                  decoration: BoxDecoration(
-                    color: Colors.red.withOpacity(0.1),
-                    borderRadius: BorderRadius.circular(16),
-                  ),
-                  child: Text(
-                    '-${transaction.points.abs()} pts',
-                    style: const TextStyle(
-                      color: Colors.red,
-                      fontWeight: FontWeight.bold,
+                    trailing: Container(
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 12, vertical: 6),
+                      decoration: BoxDecoration(
+                        color: Colors.red.withOpacity(0.1),
+                        borderRadius: BorderRadius.circular(16),
+                      ),
+                      child: Text(
+                        '-${transaction.points.abs()} pts',
+                        style: const TextStyle(
+                          color: Colors.red,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
                     ),
                   ),
-                ),
-              ),
+                );
+              },
             );
-          },
-        );
           },
         );
       },
@@ -320,7 +329,7 @@ class _ImportBonusesScreenState extends State<ImportBonusesScreen>
             ),
           ),
           const SizedBox(height: 24),
-          
+
           // Bonus Name
           TextFormField(
             controller: _bonusNameController,
@@ -332,7 +341,7 @@ class _ImportBonusesScreenState extends State<ImportBonusesScreen>
             ),
           ),
           const SizedBox(height: 16),
-          
+
           // Bonus Description
           TextFormField(
             controller: _bonusDescriptionController,
@@ -345,7 +354,7 @@ class _ImportBonusesScreenState extends State<ImportBonusesScreen>
             ),
           ),
           const SizedBox(height: 16),
-          
+
           // Points Required
           TextFormField(
             controller: _pointsRequiredController,
@@ -358,7 +367,7 @@ class _ImportBonusesScreenState extends State<ImportBonusesScreen>
             ),
           ),
           const SizedBox(height: 16),
-          
+
           // Secret Code
           TextFormField(
             controller: _secretCodeController,
@@ -371,7 +380,7 @@ class _ImportBonusesScreenState extends State<ImportBonusesScreen>
             ),
           ),
           const SizedBox(height: 32),
-          
+
           // Add Bonus Button
           SizedBox(
             width: double.infinity,
@@ -398,9 +407,9 @@ class _ImportBonusesScreenState extends State<ImportBonusesScreen>
               ),
             ),
           ),
-          
+
           const SizedBox(height: 24),
-          
+
           // Quick Add Templates
           const Text(
             'Quick Templates',
@@ -410,17 +419,23 @@ class _ImportBonusesScreenState extends State<ImportBonusesScreen>
             ),
           ),
           const SizedBox(height: 12),
-          
+
           Wrap(
             spacing: 8,
             runSpacing: 8,
             children: [
-              _buildQuickTemplate('Coffee Voucher', 'Free coffee at any location', 50),
-              _buildQuickTemplate('Lunch Voucher', 'Free lunch at company cafeteria', 100),
-              _buildQuickTemplate('Extra Day Off', 'Take an extra day off with pay', 200),
-              _buildQuickTemplate('Gift Card \$25', '\$25 gift card to any store', 300),
-              _buildQuickTemplate('Parking Spot', 'Reserved parking for one month', 150),
-              _buildQuickTemplate('Team Lunch', 'Team lunch at a restaurant', 400),
+              _buildQuickTemplate(
+                  'Coffee Voucher', 'Free coffee at any location', 50),
+              _buildQuickTemplate(
+                  'Lunch Voucher', 'Free lunch at company cafeteria', 100),
+              _buildQuickTemplate(
+                  'Extra Day Off', 'Take an extra day off with pay', 200),
+              _buildQuickTemplate(
+                  'Gift Card \$25', '\$25 gift card to any store', 300),
+              _buildQuickTemplate(
+                  'Parking Spot', 'Reserved parking for one month', 150),
+              _buildQuickTemplate(
+                  'Team Lunch', 'Team lunch at a restaurant', 400),
             ],
           ),
         ],
@@ -496,25 +511,27 @@ class _ImportBonusesScreenState extends State<ImportBonusesScreen>
       description: _bonusDescriptionController.text,
       pointsRequired: points,
       createdAt: DateTime.now(),
-      secretCode: _secretCodeController.text.isNotEmpty ? _secretCodeController.text : null,
+      secretCode: _secretCodeController.text.isNotEmpty
+          ? _secretCodeController.text
+          : null,
     );
 
     try {
       await widget.appProvider.addBonus(newBonus);
-      
+
       // Clear form
       _bonusNameController.clear();
       _bonusDescriptionController.clear();
       _pointsRequiredController.clear();
       _secretCodeController.clear();
-      
+
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text('Bonus "${newBonus.name}" added successfully!'),
           backgroundColor: Colors.green,
         ),
       );
-      
+
       // Switch to All Bonuses tab to see the new bonus
       _tabController.animateTo(0);
     } catch (e) {
@@ -529,8 +546,10 @@ class _ImportBonusesScreenState extends State<ImportBonusesScreen>
 
   void _showEditBonusDialog(Bonus bonus) {
     final nameController = TextEditingController(text: bonus.name);
-    final descriptionController = TextEditingController(text: bonus.description);
-    final pointsController = TextEditingController(text: bonus.pointsRequired.toString());
+    final descriptionController =
+        TextEditingController(text: bonus.description);
+    final pointsController =
+        TextEditingController(text: bonus.pointsRequired.toString());
 
     showDialog(
       context: context,
