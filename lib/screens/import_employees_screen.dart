@@ -430,61 +430,57 @@ class _ImportEmployeesScreenState extends State<ImportEmployeesScreen> {
                               future: widget.appProvider.getCompanies(),
                               builder: (context, snapshot) {
                                 final allCompanies = snapshot.data ?? [];
-                                final currentUser =
-                                    widget.appProvider.currentUser;
-
-                                // Filter to only show companies where the user is an admin
-                                final adminCompanies =
-                                    allCompanies.where((company) {
-                                  if (currentUser == null) return false;
-                                  final role =
-                                      currentUser.getRoleForCompany(company.id);
-                                  return role == UserRole.admin;
-                                }).toList();
-
-                                // Reset selected company if it's not in the admin companies list
-                                if (_selectedCompanyId != null &&
-                                    !adminCompanies.any(
-                                        (c) => c.id == _selectedCompanyId)) {
-                                  WidgetsBinding.instance
-                                      .addPostFrameCallback((_) {
-                                    if (mounted) {
-                                      setState(() {
-                                        _selectedCompanyId =
-                                            currentUser?.primaryCompanyId;
-                                      });
-                                    }
-                                  });
-                                }
-
-                                return DropdownButtonFormField<String?>(
-                                  decoration: const InputDecoration(
-                                    labelText: 'Assign to Company (Admin Only)',
-                                    border: OutlineInputBorder(),
-                                    helperText:
-                                        'Only companies where you are an admin are shown',
+                                final currentCompany = allCompanies.firstWhere(
+                                  (c) => c.id == _selectedCompanyId,
+                                  orElse: () => Company(
+                                    id: '',
+                                    name: 'Unknown Company',
+                                    address: '',
+                                    createdAt: DateTime.now(),
+                                    adminUserId: '',
                                   ),
-                                  value: adminCompanies.any(
-                                          (c) => c.id == _selectedCompanyId)
-                                      ? _selectedCompanyId
-                                      : null,
-                                  items: [
-                                    const DropdownMenuItem<String?>(
-                                      value: null,
-                                      child: Text('None'),
-                                    ),
-                                    ...adminCompanies.map((company) {
-                                      return DropdownMenuItem<String?>(
-                                        value: company.id,
-                                        child: Text(company.name),
-                                      );
-                                    }),
-                                  ],
-                                  onChanged: (value) {
-                                    setState(() {
-                                      _selectedCompanyId = value;
-                                    });
-                                  },
+                                );
+
+                                return Container(
+                                  padding: const EdgeInsets.all(16),
+                                  decoration: BoxDecoration(
+                                    color: Colors.blue.shade50,
+                                    borderRadius: BorderRadius.circular(8),
+                                    border:
+                                        Border.all(color: Colors.blue.shade200),
+                                  ),
+                                  child: Row(
+                                    children: [
+                                      Icon(Icons.business,
+                                          color: Colors.blue.shade700,
+                                          size: 32),
+                                      const SizedBox(width: 16),
+                                      Expanded(
+                                        child: Column(
+                                          crossAxisAlignment:
+                                              CrossAxisAlignment.start,
+                                          children: [
+                                            const Text(
+                                              'Employees will be imported to:',
+                                              style: TextStyle(
+                                                fontSize: 13,
+                                                color: Colors.grey,
+                                              ),
+                                            ),
+                                            const SizedBox(height: 4),
+                                            Text(
+                                              currentCompany.name,
+                                              style: TextStyle(
+                                                fontSize: 18,
+                                                fontWeight: FontWeight.bold,
+                                                color: Colors.blue.shade900,
+                                              ),
+                                            ),
+                                          ],
+                                        ),
+                                      ),
+                                    ],
+                                  ),
                                 );
                               },
                             ),

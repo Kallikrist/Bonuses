@@ -186,8 +186,10 @@ class _EmployeeDashboardState extends State<EmployeeDashboard> {
         }).toList();
         final allTargets = appProvider.salesTargets;
         final allTransactions = appProvider.pointsTransactions;
+        // Available bonuses are company-specific, redeemed bonuses are global
         final availableBonuses = appProvider.getAvailableBonuses();
-        final redeemedBonuses = appProvider.getUserRedeemedBonuses(user.id);
+        final redeemedBonuses = appProvider.getUserRedeemedBonuses(
+            user.id, null); // null = show all companies
 
         return Scaffold(
           appBar: AppBar(

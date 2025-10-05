@@ -2621,8 +2621,16 @@ class _AdminDashboardState extends State<AdminDashboard> {
 
   Widget _buildBonusesTab(AppProvider appProvider, List<Bonus> allBonuses) {
     final user = appProvider.currentUser!;
-    final availableBonuses =
-        allBonuses.where((b) => b.status == BonusStatus.available).toList();
+    final currentCompanyId = user.primaryCompanyId;
+
+    // Filter available bonuses by current company
+    final availableBonuses = allBonuses
+        .where((b) =>
+            b.status == BonusStatus.available &&
+            b.companyId == currentCompanyId)
+        .toList();
+
+    // Redeemed bonuses can be global (from all companies)
     final redeemedByCurrentUser = appProvider.pointsTransactions
         .where((t) =>
             t.userId == user.id && t.type == PointsTransactionType.redeemed)
@@ -8579,7 +8587,9 @@ class _EmployeesListScreenState extends State<EmployeesListScreen> {
   Set<String> _selectedEmployeeIds = <String>{};
   bool _isSelectionMode = false;
   List<String> _allEmployeeIds = [];
-  String? _filterCompanyId; // For manual filtering (not pre-set)
+  String? _filterRole; // Filter by role (admin/employee)
+  String _searchQuery = ''; // Search by name
+  final TextEditingController _searchController = TextEditingController();
 
   void _toggleSelectionMode() {
     setState(() {
@@ -8825,51 +8835,58 @@ class _EmployeesListScreenState extends State<EmployeesListScreen> {
     );
   }
 
-  void _showCompanyFilterDialog() async {
-    final allCompanies = await widget.appProvider.getCompanies();
-    final currentUser = widget.appProvider.currentUser;
-
-    // Filter companies to only show those where the current user is a member
-    final companies = allCompanies.where((company) {
-      return currentUser != null && currentUser.companyIds.contains(company.id);
-    }).toList();
-
+  void _showRoleFilterDialog() {
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text('Filter by Company'),
+        title: const Text('Filter by Role'),
         content: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
             RadioListTile<String?>(
-              title: const Text('All Companies'),
+              title: const Text('All Roles'),
               value: null,
-              groupValue: _filterCompanyId ?? widget.filterCompanyId,
+              groupValue: _filterRole,
               onChanged: (value) {
                 setState(() {
-                  _filterCompanyId = value;
+                  _filterRole = value;
                 });
                 Navigator.pop(context);
               },
             ),
             const Divider(),
-            ...companies.map((company) {
-              return RadioListTile<String?>(
-                title: Text(company.name),
-                value: company.id,
-                groupValue: _filterCompanyId ?? widget.filterCompanyId,
-                onChanged: (value) {
-                  setState(() {
-                    _filterCompanyId = value;
-                  });
-                  Navigator.pop(context);
-                },
-              );
-            }),
+            RadioListTile<String?>(
+              title: const Text('Admins Only'),
+              value: 'admin',
+              groupValue: _filterRole,
+              onChanged: (value) {
+                setState(() {
+                  _filterRole = value;
+                });
+                Navigator.pop(context);
+              },
+            ),
+            RadioListTile<String?>(
+              title: const Text('Employees Only'),
+              value: 'employee',
+              groupValue: _filterRole,
+              onChanged: (value) {
+                setState(() {
+                  _filterRole = value;
+                });
+                Navigator.pop(context);
+              },
+            ),
           ],
         ),
       ),
     );
+  }
+
+  @override
+  void dispose() {
+    _searchController.dispose();
+    super.dispose();
   }
 
   @override
@@ -8884,16 +8901,14 @@ class _EmployeesListScreenState extends State<EmployeesListScreen> {
           onPressed: () => Navigator.pop(context),
         ),
         actions: [
-          // Show filter icon when not in selection mode
+          // Show role filter icon when not in selection mode
           if (!_isSelectionMode)
             IconButton(
               icon: Icon(
-                (_filterCompanyId ?? widget.filterCompanyId) != null
-                    ? Icons.filter_alt
-                    : Icons.filter_list,
+                _filterRole != null ? Icons.filter_alt : Icons.filter_list,
               ),
-              onPressed: _showCompanyFilterDialog,
-              tooltip: 'Filter by Company',
+              onPressed: _showRoleFilterDialog,
+              tooltip: 'Filter by Role',
             ),
           _isSelectionMode
               ? IconButton(
@@ -8925,16 +8940,36 @@ class _EmployeesListScreenState extends State<EmployeesListScreen> {
                       u.role == UserRole.employee || u.role == UserRole.admin)
                   .toList();
 
-              // Determine which company filter to use
-              // Default to current user's primary company if no explicit filter is set
-              final activeCompanyFilter = _filterCompanyId ??
-                  widget.filterCompanyId ??
+              // Always filter by current company
+              final activeCompanyFilter = widget.filterCompanyId ??
                   provider.currentUser?.primaryCompanyId;
 
-              // Filter by company if a filter is active
               if (activeCompanyFilter != null) {
                 employees = employees
                     .where((u) => u.companyIds.contains(activeCompanyFilter))
+                    .toList();
+              }
+
+              // Filter by role if role filter is active
+              if (_filterRole != null) {
+                final targetRole =
+                    _filterRole == 'admin' ? UserRole.admin : UserRole.employee;
+                employees = employees
+                    .where((u) =>
+                        u.getRoleForCompany(activeCompanyFilter) == targetRole)
+                    .toList();
+              }
+
+              // Filter by search query
+              if (_searchQuery.isNotEmpty) {
+                employees = employees
+                    .where((u) =>
+                        u.name
+                            .toLowerCase()
+                            .contains(_searchQuery.toLowerCase()) ||
+                        u.email
+                            .toLowerCase()
+                            .contains(_searchQuery.toLowerCase()))
                     .toList();
               }
 
@@ -8947,6 +8982,39 @@ class _EmployeesListScreenState extends State<EmployeesListScreen> {
 
               return Column(
                 children: [
+                  // Search bar
+                  if (!_isSelectionMode)
+                    Padding(
+                      padding: const EdgeInsets.all(16),
+                      child: TextField(
+                        controller: _searchController,
+                        decoration: InputDecoration(
+                          hintText: 'Search by name or email...',
+                          prefixIcon: const Icon(Icons.search),
+                          suffixIcon: _searchQuery.isNotEmpty
+                              ? IconButton(
+                                  icon: const Icon(Icons.clear),
+                                  onPressed: () {
+                                    setState(() {
+                                      _searchController.clear();
+                                      _searchQuery = '';
+                                    });
+                                  },
+                                )
+                              : null,
+                          border: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                          filled: true,
+                          fillColor: Colors.grey.shade100,
+                        ),
+                        onChanged: (value) {
+                          setState(() {
+                            _searchQuery = value;
+                          });
+                        },
+                      ),
+                    ),
                   // Select All and selection count bar
                   if (_isSelectionMode)
                     Container(
@@ -9315,6 +9383,7 @@ class _WorkplacesListScreenState extends State<WorkplacesListScreen> {
                   name: nameController.text,
                   address: addressController.text,
                   createdAt: DateTime.now(),
+                  companyId: widget.appProvider.currentUser?.primaryCompanyId,
                 );
                 await widget.appProvider.addWorkplace(newWorkplace);
                 Navigator.pop(context);

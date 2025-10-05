@@ -45,23 +45,11 @@ class StorageService {
   }
 
   static Future<void> updateUser(User user) async {
-    print('DEBUG: updateUser - Updating user: ${user.name}');
-    print('DEBUG: updateUser - Companies: ${user.companyIds}');
-    print('DEBUG: updateUser - Roles: ${user.companyRoles}');
-
     final users = await getUsers();
     final index = users.indexWhere((u) => u.id == user.id);
     if (index != -1) {
       users[index] = user;
       await saveUsers(users);
-
-      // Verify the save
-      final verifyUsers = await getUsers();
-      final verifyUser = verifyUsers.firstWhere((u) => u.id == user.id);
-      print(
-          'DEBUG: updateUser - Verified roles after save: ${verifyUser.companyRoles}');
-    } else {
-      print('DEBUG: updateUser - User not found in list!');
     }
   }
 
@@ -653,6 +641,7 @@ class StorageService {
           description: 'Get a free coffee from the break room',
           pointsRequired: 50,
           createdAt: DateTime.now(),
+          companyId: demoCompanyId,
         ),
         Bonus(
           id: 'bonus2',
@@ -660,6 +649,7 @@ class StorageService {
           description: 'Take an extra 15-minute break',
           pointsRequired: 100,
           createdAt: DateTime.now(),
+          companyId: demoCompanyId,
         ),
         Bonus(
           id: 'bonus3',
@@ -668,6 +658,7 @@ class StorageService {
           pointsRequired: 200,
           createdAt: DateTime.now(),
           giftCardCode: 'GC-2024-ABC123',
+          companyId: demoCompanyId,
         ),
         Bonus(
           id: 'bonus4',
@@ -675,6 +666,7 @@ class StorageService {
           description: 'Take a paid day off',
           pointsRequired: 500,
           createdAt: DateTime.now(),
+          companyId: demoCompanyId,
         ),
       ];
       await saveBonuses(sampleBonuses);

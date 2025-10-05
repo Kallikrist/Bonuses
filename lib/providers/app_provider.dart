@@ -33,22 +33,16 @@ class AppProvider with ChangeNotifier {
   // Check if user is admin for their current company (company-specific role)
   bool get isAdmin {
     if (_currentUser == null) {
-      print('DEBUG: isAdmin - No current user');
       return false;
     }
     final primaryCompanyId = _currentUser!.primaryCompanyId;
-    print(
-        'DEBUG: isAdmin - User: ${_currentUser!.name}, Primary Company ID: $primaryCompanyId');
-    print('DEBUG: isAdmin - Company Roles: ${_currentUser!.companyRoles}');
 
     if (primaryCompanyId != null) {
       // Check company-specific role
       final role = _currentUser!.getRoleForCompany(primaryCompanyId);
-      print('DEBUG: isAdmin - Role for company $primaryCompanyId: $role');
       return role == UserRole.admin;
     }
     // Fallback to global role
-    print('DEBUG: isAdmin - Using global role: ${_currentUser!.role}');
     return _currentUser!.role == UserRole.admin;
   }
 
@@ -96,22 +90,10 @@ class AppProvider with ChangeNotifier {
 
   Future<void> _loadData() async {
     _currentUser = await StorageService.getCurrentUser();
-    print('DEBUG: _loadData - Loaded current user: ${_currentUser?.name}');
-    print('DEBUG: _loadData - User companies: ${_currentUser?.companyIds}');
-    print('DEBUG: _loadData - User roles: ${_currentUser?.companyRoles}');
-    print(
-        'DEBUG: _loadData - Primary company: ${_currentUser?.primaryCompanyId}');
 
     _salesTargets = await StorageService.getSalesTargets();
-    print('DEBUG: Loaded ${_salesTargets.length} targets');
-    for (var target in _salesTargets) {
-      print(
-          'DEBUG: Target ${target.id} - Employee: ${target.assignedEmployeeName}, Workplace: ${target.assignedWorkplaceName}');
-      print(
-          'DEBUG: Target ${target.id} - Collaborative IDs: ${target.collaborativeEmployeeIds}');
-      print(
-          'DEBUG: Target ${target.id} - Collaborative Names: ${target.collaborativeEmployeeNames}');
-    }
+    // Removed excessive debug logging for better performance
+    // print('DEBUG: Loaded ${_salesTargets.length} targets');
     _pointsTransactions = await StorageService.getPointsTransactions();
     _bonuses = await StorageService.getBonuses();
     _workplaces = await StorageService.getWorkplaces();
@@ -798,13 +780,26 @@ class AppProvider with ChangeNotifier {
         .toList();
   }
 
-  List<Bonus> getAvailableBonuses() {
+  List<Bonus> getAvailableBonuses([String? companyId]) {
+    final targetCompanyId = companyId ?? _currentUser?.primaryCompanyId;
     return _bonuses
-        .where((bonus) => bonus.status == BonusStatus.available)
+        .where((bonus) =>
+            bonus.status == BonusStatus.available &&
+            bonus.companyId == targetCompanyId)
         .toList();
   }
 
-  List<Bonus> getUserRedeemedBonuses(String userId) {
+  List<Bonus> getUserRedeemedBonuses(String userId, [String? companyId]) {
+    // If companyId is explicitly passed, use it for filtering
+    // If null is explicitly passed (default), show all redeemed bonuses globally
+    if (companyId != null) {
+      return _bonuses
+          .where((bonus) =>
+              bonus.redeemedBy == userId && bonus.companyId == companyId)
+          .toList();
+    }
+
+    // Show all redeemed bonuses across all companies (global view)
     return _bonuses.where((bonus) => bonus.redeemedBy == userId).toList();
   }
 

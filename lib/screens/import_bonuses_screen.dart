@@ -76,9 +76,13 @@ class _ImportBonusesScreenState extends State<ImportBonusesScreen>
   Widget _buildAllBonusesTab() {
     return Consumer<AppProvider>(
       builder: (context, appProvider, child) {
-        // Only show available bonuses (redeemed ones are in Redemptions tab)
+        final currentCompanyId = appProvider.currentUser?.primaryCompanyId;
+
+        // Only show available bonuses for the current company (redeemed ones are in Redemptions tab)
         final bonuses = appProvider.bonuses
-            .where((b) => b.status == BonusStatus.available)
+            .where((b) =>
+                b.status == BonusStatus.available &&
+                b.companyId == currentCompanyId)
             .toList();
 
         if (bonuses.isEmpty) {
@@ -196,8 +200,12 @@ class _ImportBonusesScreenState extends State<ImportBonusesScreen>
   Widget _buildRedemptionsTab() {
     return Consumer<AppProvider>(
       builder: (context, appProvider, child) {
+        final currentCompanyId = appProvider.currentUser?.primaryCompanyId;
+
         final redemptions = appProvider.pointsTransactions
-            .where((t) => t.type == PointsTransactionType.redeemed)
+            .where((t) =>
+                t.type == PointsTransactionType.redeemed &&
+                t.companyId == currentCompanyId)
             .toList()
           ..sort((a, b) => b.date.compareTo(a.date));
 
@@ -514,6 +522,7 @@ class _ImportBonusesScreenState extends State<ImportBonusesScreen>
       secretCode: _secretCodeController.text.isNotEmpty
           ? _secretCodeController.text
           : null,
+      companyId: widget.appProvider.currentUser?.primaryCompanyId,
     );
 
     try {
