@@ -1,5 +1,5 @@
 import 'package:flutter_test/flutter_test.dart';
-import '../lib/models/user.dart';
+import 'package:bonuses/models/user.dart';
 import 'mocks/testable_app_provider.dart';
 import 'mocks/mock_storage_service.dart';
 

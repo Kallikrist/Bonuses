@@ -14,6 +14,7 @@ class ProfileHeaderWidget extends StatelessWidget {
   final List<Company>? userCompanies;
   final String? currentCompanyId;
   final Function(String companyId)? onCompanyChanged;
+  final Function(DateTime selectedDate)? onDateSelected;
 
   const ProfileHeaderWidget({
     super.key,
@@ -26,6 +27,7 @@ class ProfileHeaderWidget extends StatelessWidget {
     this.userCompanies,
     this.currentCompanyId,
     this.onCompanyChanged,
+    this.onDateSelected,
   });
 
   @override
@@ -226,7 +228,10 @@ class ProfileHeaderWidget extends StatelessWidget {
           selectedDate: DateTime.now(),
           salesTargets: salesTargets,
           onDateSelected: (selectedDate) {
-            // Handle date selection
+            // Call the callback to update the dashboard's selected date
+            onDateSelected?.call(selectedDate);
+
+            // Show confirmation message
             ScaffoldMessenger.of(context).showSnackBar(
               SnackBar(
                 content: Text(

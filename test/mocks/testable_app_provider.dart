@@ -1,11 +1,11 @@
 import 'package:flutter/foundation.dart';
 import '../mocks/mock_storage_service.dart';
-import '../../lib/models/user.dart';
-import '../../lib/models/sales_target.dart';
-import '../../lib/models/points_transaction.dart';
-import '../../lib/models/bonus.dart';
-import '../../lib/models/workplace.dart';
-import '../../lib/models/approval_request.dart';
+import 'package:bonuses/models/user.dart';
+import 'package:bonuses/models/sales_target.dart';
+import 'package:bonuses/models/points_transaction.dart';
+import 'package:bonuses/models/bonus.dart';
+import 'package:bonuses/models/workplace.dart';
+import 'package:bonuses/models/approval_request.dart';
 
 class TestableAppProvider with ChangeNotifier {
   User? _currentUser;
@@ -553,7 +553,7 @@ class TestableAppProvider with ChangeNotifier {
     for (int i = 0; i < target.collaborativeEmployeeIds.length; i++) {
       final employeeId = target.collaborativeEmployeeIds[i];
       final transaction = PointsTransaction(
-        id: '${DateTime.now().millisecondsSinceEpoch}_${employeeId}',
+        id: '${DateTime.now().millisecondsSinceEpoch}_$employeeId',
         userId: employeeId,
         type: PointsTransactionType.earned,
         points: target.pointsAwarded,

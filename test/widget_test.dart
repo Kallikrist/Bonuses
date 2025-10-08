@@ -1,11 +1,8 @@
-import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:provider/provider.dart';
 import 'package:bonuses/main.dart';
 import 'mocks/testable_app_provider.dart';
 import 'mocks/mock_storage_service.dart';
-import 'package:bonuses/models/user.dart';
-import '../lib/models/sales_target.dart';
+import 'package:bonuses/models/sales_target.dart';
 
 void main() {
   group('Admin Login Tests', () {

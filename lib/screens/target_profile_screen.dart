@@ -591,7 +591,7 @@ class _TargetProfileScreenState extends State<TargetProfileScreen> {
                       ScaffoldMessenger.of(context).showSnackBar(
                         SnackBar(
                           content: Text(isTargetMet && pointsAwarded > 0
-                              ? 'Target updated successfully! ${pointsAwarded} points awarded to team members.'
+                              ? 'Target updated successfully! $pointsAwarded points awarded to team members.'
                               : 'Target updated successfully'),
                           backgroundColor: Colors.green,
                         ),
@@ -759,7 +759,7 @@ class _TargetProfileScreenState extends State<TargetProfileScreen> {
                         60.0, // 60px per bar group for better spacing
                     child: BarChart(
                       BarChartData(
-                        gridData: FlGridData(show: true),
+                        gridData: const FlGridData(show: true),
                         barTouchData: BarTouchData(
                           enabled: true,
                           touchTooltipData: BarTouchTooltipData(
@@ -852,7 +852,7 @@ class _TargetProfileScreenState extends State<TargetProfileScreen> {
                 )
               : BarChart(
                   BarChartData(
-                    gridData: FlGridData(show: true),
+                    gridData: const FlGridData(show: true),
                     barTouchData: BarTouchData(
                       enabled: true,
                       touchTooltipData: BarTouchTooltipData(

@@ -1,7 +1,5 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:bonuses/models/user.dart';
-import 'package:bonuses/models/points_transaction.dart';
-import '../lib/models/sales_target.dart';
+import 'package:bonuses/models/sales_target.dart';
 import 'mocks/testable_app_provider.dart';
 import 'mocks/mock_storage_service.dart';
 
@@ -213,7 +211,7 @@ void main() {
         await appProvider.updateUserPoints(testUser.id, 10, 'Third addition');
 
         // Calculate expected total: 50 + 30 - 20 + 10 = 70
-        final expectedTotal = 50 + 30 - 20 + 10;
+        const expectedTotal = 50 + 30 - 20 + 10;
         final actualTotal = appProvider.getUserTotalPoints(testUser.id);
 
         expect(actualTotal, equals(expectedTotal));

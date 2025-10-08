@@ -22,7 +22,7 @@ class _ImportTargetsScreenState extends State<ImportTargetsScreen> {
   bool _isLoading = false;
   String? _fileName;
   List<String>? _workplaceNames;
-  Map<String, String> _workplaceMapping = {}; // Maps file workplace names to IDs
+  final Map<String, String> _workplaceMapping = {}; // Maps file workplace names to IDs
   User? _selectedEmployee;
 
   @override

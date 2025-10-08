@@ -1,3 +1,8 @@
+// Helper class to distinguish between null and undefined in copyWith
+class _Undefined {
+  const _Undefined();
+}
+
 enum TargetStatus {
   pending,
   met,
@@ -123,17 +128,17 @@ class SalesTarget {
     int? pointsAwarded,
     DateTime? createdAt,
     String? createdBy,
-    String? assignedEmployeeId,
-    String? assignedEmployeeName,
-    String? assignedWorkplaceId,
-    String? assignedWorkplaceName,
+    Object? assignedEmployeeId = const _Undefined(),
+    Object? assignedEmployeeName = const _Undefined(),
+    Object? assignedWorkplaceId = const _Undefined(),
+    Object? assignedWorkplaceName = const _Undefined(),
     List<String>? collaborativeEmployeeIds,
     List<String>? collaborativeEmployeeNames,
     bool? isSubmitted,
     bool? isApproved,
     String? approvedBy,
     DateTime? approvedAt,
-    String? companyId,
+    Object? companyId = const _Undefined(),
   }) {
     return SalesTarget(
       id: id ?? this.id,
@@ -147,11 +152,18 @@ class SalesTarget {
       pointsAwarded: pointsAwarded ?? this.pointsAwarded,
       createdAt: createdAt ?? this.createdAt,
       createdBy: createdBy ?? this.createdBy,
-      assignedEmployeeId: assignedEmployeeId ?? this.assignedEmployeeId,
-      assignedEmployeeName: assignedEmployeeName ?? this.assignedEmployeeName,
-      assignedWorkplaceId: assignedWorkplaceId ?? this.assignedWorkplaceId,
-      assignedWorkplaceName:
-          assignedWorkplaceName ?? this.assignedWorkplaceName,
+      assignedEmployeeId: assignedEmployeeId is _Undefined
+          ? this.assignedEmployeeId
+          : assignedEmployeeId as String?,
+      assignedEmployeeName: assignedEmployeeName is _Undefined
+          ? this.assignedEmployeeName
+          : assignedEmployeeName as String?,
+      assignedWorkplaceId: assignedWorkplaceId is _Undefined
+          ? this.assignedWorkplaceId
+          : assignedWorkplaceId as String?,
+      assignedWorkplaceName: assignedWorkplaceName is _Undefined
+          ? this.assignedWorkplaceName
+          : assignedWorkplaceName as String?,
       collaborativeEmployeeIds: collaborativeEmployeeIds != null
           ? List<String>.from(collaborativeEmployeeIds)
           : this.collaborativeEmployeeIds,
@@ -162,7 +174,8 @@ class SalesTarget {
       isApproved: isApproved ?? this.isApproved,
       approvedBy: approvedBy ?? this.approvedBy,
       approvedAt: approvedAt ?? this.approvedAt,
-      companyId: companyId ?? this.companyId,
+      companyId:
+          companyId is _Undefined ? this.companyId : companyId as String?,
     );
   }
 
@@ -175,7 +188,7 @@ class SalesTarget {
 
     // Use the new points calculation logic from AppProvider
     // This will be overridden by AppProvider when it calls _getPointsForEffectivePercent
-    final points = 0; // Will be calculated by AppProvider
+    const points = 0; // Will be calculated by AppProvider
 
     // Determine status based on target completion
     final newStatus = isTargetMet ? TargetStatus.met : TargetStatus.missed;

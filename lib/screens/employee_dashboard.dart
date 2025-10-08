@@ -10,7 +10,8 @@ import '../models/country.dart';
 import '../models/points_transaction.dart';
 import '../widgets/profile_header_widget.dart';
 import '../widgets/target_card_widget.dart';
-import 'admin_dashboard.dart'; // Import for EmployeeProfileScreen
+import 'admin_dashboard.dart'; // Import for EmployeeProfileScreen and EmployeesListScreen
+import 'messaging_screen.dart';
 
 class EmployeeDashboard extends StatefulWidget {
   const EmployeeDashboard({super.key});
@@ -114,50 +115,296 @@ class _EmployeeDashboardState extends State<EmployeeDashboard> {
     );
   }
 
-  Widget _buildReportsTab(
-      List<SalesTarget> targets, List<PointsTransaction> transactions) {
+  Widget _buildReportsTab(List<SalesTarget> targets,
+      List<PointsTransaction> transactions, AppProvider appProvider) {
+    final user = appProvider.currentUser!;
+    final userPoints = user.primaryCompanyId != null
+        ? appProvider.getUserCompanyPoints(user.id, user.primaryCompanyId!)
+        : 0;
+
+    // Calculate employee-specific metrics
+    final employeeTargets = targets
+        .where((t) =>
+            t.assignedEmployeeId == user.id ||
+            t.collaborativeEmployeeIds.contains(user.id))
+        .toList();
+    final completedTargets =
+        employeeTargets.where((t) => t.isApproved).toList();
+    final teamParticipationPoints = transactions
+        .where((t) => t.description.contains('Added as team member'))
+        .fold<int>(0, (sum, t) => sum + t.points);
+    final totalEarnedPoints = transactions
+        .where((t) => t.type.name == 'earned')
+        .fold<int>(0, (sum, t) => sum + t.points);
+    final totalSpentPoints = transactions
+        .where((t) => t.type.name == 'spent')
+        .fold<int>(0, (sum, t) => sum + t.points);
+    final totalRevenue = employeeTargets.fold<double>(
+        0, (sum, target) => sum + target.actualAmount);
+
     return SingleChildScrollView(
       padding: const EdgeInsets.all(16),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
+          const Text(
+            'Settings & Analytics',
+            style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
+          ),
+          const SizedBox(height: 16),
+
+          // Personal Settings Section
           Card(
             child: Padding(
               padding: const EdgeInsets.all(16),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  const Text(
-                    'Targets Summary',
-                    style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                  Row(
+                    children: [
+                      Icon(Icons.person, color: Colors.blue[600]),
+                      const SizedBox(width: 8),
+                      Text(
+                        'Personal Settings',
+                        style:
+                            Theme.of(context).textTheme.titleMedium?.copyWith(
+                                  fontWeight: FontWeight.bold,
+                                ),
+                      ),
+                    ],
                   ),
-                  const SizedBox(height: 8),
-                  Text('Total Targets: ${targets.length}'),
-                  Text(
-                      'Completed: ${targets.where((t) => t.isApproved).length}'),
-                  Text(
-                      'Pending: ${targets.where((t) => !t.isApproved).length}'),
+                  const SizedBox(height: 16),
+                  _buildSettingsItem(
+                    Icons.person_outline,
+                    'Edit Profile',
+                    'Update your personal information',
+                    () => Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (context) => EmployeeProfileScreen(
+                          employee: user,
+                          appProvider: appProvider,
+                          showBackButton: true,
+                        ),
+                      ),
+                    ),
+                  ),
+                  _buildSettingsItem(
+                    Icons.people_outline,
+                    'View Employees',
+                    'See all employees in my company',
+                    () => Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (context) => EmployeesListScreen(
+                          appProvider: appProvider,
+                          filterCompanyId: user.primaryCompanyId,
+                          readOnly:
+                              true, // Employees can only view, not add/import/delete
+                          customTitle: 'Company Employees',
+                        ),
+                      ),
+                    ),
+                  ),
+                  _buildSettingsItem(
+                    Icons.logout,
+                    'Logout',
+                    'Sign out of your account',
+                    () => _showLogoutDialog(context, appProvider),
+                  ),
                 ],
               ),
             ),
           ),
+          const SizedBox(height: 24),
+
+          // Analytics Section
+          Text(
+            'Analytics',
+            style: Theme.of(context).textTheme.headlineSmall?.copyWith(
+                  fontWeight: FontWeight.bold,
+                ),
+          ),
           const SizedBox(height: 16),
+
+          // Summary Cards
+          Row(
+            children: [
+              Expanded(
+                child: _buildAnalyticsCard(
+                  'My Targets',
+                  employeeTargets.length.toString(),
+                  Icons.track_changes,
+                  Colors.blue,
+                  subtitle: '${completedTargets.length} completed',
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: _buildAnalyticsCard(
+                  'My Points',
+                  userPoints.toString(),
+                  Icons.stars,
+                  Colors.orange,
+                  subtitle: 'Current balance',
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+
+          Row(
+            children: [
+              Expanded(
+                child: _buildAnalyticsCard(
+                  'Total Revenue',
+                  '\$${totalRevenue.toStringAsFixed(0)}',
+                  Icons.attach_money,
+                  Colors.green,
+                  subtitle: 'From my targets',
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: _buildAnalyticsCard(
+                  'Transactions',
+                  transactions.length.toString(),
+                  Icons.swap_horiz,
+                  Colors.purple,
+                  subtitle: 'Points activity',
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 24),
+
+          // Team Participation Card
           Card(
             child: Padding(
               padding: const EdgeInsets.all(16),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  const Text(
-                    'Points Summary',
-                    style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                  Row(
+                    children: [
+                      Icon(Icons.group_add, color: Colors.green[600]),
+                      const SizedBox(width: 8),
+                      Text(
+                        'Team Participation',
+                        style:
+                            Theme.of(context).textTheme.titleMedium?.copyWith(
+                                  fontWeight: FontWeight.bold,
+                                ),
+                      ),
+                    ],
                   ),
-                  const SizedBox(height: 8),
-                  Text('Total Transactions: ${transactions.length}'),
-                  Text(
-                      'Earned: ${transactions.where((t) => t.type.name == 'earned').length}'),
-                  Text(
-                      'Spent: ${transactions.where((t) => t.type.name == 'spent').length}'),
+                  const SizedBox(height: 16),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: _buildAnalyticsCard(
+                          'Team Points',
+                          teamParticipationPoints.toString(),
+                          Icons.stars,
+                          Colors.green,
+                          subtitle: 'From team participation',
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: _buildAnalyticsCard(
+                          'Team Count',
+                          transactions
+                              .where((t) => t.description
+                                  .contains('Added as team member'))
+                              .length
+                              .toString(),
+                          Icons.group,
+                          Colors.blue,
+                          subtitle: 'Times added to teams',
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+          ),
+          const SizedBox(height: 24),
+
+          // Points Breakdown Card
+          Card(
+            child: Padding(
+              padding: const EdgeInsets.all(16),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      Icon(Icons.analytics, color: Colors.purple[600]),
+                      const SizedBox(width: 8),
+                      Text(
+                        'Points Breakdown',
+                        style:
+                            Theme.of(context).textTheme.titleMedium?.copyWith(
+                                  fontWeight: FontWeight.bold,
+                                ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 16),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: _buildAnalyticsCard(
+                          'Earned',
+                          totalEarnedPoints.toString(),
+                          Icons.trending_up,
+                          Colors.green,
+                          subtitle: 'Total points earned',
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: _buildAnalyticsCard(
+                          'Spent',
+                          totalSpentPoints.toString(),
+                          Icons.trending_down,
+                          Colors.red,
+                          subtitle: 'Total points spent',
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+          ),
+          const SizedBox(height: 24),
+
+          // Weekly Performance Chart
+          Card(
+            child: Padding(
+              padding: const EdgeInsets.all(16),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      Icon(Icons.bar_chart, color: Colors.blue[600]),
+                      const SizedBox(width: 8),
+                      Text(
+                        'My Weekly Performance',
+                        style:
+                            Theme.of(context).textTheme.titleMedium?.copyWith(
+                                  fontWeight: FontWeight.bold,
+                                ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 16),
+                  _buildWeeklyPerformanceChart(
+                      _getThisWeekTargets(employeeTargets)),
                 ],
               ),
             ),
@@ -165,6 +412,188 @@ class _EmployeeDashboardState extends State<EmployeeDashboard> {
         ],
       ),
     );
+  }
+
+  Widget _buildSettingsItem(
+      IconData icon, String title, String subtitle, VoidCallback onTap) {
+    return Container(
+      margin: const EdgeInsets.only(bottom: 8),
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(8),
+        child: Padding(
+          padding: const EdgeInsets.all(12),
+          child: Row(
+            children: [
+              Icon(icon, color: Colors.blue[600], size: 20),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      title,
+                      style: const TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
+                    Text(
+                      subtitle,
+                      style: TextStyle(
+                        fontSize: 12,
+                        color: Colors.grey[600],
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              Icon(Icons.arrow_forward_ios, size: 16, color: Colors.grey[400]),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildAnalyticsCard(
+      String title, String value, IconData icon, Color color,
+      {String? subtitle}) {
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: color.withOpacity(0.1),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: color.withOpacity(0.3)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Icon(icon, color: color, size: 20),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Text(
+                  title,
+                  style: TextStyle(
+                    fontSize: 14,
+                    fontWeight: FontWeight.w500,
+                    color: color,
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 8),
+          Text(
+            value,
+            style: TextStyle(
+              fontSize: 24,
+              fontWeight: FontWeight.bold,
+              color: color,
+            ),
+          ),
+          if (subtitle != null) ...[
+            const SizedBox(height: 4),
+            Text(
+              subtitle,
+              style: TextStyle(
+                fontSize: 12,
+                color: color.withOpacity(0.7),
+              ),
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+
+  Widget _buildWeeklyPerformanceChart(List<SalesTarget> thisWeekTargets) {
+    if (thisWeekTargets.isEmpty) {
+      return Container(
+        height: 200,
+        child: Center(
+          child: Text(
+            'No targets this week',
+            style: TextStyle(color: Colors.grey[600]),
+          ),
+        ),
+      );
+    }
+
+    // Group targets by day
+    final Map<int, List<SalesTarget>> targetsByDay = {};
+    for (final target in thisWeekTargets) {
+      final day = target.date.day;
+      targetsByDay.putIfAbsent(day, () => []).add(target);
+    }
+
+    // Get the days of the week
+    final now = DateTime.now();
+    final startOfWeek = now.subtract(Duration(days: now.weekday - 1));
+    final days =
+        List.generate(7, (index) => startOfWeek.add(Duration(days: index)));
+
+    return Container(
+      height: 200,
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+        crossAxisAlignment: CrossAxisAlignment.end,
+        children: days.map((day) {
+          final dayTargets = targetsByDay[day.day] ?? [];
+          final maxHeight = 150.0;
+          final height = dayTargets.isEmpty
+              ? 20.0
+              : (dayTargets.length / 5.0 * maxHeight).clamp(20.0, maxHeight);
+
+          return Column(
+            mainAxisAlignment: MainAxisAlignment.end,
+            children: [
+              Container(
+                width: 30,
+                height: height,
+                decoration: BoxDecoration(
+                  color: Colors.blue.withOpacity(0.7),
+                  borderRadius: BorderRadius.circular(4),
+                ),
+                child: Center(
+                  child: Text(
+                    dayTargets.length.toString(),
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontSize: 12,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                ),
+              ),
+              const SizedBox(height: 8),
+              Text(
+                DateFormat('E').format(day),
+                style: TextStyle(
+                  fontSize: 12,
+                  color: Colors.grey[600],
+                ),
+              ),
+            ],
+          );
+        }).toList(),
+      ),
+    );
+  }
+
+  List<SalesTarget> _getThisWeekTargets(List<SalesTarget> targets) {
+    final now = DateTime.now();
+    final startOfWeek = now.subtract(Duration(days: now.weekday - 1));
+    final endOfWeek = startOfWeek.add(const Duration(days: 6));
+
+    return targets.where((target) {
+      final targetDate = target.date;
+      return targetDate
+              .isAfter(startOfWeek.subtract(const Duration(days: 1))) &&
+          targetDate.isBefore(endOfWeek.add(const Duration(days: 1)));
+    }).toList();
   }
 
   @override
@@ -176,14 +605,29 @@ class _EmployeeDashboardState extends State<EmployeeDashboard> {
         final userPoints = user.primaryCompanyId != null
             ? appProvider.getUserCompanyPoints(user.id, user.primaryCompanyId!)
             : 0;
-        final todaysTargets = appProvider.getTodaysTargetsForEmployee(user.id);
-        final selectedDateTargets = appProvider.salesTargets.where((target) {
-          return target.date.year == _selectedDate.year &&
-              target.date.month == _selectedDate.month &&
-              target.date.day == _selectedDate.day &&
-              (target.assignedEmployeeId == user.id ||
-                  target.collaborativeEmployeeIds.contains(user.id));
-        }).toList();
+        // Check if selected date is today
+        final isToday = _selectedDate.year == DateTime.now().year &&
+            _selectedDate.month == DateTime.now().month &&
+            _selectedDate.day == DateTime.now().day;
+
+        // Use getTodaysTargetsForEmployee for today (includes all company targets)
+        // For other dates, filter manually by date and company
+        final selectedDateTargets = isToday
+            ? appProvider.getTodaysTargetsForEmployee(user.id)
+            : appProvider.salesTargets.where((target) {
+                final isSelectedDate = target.date.year == _selectedDate.year &&
+                    target.date.month == _selectedDate.month &&
+                    target.date.day == _selectedDate.day;
+
+                if (!isSelectedDate) return false;
+
+                // Only show targets from the same company
+                final currentCompanyId = user.primaryCompanyId;
+                if (target.companyId != currentCompanyId) return false;
+
+                // Show all company targets (so employees can join them)
+                return true;
+              }).toList();
         final allTargets = appProvider.salesTargets;
         final allTransactions = appProvider.pointsTransactions;
         // Available bonuses are company-specific, redeemed bonuses are global
@@ -193,7 +637,7 @@ class _EmployeeDashboardState extends State<EmployeeDashboard> {
 
         return Scaffold(
           appBar: AppBar(
-            title: Text('Employee Dashboard'),
+            title: const Text('Employee Dashboard'),
             backgroundColor: Colors.transparent,
             elevation: 0,
             actions: [
@@ -224,6 +668,11 @@ class _EmployeeDashboardState extends State<EmployeeDashboard> {
                     salesTargets: allTargets,
                     userCompanies: userCompanies,
                     currentCompanyId: user.primaryCompanyId,
+                    onDateSelected: (selectedDate) {
+                      setState(() {
+                        _selectedDate = selectedDate;
+                      });
+                    },
                     onCompanyChanged: (newCompanyId) async {
                       final updatedUser = user.copyWith(
                         primaryCompanyId: newCompanyId,
@@ -251,15 +700,30 @@ class _EmployeeDashboardState extends State<EmployeeDashboard> {
                     _buildTargetsTab(appProvider, allTargets),
                     _buildBonusesTab(availableBonuses, redeemedBonuses, user.id,
                         userPoints, appProvider),
-                    _buildReportsTab(allTargets, allTransactions),
+                    _buildReportsTab(allTargets, allTransactions, appProvider),
                   ],
                 ),
               ),
             ],
           ),
           bottomNavigationBar: BottomNavigationBar(
-            currentIndex: _selectedIndex,
-            onTap: (index) => setState(() => _selectedIndex = index),
+            currentIndex: _selectedIndex == 0
+                ? 0
+                : _selectedIndex == 1
+                    ? 0 // Targets (index 1) - show Overview as selected
+                    : _selectedIndex == 2
+                        ? 1 // Bonuses (index 2) -> bottom nav index 1
+                        : 2, // Reports (index 3) -> bottom nav index 2
+            onTap: (index) {
+              setState(() {
+                // Map bottom nav index to actual tab index
+                _selectedIndex = index == 0
+                    ? 0 // Overview
+                    : index == 1
+                        ? 2 // Bonuses (skip Targets at index 1)
+                        : 3; // Reports
+              });
+            },
             backgroundColor: Colors.white,
             selectedItemColor: Colors.grey[800],
             unselectedItemColor: Colors.grey[800],
@@ -276,16 +740,12 @@ class _EmployeeDashboardState extends State<EmployeeDashboard> {
                 label: 'Overview',
               ),
               BottomNavigationBarItem(
-                icon: Icon(Icons.track_changes),
-                label: 'Targets',
-              ),
-              BottomNavigationBarItem(
                 icon: Icon(Icons.card_giftcard),
                 label: 'Bonuses',
               ),
               BottomNavigationBarItem(
                 icon: Icon(Icons.analytics),
-                label: 'Reports',
+                label: 'Settings',
               ),
             ],
           ),
@@ -406,29 +866,6 @@ class _EmployeeDashboardState extends State<EmployeeDashboard> {
             ),
           ),
           const SizedBox(height: 16),
-          Card(
-            child: Padding(
-              padding: const EdgeInsets.all(16),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    'Your Points',
-                    style: Theme.of(context).textTheme.titleMedium,
-                  ),
-                  const SizedBox(height: 8),
-                  Text(
-                    '$userPoints',
-                    style: Theme.of(context).textTheme.headlineLarge?.copyWith(
-                          color: Theme.of(context).colorScheme.primary,
-                          fontWeight: FontWeight.bold,
-                        ),
-                  ),
-                ],
-              ),
-            ),
-          ),
-          const SizedBox(height: 16),
           Text(
             isToday
                 ? 'Today\'s Sales Targets'
@@ -459,6 +896,8 @@ class _EmployeeDashboardState extends State<EmployeeDashboard> {
                   onAddCollaborators: () =>
                       _showAddCollaboratorsDialog(context, target, userId),
                   onSubmitSales: () => _showSubmitSalesDialog(context, target),
+                  onJoinAsTeamMember: () => _joinTargetAsTeamMember(
+                      context, target, userId, appProvider),
                 )),
         ],
       ),
@@ -1191,7 +1630,7 @@ class _EmployeeDashboardState extends State<EmployeeDashboard> {
                 const SizedBox(height: 8),
                 Row(
                   children: [
-                    Icon(Icons.stars, size: 16, color: Colors.orange),
+                    const Icon(Icons.stars, size: 16, color: Colors.orange),
                     const SizedBox(width: 4),
                     Text(
                       '${bonus.pointsRequired} points',
@@ -1212,9 +1651,9 @@ class _EmployeeDashboardState extends State<EmployeeDashboard> {
                     ],
                     if (isRedeemed) ...[
                       const SizedBox(width: 12),
-                      Icon(Icons.check, size: 16, color: Colors.green),
+                      const Icon(Icons.check, size: 16, color: Colors.green),
                       const SizedBox(width: 4),
-                      Text(
+                      const Text(
                         'Claimed',
                         style: TextStyle(
                           color: Colors.green,
@@ -1359,7 +1798,7 @@ class _EmployeeDashboardState extends State<EmployeeDashboard> {
           child: ListTile(
             leading: CircleAvatar(
               backgroundColor: canRedeem ? Colors.blue : Colors.grey,
-              child: Icon(
+              child: const Icon(
                 Icons.card_giftcard,
                 color: Colors.white,
               ),
@@ -1608,6 +2047,129 @@ class _EmployeeDashboardState extends State<EmployeeDashboard> {
     );
   }
 
+  void _joinTargetAsTeamMember(BuildContext context, SalesTarget target,
+      String userId, AppProvider appProvider) async {
+    // Get current user
+    final users = await appProvider.getUsers();
+    final currentUser = users.firstWhere((u) => u.id == userId);
+
+    // Confirm joining
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Join Target as Team Member'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              'Do you want to join this sales target as a team member?',
+              style: Theme.of(context).textTheme.bodyMedium,
+            ),
+            const SizedBox(height: 16),
+            Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: Colors.blue.shade50,
+                borderRadius: BorderRadius.circular(8),
+                border: Border.all(color: Colors.blue.shade200),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'Target: \$${target.targetAmount.toStringAsFixed(0)}',
+                    style: const TextStyle(
+                      fontWeight: FontWeight.bold,
+                      fontSize: 16,
+                    ),
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    'Assigned to: ${target.assignedEmployeeName ?? 'Unassigned'}',
+                    style: TextStyle(color: Colors.grey[700]),
+                  ),
+                  if (target.assignedWorkplaceName != null)
+                    Text(
+                      'Workplace: ${target.assignedWorkplaceName}',
+                      style: TextStyle(color: Colors.grey[700]),
+                    ),
+                  if (target.collaborativeEmployeeNames.isNotEmpty) ...[
+                    const SizedBox(height: 4),
+                    Text(
+                      'Current team: ${target.collaborativeEmployeeNames.join(', ')}',
+                      style: TextStyle(
+                        color: Colors.blue[700],
+                        fontSize: 12,
+                      ),
+                    ),
+                  ],
+                ],
+              ),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('Cancel'),
+          ),
+          ElevatedButton.icon(
+            onPressed: () => Navigator.pop(context, true),
+            icon: const Icon(Icons.person_add, size: 18),
+            label: const Text('Join Team'),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Colors.blue.shade600,
+              foregroundColor: Colors.white,
+            ),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed == true) {
+      // Add current user as a collaborator (prevent duplicates)
+      final updatedCollaboratorIds = [
+        ...target.collaborativeEmployeeIds,
+        if (!target.collaborativeEmployeeIds.contains(userId)) userId,
+      ];
+      final updatedCollaboratorNames = [
+        ...target.collaborativeEmployeeNames,
+        if (!target.collaborativeEmployeeIds.contains(userId)) currentUser.name,
+      ];
+
+      // Remove duplicates
+      final uniqueIds = updatedCollaboratorIds.toSet().toList();
+      final uniqueNames = updatedCollaboratorNames.toSet().toList();
+
+      final updatedTarget = target.copyWith(
+        collaborativeEmployeeIds: uniqueIds,
+        collaborativeEmployeeNames: uniqueNames,
+      );
+
+      await appProvider.updateSalesTarget(updatedTarget);
+
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('You joined the target as a team member!'),
+            backgroundColor: Colors.green,
+            action: SnackBarAction(
+              label: 'View',
+              textColor: Colors.white,
+              onPressed: () {
+                // Could navigate to target details
+              },
+            ),
+          ),
+        );
+      }
+
+      // Refresh the view
+      setState(() {});
+    }
+  }
+
   void _showLogoutDialog(BuildContext context, AppProvider appProvider) {
     showDialog(
       context: context,
@@ -1775,7 +2337,7 @@ class _EmployeeDashboardState extends State<EmployeeDashboard> {
 
     // Set phone controller with only the local number part
     final phoneController = TextEditingController(
-      text: selectedCountry != null && user.phoneNumber != null
+      text: user.phoneNumber != null
           ? selectedCountry.formatLocalPhoneNumber(user.phoneNumber!)
           : '',
     );
@@ -1831,7 +2393,7 @@ class _EmployeeDashboardState extends State<EmployeeDashboard> {
                           initialValue: TextEditingValue(
                               text: selectedCountry?.phonePrefix ?? ''),
                           displayStringForOption: (Country country) =>
-                              '${country.phonePrefix}',
+                              country.phonePrefix,
                           optionsBuilder: (TextEditingValue textEditingValue) {
                             if (textEditingValue.text.isEmpty) {
                               return Country.countries;
@@ -2126,10 +2688,15 @@ class _EmployeeDashboardState extends State<EmployeeDashboard> {
         onTap: () => setState(() => _selectedIndex = 2),
       ),
       ActionButton(
-        icon: Icons.analytics,
-        label: 'Reports',
+        icon: Icons.message,
+        label: 'Messages',
         color: Colors.green,
-        onTap: () => setState(() => _selectedIndex = 3),
+        onTap: () => Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (context) => const MessagingScreen(),
+          ),
+        ),
       ),
       ActionButton(
         icon: Icons.person,
@@ -2290,29 +2857,6 @@ class _AddCollaboratorsDialogState extends State<_AddCollaboratorsDialog> {
           },
         ),
       ],
-    );
-  }
-
-  void _showLogoutDialog(BuildContext context, AppProvider appProvider) {
-    showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Logout'),
-        content: const Text('Are you sure you want to logout?'),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text('Cancel'),
-          ),
-          ElevatedButton(
-            onPressed: () {
-              Navigator.pop(context);
-              appProvider.logout();
-            },
-            child: const Text('Logout'),
-          ),
-        ],
-      ),
     );
   }
 }

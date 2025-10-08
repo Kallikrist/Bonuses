@@ -143,14 +143,14 @@ class _ImportBonusesScreenState extends State<ImportBonusesScreen>
                     const SizedBox(height: 4),
                     Row(
                       children: [
-                        Icon(Icons.stars, size: 16, color: Colors.orange),
+                        const Icon(Icons.stars, size: 16, color: Colors.orange),
                         const SizedBox(width: 4),
                         Text(
                           '${bonus.pointsRequired} points',
                           style: const TextStyle(fontWeight: FontWeight.w500),
                         ),
                         const SizedBox(width: 16),
-                        Icon(Icons.people, size: 16, color: Colors.blue),
+                        const Icon(Icons.people, size: 16, color: Colors.blue),
                         const SizedBox(width: 4),
                         Text('$redemptionCount redeemed'),
                       ],
@@ -284,7 +284,7 @@ class _ImportBonusesScreenState extends State<ImportBonusesScreen>
                         const SizedBox(height: 4),
                         Row(
                           children: [
-                            Icon(Icons.calendar_today,
+                            const Icon(Icons.calendar_today,
                                 size: 16, color: Colors.grey),
                             const SizedBox(width: 4),
                             Text(

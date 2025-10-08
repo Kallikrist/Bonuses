@@ -14,9 +14,10 @@ class TargetCard extends StatelessWidget {
   final VoidCallback? onQuickApprove;
   final VoidCallback? onAddCollaborators;
   final VoidCallback? onSubmitSales;
+  final VoidCallback? onJoinAsTeamMember;
 
   const TargetCard({
-    Key? key,
+    super.key,
     required this.target,
     required this.appProvider,
     this.currentUserId,
@@ -26,7 +27,8 @@ class TargetCard extends StatelessWidget {
     this.onQuickApprove,
     this.onAddCollaborators,
     this.onSubmitSales,
-  }) : super(key: key);
+    this.onJoinAsTeamMember,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -465,7 +467,34 @@ class TargetCard extends StatelessWidget {
               const SizedBox(height: 12),
               Row(
                 children: [
-                  if (!target.isSubmitted && onAddCollaborators != null) ...[
+                  // Show "Join Target" if user is not part of this target
+                  if (!isAdminView &&
+                      currentUserId != null &&
+                      target.assignedEmployeeId != currentUserId &&
+                      !target.collaborativeEmployeeIds
+                          .contains(currentUserId) &&
+                      onJoinAsTeamMember != null &&
+                      !target.isSubmitted) ...[
+                    Expanded(
+                      child: ElevatedButton.icon(
+                        onPressed: onJoinAsTeamMember,
+                        icon: const Icon(Icons.person_add, size: 16),
+                        label: const Text('Join as Team Member'),
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: Colors.blue.shade600,
+                          foregroundColor: Colors.white,
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                  ],
+                  // Show "Add Team" if user is the assigned employee OR a collaborator
+                  if (!target.isSubmitted &&
+                      onAddCollaborators != null &&
+                      currentUserId != null &&
+                      (target.assignedEmployeeId == currentUserId ||
+                          target.collaborativeEmployeeIds
+                              .contains(currentUserId))) ...[
                     Expanded(
                       child: ElevatedButton.icon(
                         onPressed: onAddCollaborators,
@@ -475,148 +504,159 @@ class TargetCard extends StatelessWidget {
                     ),
                     const SizedBox(width: 8),
                   ],
-                  Expanded(
-                    child: !target.isSubmitted
-                        ? ElevatedButton.icon(
-                            onPressed: onSubmitSales,
-                            icon: const Icon(Icons.upload, size: 16),
-                            label: const Text('Submit Sales'),
-                          )
-                        : target.isApproved ||
-                                target.status == TargetStatus.approved
-                            ? Container(
-                                padding: const EdgeInsets.symmetric(
-                                    horizontal: 12, vertical: 8),
-                                decoration: BoxDecoration(
-                                  color: Colors.green[100],
-                                  borderRadius: BorderRadius.circular(8),
-                                  border: Border.all(color: Colors.green),
-                                ),
-                                child: Row(
-                                  mainAxisAlignment: MainAxisAlignment.center,
-                                  children: [
-                                    Icon(Icons.check_circle,
-                                        color: Colors.green[700], size: 16),
-                                    const SizedBox(width: 8),
-                                    Text(
-                                      target.pointsAwarded > 0
-                                          ? 'Approved & +${target.pointsAwarded} Points Earned'
-                                          : 'Approved - No Points Awarded',
-                                      style: TextStyle(
-                                        color: Colors.green[700],
-                                        fontWeight: FontWeight.bold,
+                  // Show "Submit Sales" only if user is part of the team
+                  if (currentUserId != null &&
+                      (target.assignedEmployeeId == currentUserId ||
+                          target.collaborativeEmployeeIds
+                              .contains(currentUserId)))
+                    Expanded(
+                      child: !target.isSubmitted
+                          ? ElevatedButton.icon(
+                              onPressed: onSubmitSales,
+                              icon: const Icon(Icons.upload, size: 16),
+                              label: const Text('Submit Sales'),
+                            )
+                          : target.isApproved ||
+                                  target.status == TargetStatus.approved
+                              ? Container(
+                                  padding: const EdgeInsets.symmetric(
+                                      horizontal: 12, vertical: 8),
+                                  decoration: BoxDecoration(
+                                    color: Colors.green[100],
+                                    borderRadius: BorderRadius.circular(8),
+                                    border: Border.all(color: Colors.green),
+                                  ),
+                                  child: Row(
+                                    mainAxisAlignment: MainAxisAlignment.center,
+                                    children: [
+                                      Icon(Icons.check_circle,
+                                          color: Colors.green[700], size: 16),
+                                      const SizedBox(width: 8),
+                                      Text(
+                                        target.pointsAwarded > 0
+                                            ? 'Approved & +${target.pointsAwarded} Points Earned'
+                                            : 'Approved - No Points Awarded',
+                                        style: TextStyle(
+                                          color: Colors.green[700],
+                                          fontWeight: FontWeight.bold,
+                                        ),
                                       ),
-                                    ),
-                                  ],
-                                ),
-                              )
-                            : target.status == TargetStatus.submitted
-                                ? GestureDetector(
-                                    onTap: isAdminView
-                                        ? () => _quickApproveTarget(target)
-                                        : null,
-                                    child: Container(
-                                      padding: const EdgeInsets.symmetric(
-                                          horizontal: 12, vertical: 8),
-                                      decoration: BoxDecoration(
-                                        color: Colors.blue[100],
-                                        borderRadius: BorderRadius.circular(8),
-                                        border: Border.all(color: Colors.blue),
-                                      ),
-                                      child: Row(
-                                        mainAxisAlignment:
-                                            MainAxisAlignment.center,
-                                        children: [
-                                          Icon(Icons.upload,
-                                              color: Colors.blue[700],
-                                              size: 16),
-                                          const SizedBox(width: 8),
-                                          Text(
-                                            isAdminView
-                                                ? 'Tap to Approve'
-                                                : 'Submitted for Approval',
-                                            style: TextStyle(
-                                              color: Colors.blue[700],
-                                              fontWeight: FontWeight.bold,
-                                            ),
-                                          ),
-                                        ],
-                                      ),
-                                    ),
-                                  )
-                                : target.status == TargetStatus.missed
-                                    ? Column(
-                                        crossAxisAlignment:
-                                            CrossAxisAlignment.stretch,
-                                        children: [
-                                          Container(
-                                            padding: const EdgeInsets.symmetric(
-                                                horizontal: 12, vertical: 8),
-                                            decoration: BoxDecoration(
-                                              color: Colors.red[50],
-                                              borderRadius:
-                                                  BorderRadius.circular(8),
-                                              border:
-                                                  Border.all(color: Colors.red),
-                                            ),
-                                            child: Row(
-                                              mainAxisAlignment:
-                                                  MainAxisAlignment.center,
-                                              children: [
-                                                Icon(Icons.error_outline,
-                                                    color: Colors.red[700],
-                                                    size: 16),
-                                                const SizedBox(width: 8),
-                                                Text(
-                                                  'Missed - No Points Awarded',
-                                                  style: TextStyle(
-                                                    color: Colors.red[700],
-                                                    fontWeight: FontWeight.bold,
-                                                  ),
-                                                ),
-                                              ],
-                                            ),
-                                          ),
-                                          const SizedBox(height: 8),
-                                          ElevatedButton.icon(
-                                            onPressed: onSubmitSales,
-                                            icon: const Icon(Icons.edit,
-                                                size: 16),
-                                            label: const Text('Resubmit Sales'),
-                                          ),
-                                        ],
-                                      )
-                                    : Container(
+                                    ],
+                                  ),
+                                )
+                              : target.status == TargetStatus.submitted
+                                  ? GestureDetector(
+                                      onTap: isAdminView
+                                          ? () => _quickApproveTarget(target)
+                                          : null,
+                                      child: Container(
                                         padding: const EdgeInsets.symmetric(
                                             horizontal: 12, vertical: 8),
                                         decoration: BoxDecoration(
-                                          color: Colors.orange[100],
+                                          color: Colors.blue[100],
                                           borderRadius:
                                               BorderRadius.circular(8),
                                           border:
-                                              Border.all(color: Colors.orange),
+                                              Border.all(color: Colors.blue),
                                         ),
                                         child: Row(
                                           mainAxisAlignment:
                                               MainAxisAlignment.center,
                                           children: [
-                                            Icon(Icons.pending_actions,
-                                                color: Colors.orange[700],
+                                            Icon(Icons.upload,
+                                                color: Colors.blue[700],
                                                 size: 16),
                                             const SizedBox(width: 8),
                                             Text(
-                                              target.isSubmitted
-                                                  ? 'Pending Admin Approval'
-                                                  : 'Awaiting Submission',
+                                              isAdminView
+                                                  ? 'Tap to Approve'
+                                                  : 'Submitted for Approval',
                                               style: TextStyle(
-                                                color: Colors.orange[700],
+                                                color: Colors.blue[700],
                                                 fontWeight: FontWeight.bold,
                                               ),
                                             ),
                                           ],
                                         ),
                                       ),
-                  ),
+                                    )
+                                  : target.status == TargetStatus.missed
+                                      ? Column(
+                                          crossAxisAlignment:
+                                              CrossAxisAlignment.stretch,
+                                          children: [
+                                            Container(
+                                              padding:
+                                                  const EdgeInsets.symmetric(
+                                                      horizontal: 12,
+                                                      vertical: 8),
+                                              decoration: BoxDecoration(
+                                                color: Colors.red[50],
+                                                borderRadius:
+                                                    BorderRadius.circular(8),
+                                                border: Border.all(
+                                                    color: Colors.red),
+                                              ),
+                                              child: Row(
+                                                mainAxisAlignment:
+                                                    MainAxisAlignment.center,
+                                                children: [
+                                                  Icon(Icons.error_outline,
+                                                      color: Colors.red[700],
+                                                      size: 16),
+                                                  const SizedBox(width: 8),
+                                                  Text(
+                                                    'Missed - No Points Awarded',
+                                                    style: TextStyle(
+                                                      color: Colors.red[700],
+                                                      fontWeight:
+                                                          FontWeight.bold,
+                                                    ),
+                                                  ),
+                                                ],
+                                              ),
+                                            ),
+                                            const SizedBox(height: 8),
+                                            ElevatedButton.icon(
+                                              onPressed: onSubmitSales,
+                                              icon: const Icon(Icons.edit,
+                                                  size: 16),
+                                              label:
+                                                  const Text('Resubmit Sales'),
+                                            ),
+                                          ],
+                                        )
+                                      : Container(
+                                          padding: const EdgeInsets.symmetric(
+                                              horizontal: 12, vertical: 8),
+                                          decoration: BoxDecoration(
+                                            color: Colors.orange[100],
+                                            borderRadius:
+                                                BorderRadius.circular(8),
+                                            border: Border.all(
+                                                color: Colors.orange),
+                                          ),
+                                          child: Row(
+                                            mainAxisAlignment:
+                                                MainAxisAlignment.center,
+                                            children: [
+                                              Icon(Icons.pending_actions,
+                                                  color: Colors.orange[700],
+                                                  size: 16),
+                                              const SizedBox(width: 8),
+                                              Text(
+                                                target.isSubmitted
+                                                    ? 'Pending Admin Approval'
+                                                    : 'Awaiting Submission',
+                                                style: TextStyle(
+                                                  color: Colors.orange[700],
+                                                  fontWeight: FontWeight.bold,
+                                                ),
+                                              ),
+                                            ],
+                                          ),
+                                        ),
+                    ),
                 ],
               ),
             ],
@@ -743,7 +783,7 @@ class TargetCard extends StatelessWidget {
     return LinearProgressIndicator(
       value: progress.clamp(0.0, 1.0),
       backgroundColor: Colors.grey[300],
-      valueColor: AlwaysStoppedAnimation<Color>(
+      valueColor: const AlwaysStoppedAnimation<Color>(
         Colors.orange,
       ),
       minHeight: 8,

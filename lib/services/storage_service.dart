@@ -8,6 +8,7 @@ import '../models/workplace.dart';
 import '../models/company.dart';
 import '../models/approval_request.dart';
 import '../models/points_rules.dart';
+import '../models/message.dart';
 
 class StorageService {
   static const String _usersKey = 'users';
@@ -19,6 +20,7 @@ class StorageService {
   static const String _companiesKey = 'companies';
   static const String _approvalRequestsKey = 'approval_requests';
   static const String _pointsRulesKey = 'points_rules';
+  static const String _messagesKey = 'messages';
   static const String _onboardingCompleteKey = 'onboarding_complete';
   static const String _passwordsKey = 'user_passwords'; // Map<userId, password>
 
@@ -175,6 +177,7 @@ class StorageService {
     await prefs.remove(_workplacesKey);
     await prefs.remove(_companiesKey);
     await prefs.remove(_currentUserKey);
+    await prefs.remove(_messagesKey);
   }
 
   // Points transactions management
@@ -311,6 +314,68 @@ class StorageService {
     await saveCompanies(companies);
   }
 
+  // Run data migrations - called every time app initializes
+  static Future<void> runMigrations() async {
+    const demoCompanyId = 'demo_company_utilif';
+
+    // Migration: Update existing workplaces without companyId
+    final workplaces = await getWorkplaces();
+    bool workplacesNeedUpdate = false;
+    final updatedWorkplaces = workplaces.map((wp) {
+      if (wp.companyId == null || wp.companyId!.isEmpty) {
+        workplacesNeedUpdate = true;
+        return Workplace(
+          id: wp.id,
+          name: wp.name,
+          address: wp.address,
+          createdAt: wp.createdAt,
+          companyId: demoCompanyId,
+        );
+      }
+      return wp;
+    }).toList();
+
+    if (workplacesNeedUpdate) {
+      await saveWorkplaces(updatedWorkplaces);
+      print(
+          'DEBUG: Migration - Updated ${updatedWorkplaces.length} workplaces with companyId');
+    }
+
+    // Migration: Update existing targets without companyId
+    final existingTargets = await getSalesTargets();
+    bool targetsNeedUpdate = false;
+    final updatedTargets = existingTargets.map((target) {
+      if (target.companyId == null || target.companyId!.isEmpty) {
+        targetsNeedUpdate = true;
+        print(
+            'DEBUG: Migration - Updating target ${target.id} with companyId: $demoCompanyId');
+        return target.copyWith(companyId: demoCompanyId);
+      }
+      return target;
+    }).toList();
+
+    if (targetsNeedUpdate) {
+      await saveSalesTargets(updatedTargets);
+      print(
+          'DEBUG: Migration - Updated ${updatedTargets.where((t) => t.companyId == demoCompanyId).length} targets with companyId');
+
+      // Verify the migration worked
+      final verifyTargets = await getSalesTargets();
+      final nullCompanyTargets = verifyTargets
+          .where((t) => t.companyId == null || t.companyId!.isEmpty)
+          .toList();
+      if (nullCompanyTargets.isNotEmpty) {
+        print(
+            'WARNING: Migration failed! Still have ${nullCompanyTargets.length} targets without companyId');
+        for (var t in nullCompanyTargets) {
+          print('  - Target ${t.id}: companyId=${t.companyId}');
+        }
+      } else {
+        print('DEBUG: Migration verification - All targets now have companyId');
+      }
+    }
+  }
+
   // Initialize with sample data
   static Future<void> initializeSampleData() async {
     // Create demo company first
@@ -332,7 +397,9 @@ class StorageService {
 
     // Initialize workplaces with company ID
     final workplaces = await getWorkplaces();
-    if (!workplaces.any((w) => w.companyId == demoCompanyId)) {
+    final companyWorkplaces =
+        workplaces.where((w) => w.companyId == demoCompanyId).toList();
+    if (companyWorkplaces.isEmpty) {
       final sampleWorkplaces = [
         Workplace(
           id: 'wp1',
@@ -581,9 +648,9 @@ class StorageService {
     }
 
     // Create sample targets for the last 12 years (demo company only)
-    final targets = await getSalesTargets();
+    final sampleDataTargets = await getSalesTargets();
     final demoTargets =
-        targets.where((t) => t.companyId == demoCompanyId).toList();
+        sampleDataTargets.where((t) => t.companyId == demoCompanyId).toList();
     if (demoTargets.isEmpty) {
       final now = DateTime.now();
       final sampleTargets = <SalesTarget>[];
@@ -743,5 +810,74 @@ class StorageService {
   static Future<String?> getPassword(String userId) async {
     final passwords = await getPasswords();
     return passwords[userId];
+  }
+
+  // Message management
+  static Future<List<Message>> getMessages() async {
+    final prefs = await _prefs;
+    final messagesJson = prefs.getStringList(_messagesKey) ?? [];
+    return messagesJson
+        .map((json) => Message.fromJson(jsonDecode(json)))
+        .toList();
+  }
+
+  static Future<void> saveMessages(List<Message> messages) async {
+    final prefs = await _prefs;
+    final messagesJson =
+        messages.map((message) => jsonEncode(message.toJson())).toList();
+    await prefs.setStringList(_messagesKey, messagesJson);
+  }
+
+  static Future<void> addMessage(Message message) async {
+    final messages = await getMessages();
+    messages.add(message);
+    await saveMessages(messages);
+  }
+
+  static Future<void> updateMessage(Message message) async {
+    final messages = await getMessages();
+    final index = messages.indexWhere((m) => m.id == message.id);
+    if (index != -1) {
+      messages[index] = message;
+      await saveMessages(messages);
+    }
+  }
+
+  static Future<List<Message>> getMessagesForUser(String userId) async {
+    final messages = await getMessages();
+    return messages
+        .where((message) =>
+            message.senderId == userId || message.recipientId == userId)
+        .toList();
+  }
+
+  static Future<List<Message>> getConversation(
+      String userId1, String userId2) async {
+    final messages = await getMessages();
+    return messages
+        .where((message) =>
+            (message.senderId == userId1 && message.recipientId == userId2) ||
+            (message.senderId == userId2 && message.recipientId == userId1))
+        .toList()
+      ..sort((a, b) => a.timestamp.compareTo(b.timestamp));
+  }
+
+  static Future<int> getUnreadMessageCount(String userId) async {
+    final messages = await getMessages();
+    return messages
+        .where((message) => message.recipientId == userId && !message.isRead)
+        .length;
+  }
+
+  static Future<void> markMessagesAsRead(String userId, String senderId) async {
+    final messages = await getMessages();
+    for (int i = 0; i < messages.length; i++) {
+      if (messages[i].recipientId == userId &&
+          messages[i].senderId == senderId &&
+          !messages[i].isRead) {
+        messages[i] = messages[i].copyWith(isRead: true);
+      }
+    }
+    await saveMessages(messages);
   }
 }

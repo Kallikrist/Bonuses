@@ -6,6 +6,7 @@ import '../models/user.dart';
 import '../models/workplace.dart';
 import '../models/approval_request.dart';
 import '../providers/app_provider.dart';
+import '../screens/target_profile_screen.dart';
 
 class CalendarPage extends StatefulWidget {
   final DateTime? selectedDate;
@@ -73,7 +74,7 @@ class _CalendarPageState extends State<CalendarPage> {
               children: [
                 // Calendar
                 Expanded(
-                  flex: 1,
+                  flex: 3,
                   child: _buildCalendar(context),
                 ),
 
@@ -213,7 +214,7 @@ class _CalendarPageState extends State<CalendarPage> {
     return GridView.builder(
       gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
         crossAxisCount: 7,
-        childAspectRatio: 1.2,
+        childAspectRatio: 1.0,
         mainAxisSpacing: 2,
         crossAxisSpacing: 2,
       ),
@@ -363,76 +364,97 @@ class _CalendarPageState extends State<CalendarPage> {
                     itemCount: salesTargets.length,
                     itemBuilder: (context, index) {
                       final target = salesTargets[index];
-                      return Container(
-                        margin: const EdgeInsets.only(bottom: 8),
-                        padding: const EdgeInsets.all(12),
-                        decoration: BoxDecoration(
-                          color: Colors.white,
-                          borderRadius: BorderRadius.circular(8),
-                          border: Border.all(color: Colors.grey[200]!),
-                        ),
-                        child: Row(
-                          children: [
-                            Container(
-                              width: 8,
-                              height: 8,
-                              decoration: BoxDecoration(
-                                color: _getTargetColorFromStatus(target.status),
-                                shape: BoxShape.circle,
+                      return GestureDetector(
+                        onTap: () {
+                          // Navigate to target profile screen
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (context) => TargetProfileScreen(
+                                target: target,
                               ),
                             ),
-                            const SizedBox(width: 12),
-                            Expanded(
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Text(
-                                    '${target.assignedEmployeeName ?? 'Unassigned'} - ${target.assignedWorkplaceName ?? 'No Workplace'}',
-                                    style: const TextStyle(
-                                      fontSize: 14,
-                                      fontWeight: FontWeight.w600,
-                                      color: Colors.black87,
-                                    ),
-                                  ),
-                                  const SizedBox(height: 4),
-                                  Text(
-                                    'Target: \$${target.targetAmount.toStringAsFixed(0)} | Actual: \$${target.actualAmount.toStringAsFixed(0)}',
-                                    style: TextStyle(
-                                      fontSize: 12,
-                                      color: Colors.grey[600],
-                                    ),
-                                  ),
-                                  if (target
-                                      .collaborativeEmployeeNames.isNotEmpty)
-                                    Text(
-                                      'Collaborators: ${target.collaborativeEmployeeNames.join(', ')}',
-                                      style: TextStyle(
-                                        fontSize: 11,
-                                        color: Colors.grey[500],
-                                      ),
-                                    ),
-                                ],
-                              ),
-                            ),
-                            Container(
-                              padding: const EdgeInsets.symmetric(
-                                  horizontal: 8, vertical: 4),
-                              decoration: BoxDecoration(
-                                color: _getTargetColorFromStatus(target.status)
-                                    .withOpacity(0.1),
-                                borderRadius: BorderRadius.circular(12),
-                              ),
-                              child: Text(
-                                _getStatusText(target.status),
-                                style: TextStyle(
-                                  fontSize: 10,
-                                  fontWeight: FontWeight.w600,
+                          );
+                        },
+                        child: Container(
+                          margin: const EdgeInsets.only(bottom: 8),
+                          padding: const EdgeInsets.all(12),
+                          decoration: BoxDecoration(
+                            color: Colors.white,
+                            borderRadius: BorderRadius.circular(8),
+                            border: Border.all(color: Colors.grey[200]!),
+                          ),
+                          child: Row(
+                            children: [
+                              Container(
+                                width: 8,
+                                height: 8,
+                                decoration: BoxDecoration(
                                   color:
                                       _getTargetColorFromStatus(target.status),
+                                  shape: BoxShape.circle,
                                 ),
                               ),
-                            ),
-                          ],
+                              const SizedBox(width: 12),
+                              Expanded(
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Text(
+                                      '${target.assignedEmployeeName ?? 'Unassigned'} - ${target.assignedWorkplaceName ?? 'No Workplace'}',
+                                      style: const TextStyle(
+                                        fontSize: 14,
+                                        fontWeight: FontWeight.w600,
+                                        color: Colors.black87,
+                                      ),
+                                    ),
+                                    const SizedBox(height: 4),
+                                    Text(
+                                      'Target: \$${target.targetAmount.toStringAsFixed(0)} | Actual: \$${target.actualAmount.toStringAsFixed(0)}',
+                                      style: TextStyle(
+                                        fontSize: 12,
+                                        color: Colors.grey[600],
+                                      ),
+                                    ),
+                                    if (target
+                                        .collaborativeEmployeeNames.isNotEmpty)
+                                      Text(
+                                        'Collaborators: ${target.collaborativeEmployeeNames.join(', ')}',
+                                        style: TextStyle(
+                                          fontSize: 11,
+                                          color: Colors.grey[500],
+                                        ),
+                                      ),
+                                  ],
+                                ),
+                              ),
+                              Container(
+                                padding: const EdgeInsets.symmetric(
+                                    horizontal: 8, vertical: 4),
+                                decoration: BoxDecoration(
+                                  color:
+                                      _getTargetColorFromStatus(target.status)
+                                          .withOpacity(0.1),
+                                  borderRadius: BorderRadius.circular(12),
+                                ),
+                                child: Text(
+                                  _getStatusText(target.status),
+                                  style: TextStyle(
+                                    fontSize: 10,
+                                    fontWeight: FontWeight.w600,
+                                    color: _getTargetColorFromStatus(
+                                        target.status),
+                                  ),
+                                ),
+                              ),
+                              const SizedBox(width: 8),
+                              Icon(
+                                Icons.arrow_forward_ios,
+                                size: 16,
+                                color: Colors.grey[400],
+                              ),
+                            ],
+                          ),
                         ),
                       );
                     },
@@ -781,7 +803,7 @@ class _CalendarPageState extends State<CalendarPage> {
                             ),
                             child: Row(
                               children: [
-                                Icon(Icons.check_circle,
+                                const Icon(Icons.check_circle,
                                     color: Colors.green, size: 16),
                                 const SizedBox(width: 8),
                                 Expanded(
@@ -890,14 +912,32 @@ class _AddTargetDialogState extends State<AddTargetDialog> {
     setState(() => _isLoading = true);
 
     final appProvider = Provider.of<AppProvider>(context, listen: false);
-    _availableEmployees = await appProvider.getUsers();
-    _availableWorkplaces = await appProvider.getWorkplaces();
+    final currentUser = appProvider.currentUser;
+    final currentCompanyId = currentUser?.primaryCompanyId;
 
-    // Filter to show employees and admins (admins can participate as team members)
-    _availableEmployees = _availableEmployees
-        .where((user) =>
-            user.role == UserRole.employee || user.role == UserRole.admin)
-        .toList();
+    // Load all users and workplaces
+    final allUsers = await appProvider.getUsers();
+    final allWorkplaces = await appProvider.getWorkplaces();
+
+    // Filter employees by current company
+    if (currentCompanyId != null) {
+      _availableEmployees = allUsers
+          .where((user) =>
+              user.companyIds.contains(currentCompanyId) &&
+              (user.role == UserRole.employee || user.role == UserRole.admin))
+          .toList();
+
+      _availableWorkplaces = allWorkplaces
+          .where((workplace) => workplace.companyId == currentCompanyId)
+          .toList();
+    } else {
+      // Fallback if no company ID (shouldn't happen for admins)
+      _availableEmployees = allUsers
+          .where((user) =>
+              user.role == UserRole.employee || user.role == UserRole.admin)
+          .toList();
+      _availableWorkplaces = allWorkplaces;
+    }
 
     setState(() => _isLoading = false);
   }
@@ -1217,6 +1257,7 @@ class _AddTargetDialogState extends State<AddTargetDialog> {
         targetAmount: double.parse(_targetAmountController.text),
         createdAt: DateTime.now(),
         createdBy: currentUser.id,
+        companyId: currentUser.primaryCompanyId, // Add company ID
         assignedEmployeeId: _selectedEmployee!.id,
         assignedEmployeeName: _selectedEmployee!.name,
         assignedWorkplaceId: _selectedWorkplace!.id,

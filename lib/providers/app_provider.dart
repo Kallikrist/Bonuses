@@ -6,6 +6,7 @@ import '../models/bonus.dart';
 import '../models/workplace.dart';
 import '../models/company.dart';
 import '../models/approval_request.dart';
+import '../models/message.dart';
 import '../services/storage_service.dart';
 import '../services/auth_service.dart';
 import '../models/points_rules.dart';
@@ -18,6 +19,7 @@ class AppProvider with ChangeNotifier {
   List<Workplace> _workplaces = [];
   List<Company> _companies = [];
   List<ApprovalRequest> _approvalRequests = [];
+  List<Message> _messages = [];
   bool _isLoading = false;
   Map<String, PointsRules> _companyPointsRules = {};
 
@@ -28,6 +30,7 @@ class AppProvider with ChangeNotifier {
   List<Workplace> get workplaces => _workplaces;
   List<Company> get companies => _companies;
   List<ApprovalRequest> get approvalRequests => _approvalRequests;
+  List<Message> get messages => _messages;
   bool get isLoading => _isLoading;
 
   // Check if user is admin for their current company (company-specific role)
@@ -72,6 +75,9 @@ class AppProvider with ChangeNotifier {
   Future<void> initialize() async {
     _setLoading(true);
     try {
+      // Run migrations first (every time app starts)
+      await StorageService.runMigrations();
+
       // Only initialize sample data if onboarding is NOT complete
       final onboardingComplete = await StorageService.isOnboardingComplete();
       if (!onboardingComplete) {
@@ -91,6 +97,52 @@ class AppProvider with ChangeNotifier {
   Future<void> _loadData() async {
     _currentUser = await StorageService.getCurrentUser();
 
+    // Auto-heal: if current user has no active company but has company memberships,
+    // set the primaryCompanyId to the first company and persist the fix.
+    if (_currentUser != null &&
+        (_currentUser!.primaryCompanyId == null ||
+            (_currentUser!.primaryCompanyId?.isEmpty ?? true)) &&
+        _currentUser!.companyIds.isNotEmpty) {
+      final repairedUser = _currentUser!
+          .copyWith(primaryCompanyId: _currentUser!.companyIds.first);
+      await StorageService.setCurrentUser(repairedUser);
+      await StorageService.updateUser(repairedUser);
+      _currentUser = repairedUser;
+    }
+
+    // Reconcile with canonical stored user to recover company membership
+    if (_currentUser != null) {
+      final storedUsers = await StorageService.getUsers();
+      final idx = storedUsers.indexWhere((u) => u.id == _currentUser!.id);
+      if (idx != -1) {
+        final canonical = storedUsers[idx];
+        User repaired = _currentUser!;
+        bool changed = false;
+
+        // If session user lacks company memberships, adopt from canonical
+        if (repaired.companyIds.isEmpty && canonical.companyIds.isNotEmpty) {
+          repaired =
+              repaired.copyWith(companyIds: List.from(canonical.companyIds));
+          changed = true;
+        }
+
+        // Ensure primary company is set
+        if ((repaired.primaryCompanyId == null ||
+                (repaired.primaryCompanyId?.isEmpty ?? true)) &&
+            repaired.companyIds.isNotEmpty) {
+          repaired =
+              repaired.copyWith(primaryCompanyId: repaired.companyIds.first);
+          changed = true;
+        }
+
+        if (changed) {
+          await StorageService.setCurrentUser(repaired);
+          await StorageService.updateUser(repaired);
+          _currentUser = repaired;
+        }
+      }
+    }
+
     _salesTargets = await StorageService.getSalesTargets();
     // Removed excessive debug logging for better performance
     // print('DEBUG: Loaded ${_salesTargets.length} targets');
@@ -99,7 +151,36 @@ class AppProvider with ChangeNotifier {
     _workplaces = await StorageService.getWorkplaces();
     _companies = await StorageService.getCompanies();
     _approvalRequests = await StorageService.getApprovalRequests();
+    _messages = await StorageService.getMessages();
     _companyPointsRules = await StorageService.getCompanyPointsRules();
+
+    // Second-chance auto-heal: infer company from targets if still missing
+    if (_currentUser != null &&
+        (_currentUser!.primaryCompanyId == null ||
+            (_currentUser!.primaryCompanyId?.isEmpty ?? true))) {
+      final inferred = _salesTargets.firstWhere(
+        (t) =>
+            t.assignedEmployeeId == _currentUser!.id ||
+            t.collaborativeEmployeeIds.contains(_currentUser!.id),
+        orElse: () => SalesTarget(
+          id: '',
+          date: DateTime.now(),
+          targetAmount: 0,
+          createdAt: DateTime.now(),
+          createdBy: '',
+        ),
+      );
+      if (inferred.id.isNotEmpty && (inferred.companyId?.isNotEmpty ?? false)) {
+        final repaired = _currentUser!.copyWith(
+          primaryCompanyId: inferred.companyId,
+          companyIds:
+              {..._currentUser!.companyIds, inferred.companyId!}.toList(),
+        );
+        await StorageService.setCurrentUser(repaired);
+        await StorageService.updateUser(repaired);
+        _currentUser = repaired;
+      }
+    }
 
     // Process existing targets that should be marked as missed
     await processExistingTargets();
@@ -250,12 +331,12 @@ class AppProvider with ChangeNotifier {
     // Create adjustment transactions for each employee
     for (final employeeId in allEmployeeIds) {
       final transaction = PointsTransaction(
-        id: DateTime.now().millisecondsSinceEpoch.toString() + '_' + employeeId,
+        id: '${DateTime.now().millisecondsSinceEpoch}_$employeeId',
         userId: employeeId,
         type: PointsTransactionType.adjustment,
         points: pointsDifference, // Can be positive or negative
         description: pointsDifference > 0
-            ? 'Points adjustment: Target ${originalTarget.id} increased by ${pointsDifference} points'
+            ? 'Points adjustment: Target ${originalTarget.id} increased by $pointsDifference points'
             : 'Points adjustment: Target ${originalTarget.id} decreased by ${pointsDifference.abs()} points',
         date: DateTime.now(),
         relatedTargetId: originalTarget.id,
@@ -287,12 +368,12 @@ class AppProvider with ChangeNotifier {
       await StorageService.updateSalesTarget(updatedTarget);
       _salesTargets[targetIndex] = updatedTarget;
 
-      print('DEBUG: Target ${targetId} marked as missed by admin ${adminId}');
+      print('DEBUG: Target $targetId marked as missed by admin $adminId');
       notifyListeners();
     }
   }
 
-  List<String> _autoProcessedTargets = [];
+  final List<String> _autoProcessedTargets = [];
 
   List<String> get autoProcessedTargets => _autoProcessedTargets;
 
@@ -452,7 +533,7 @@ class AppProvider with ChangeNotifier {
 
       await updateSalesTargetForApproval(updatedTarget);
       print(
-          'DEBUG: Target ${targetId} met - approval request created and target marked as submitted');
+          'DEBUG: Target $targetId met - approval request created and target marked as submitted');
     } else {
       // Target not met - automatically mark as missed with no points
       final updatedTarget = target
@@ -464,7 +545,7 @@ class AppProvider with ChangeNotifier {
 
       await updateSalesTargetForApproval(updatedTarget);
       print(
-          'DEBUG: Target ${targetId} not met - automatically marked as missed with no points');
+          'DEBUG: Target $targetId not met - automatically marked as missed with no points');
     }
   }
 
@@ -743,29 +824,70 @@ class AppProvider with ChangeNotifier {
   List<SalesTarget> getTodaysTargetsForEmployee(String employeeId) {
     final today = DateTime.now();
     final user = _currentUser;
-    if (user == null) return [];
+    if (user == null) {
+      print('DEBUG: getTodaysTargetsForEmployee - No current user');
+      return [];
+    }
 
-    return _salesTargets.where((target) {
+    final currentCompanyId = user.primaryCompanyId;
+    print(
+        'DEBUG: getTodaysTargetsForEmployee - EmployeeId: $employeeId, CompanyId: $currentCompanyId');
+    print(
+        'DEBUG: getTodaysTargetsForEmployee - Total targets in app: ${_salesTargets.length}');
+
+    final result = _salesTargets.where((target) {
       final isToday = target.date.year == today.year &&
           target.date.month == today.month &&
           target.date.day == today.day;
 
       if (!isToday) return false;
 
+      // Only show targets from the same company (if known). If employee has
+      // no active company yet, show all company targets so they can still see
+      // their team targets and the session can be healed elsewhere.
+      print(
+          'DEBUG: Checking target ${target.id}: companyId=${target.companyId} vs employee company=${currentCompanyId}');
+      if (currentCompanyId != null && target.companyId != currentCompanyId) {
+        print('  -> Filtered out - wrong company');
+        return false;
+      }
+
       // Include targets if:
       // 1. Assigned directly to this employee
-      if (target.assignedEmployeeId == employeeId) return true;
+      if (target.assignedEmployeeId == employeeId) {
+        print('  -> INCLUDED - Assigned to employee');
+        return true;
+      }
 
-      // 2. Assigned to this employee's workplace (and no specific employee assigned)
+      // 2. Employee is already a collaborator
+      if (target.collaborativeEmployeeIds.contains(employeeId)) {
+        print('  -> INCLUDED - Employee is collaborator');
+        return true;
+      }
+
+      // 3. Assigned to this employee's workplace (and no specific employee assigned)
       if (user.workplaceIds.contains(target.assignedWorkplaceId) &&
-          target.assignedEmployeeId == null) return true;
+          target.assignedEmployeeId == null) {
+        print('  -> INCLUDED - Workplace match');
+        return true;
+      }
 
-      // 3. Company-wide targets (no employee and no workplace assigned)
+      // 4. Company-wide targets (no employee and no workplace assigned)
       if (target.assignedEmployeeId == null &&
-          target.assignedWorkplaceId == null) return true;
+          target.assignedWorkplaceId == null) {
+        print('  -> INCLUDED - Company-wide target');
+        return true;
+      }
 
-      return false;
+      // 5. Targets from the same company that employee can join
+      // Show all company targets so employees can join as team members
+      print('  -> INCLUDED - Company target available to join');
+      return true;
     }).toList();
+
+    print(
+        'DEBUG: getTodaysTargetsForEmployee - Returning ${result.length} targets');
+    return result;
   }
 
   List<SalesTarget> getUnassignedTargets() {
@@ -862,7 +984,7 @@ class AppProvider with ChangeNotifier {
       userId: userId,
       type: PointsTransactionType.redeemed,
       points: bonus.pointsRequired,
-      description: 'Redeemed ${bonus.name}${secretCodeMessage}',
+      description: 'Redeemed ${bonus.name}$secretCodeMessage',
       date: DateTime.now(),
       companyId: companyId, // Add company context to transaction
     );
@@ -901,10 +1023,12 @@ class AppProvider with ChangeNotifier {
     // Filter targets by criteria
     var filteredTargets = _salesTargets.where((target) {
       if (target.date.isBefore(startDate)) return false;
-      if (employeeId != null && target.assignedEmployeeId != employeeId)
+      if (employeeId != null && target.assignedEmployeeId != employeeId) {
         return false;
-      if (workplaceId != null && target.assignedWorkplaceId != workplaceId)
+      }
+      if (workplaceId != null && target.assignedWorkplaceId != workplaceId) {
         return false;
+      }
       return true;
     }).toList();
 
@@ -1283,7 +1407,7 @@ class AppProvider with ChangeNotifier {
       [String? companyId]) {
     final rules = getPointsRules(companyId);
     print(
-        'DEBUG: Calculating points for ${effectivePercent}% in company $companyId');
+        'DEBUG: Calculating points for $effectivePercent% in company $companyId');
     print('DEBUG: Custom rules entries: ${rules.entries.length}');
 
     if (rules.entries.isNotEmpty) {
@@ -1294,7 +1418,7 @@ class AppProvider with ChangeNotifier {
 
       for (final e in sorted) {
         print(
-            'DEBUG: Checking rule ${e.thresholdPercent}% -> ${e.points}pts (effective: ${effectivePercent}%)');
+            'DEBUG: Checking rule ${e.thresholdPercent}% -> ${e.points}pts (effective: $effectivePercent%)');
         if (effectivePercent >= e.thresholdPercent) {
           print('DEBUG: Matched rule ${e.thresholdPercent}% -> ${e.points}pts');
           return e.points; // Return the first (highest) threshold that matches
@@ -1320,5 +1444,83 @@ class AppProvider with ChangeNotifier {
     }
     print('DEBUG: No rule matched, returning 0');
     return 0;
+  }
+
+  // Messaging methods
+  Future<void> sendMessage(String recipientId, String content,
+      {String? companyId}) async {
+    if (_currentUser == null) return;
+
+    final message = Message(
+      id: DateTime.now().millisecondsSinceEpoch.toString(),
+      senderId: _currentUser!.id,
+      recipientId: recipientId,
+      content: content,
+      timestamp: DateTime.now(),
+      companyId: companyId,
+    );
+
+    await StorageService.addMessage(message);
+    _messages.add(message);
+    notifyListeners();
+  }
+
+  Future<List<Message>> getConversation(String otherUserId) async {
+    if (_currentUser == null) return [];
+    return await StorageService.getConversation(_currentUser!.id, otherUserId);
+  }
+
+  Future<List<User>> getConversationPartners() async {
+    if (_currentUser == null) return [];
+
+    final userMessages = _messages
+        .where((message) =>
+            message.senderId == _currentUser!.id ||
+            message.recipientId == _currentUser!.id)
+        .toList();
+
+    final Set<String> partnerIds = {};
+    for (final message in userMessages) {
+      if (message.senderId == _currentUser!.id) {
+        partnerIds.add(message.recipientId);
+      } else {
+        partnerIds.add(message.senderId);
+      }
+    }
+
+    final users = await StorageService.getUsers();
+    return users.where((user) => partnerIds.contains(user.id)).toList();
+  }
+
+  Future<int> getUnreadMessageCount() async {
+    if (_currentUser == null) return 0;
+    return await StorageService.getUnreadMessageCount(_currentUser!.id);
+  }
+
+  Future<void> markMessagesAsRead(String senderId) async {
+    if (_currentUser == null) return;
+
+    await StorageService.markMessagesAsRead(_currentUser!.id, senderId);
+
+    // Update local messages
+    for (int i = 0; i < _messages.length; i++) {
+      if (_messages[i].recipientId == _currentUser!.id &&
+          _messages[i].senderId == senderId &&
+          !_messages[i].isRead) {
+        _messages[i] = _messages[i].copyWith(isRead: true);
+      }
+    }
+    notifyListeners();
+  }
+
+  Future<List<User>> getCompanyUsers() async {
+    if (_currentUser?.primaryCompanyId == null) return [];
+
+    final users = await StorageService.getUsers();
+    return users
+        .where((user) =>
+            user.companyIds.contains(_currentUser!.primaryCompanyId) &&
+            user.id != _currentUser!.id)
+        .toList();
   }
 }

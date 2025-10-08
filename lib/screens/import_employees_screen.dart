@@ -5,7 +5,6 @@ import 'package:csv/csv.dart';
 import 'dart:io';
 import '../providers/app_provider.dart';
 import '../models/user.dart';
-import '../models/points_transaction.dart';
 import '../models/company.dart';
 
 class ImportEmployeesScreen extends StatefulWidget {
@@ -106,8 +105,9 @@ class _ImportEmployeesScreenState extends State<ImportEmployeesScreen> {
         final phone = row[2]?.toString().trim() ?? '';
         final pointsStr = row[3]?.toString().trim() ?? '0';
 
-        if (name.isEmpty || email.isEmpty)
+        if (name.isEmpty || email.isEmpty) {
           continue; // Skip rows without name or email
+        }
 
         // Parse points
         int points = 0;
@@ -523,7 +523,7 @@ class _ImportEmployeesScreenState extends State<ImportEmployeesScreen> {
                               child: SingleChildScrollView(
                                 scrollDirection: Axis.horizontal,
                                 child: DataTable(
-                                  headingRowColor: MaterialStateProperty.all(
+                                  headingRowColor: WidgetStateProperty.all(
                                       Colors.grey[100]),
                                   columns: const [
                                     DataColumn(

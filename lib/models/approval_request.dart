@@ -1,4 +1,3 @@
-import 'sales_target.dart';
 
 enum ApprovalRequestType {
   salesSubmission,
