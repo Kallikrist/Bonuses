@@ -3064,6 +3064,7 @@ class _AdminDashboardState extends State<AdminDashboard> {
                     'Load sample users, targets, and bonuses for testing',
                     () => _showLoadDemoDataDialog(context, appProvider),
                   ),
+                  _buildDarkModeToggle(appProvider),
                   _buildSettingsItem(
                     Icons.logout,
                     'Logout',
@@ -3301,6 +3302,22 @@ class _AdminDashboardState extends State<AdminDashboard> {
                     size: 16, color: Colors.grey[400]),
             ],
           ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildDarkModeToggle(AppProvider appProvider) {
+    return Card(
+      margin: const EdgeInsets.only(bottom: 8),
+      child: ListTile(
+        leading: const Icon(Icons.dark_mode),
+        title: const Text('Dark Mode'),
+        subtitle: Text(appProvider.isDarkMode ? 'Enabled' : 'Disabled'),
+        trailing: Switch(
+          value: appProvider.isDarkMode,
+          onChanged: (value) => appProvider.toggleDarkMode(),
+          activeColor: Colors.blue[600],
         ),
       ),
     );

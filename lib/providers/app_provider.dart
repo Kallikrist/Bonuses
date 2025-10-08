@@ -22,6 +22,7 @@ class AppProvider with ChangeNotifier {
   List<Message> _messages = [];
   bool _isLoading = false;
   Map<String, PointsRules> _companyPointsRules = {};
+  bool _isDarkMode = false;
 
   User? get currentUser => _currentUser;
   List<SalesTarget> get salesTargets => _salesTargets;
@@ -32,6 +33,7 @@ class AppProvider with ChangeNotifier {
   List<ApprovalRequest> get approvalRequests => _approvalRequests;
   List<Message> get messages => _messages;
   bool get isLoading => _isLoading;
+  bool get isDarkMode => _isDarkMode;
 
   // Check if user is admin for their current company (company-specific role)
   bool get isAdmin {
@@ -77,6 +79,9 @@ class AppProvider with ChangeNotifier {
     try {
       // Run migrations first (every time app starts)
       await StorageService.runMigrations();
+
+      // Load dark mode preference
+      _isDarkMode = await StorageService.getDarkMode();
 
       // Only initialize sample data if onboarding is NOT complete
       final onboardingComplete = await StorageService.isOnboardingComplete();
@@ -1522,5 +1527,23 @@ class AppProvider with ChangeNotifier {
             user.companyIds.contains(_currentUser!.primaryCompanyId) &&
             user.id != _currentUser!.id)
         .toList();
+  }
+
+  // Dark mode management
+  Future<void> toggleDarkMode() async {
+    _isDarkMode = !_isDarkMode;
+    await StorageService.setDarkMode(_isDarkMode);
+    notifyListeners();
+  }
+
+  Future<void> setDarkMode(bool isDark) async {
+    _isDarkMode = isDark;
+    await StorageService.setDarkMode(_isDarkMode);
+    notifyListeners();
+  }
+
+  Future<void> loadDarkMode() async {
+    _isDarkMode = await StorageService.getDarkMode();
+    notifyListeners();
   }
 }

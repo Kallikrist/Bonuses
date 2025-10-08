@@ -23,6 +23,7 @@ class StorageService {
   static const String _messagesKey = 'messages';
   static const String _onboardingCompleteKey = 'onboarding_complete';
   static const String _passwordsKey = 'user_passwords'; // Map<userId, password>
+  static const String _darkModeKey = 'dark_mode';
 
   static Future<SharedPreferences> get _prefs async =>
       await SharedPreferences.getInstance();
@@ -879,5 +880,16 @@ class StorageService {
       }
     }
     await saveMessages(messages);
+  }
+
+  // Dark mode preference
+  static Future<bool> getDarkMode() async {
+    final prefs = await _prefs;
+    return prefs.getBool(_darkModeKey) ?? false;
+  }
+
+  static Future<void> setDarkMode(bool isDark) async {
+    final prefs = await _prefs;
+    await prefs.setBool(_darkModeKey, isDark);
   }
 }

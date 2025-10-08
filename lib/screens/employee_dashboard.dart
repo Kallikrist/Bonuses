@@ -206,6 +206,7 @@ class _EmployeeDashboardState extends State<EmployeeDashboard> {
                       ),
                     ),
                   ),
+                  _buildDarkModeToggle(appProvider),
                   _buildSettingsItem(
                     Icons.logout,
                     'Logout',
@@ -410,6 +411,47 @@ class _EmployeeDashboardState extends State<EmployeeDashboard> {
             ),
           ),
         ],
+      ),
+    );
+  }
+
+  Widget _buildDarkModeToggle(AppProvider appProvider) {
+    return Container(
+      margin: const EdgeInsets.only(bottom: 8),
+      child: Padding(
+        padding: const EdgeInsets.all(12),
+        child: Row(
+          children: [
+            Icon(Icons.dark_mode, color: Colors.blue[600], size: 20),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Text(
+                    'Dark Mode',
+                    style: TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.w500,
+                    ),
+                  ),
+                  Text(
+                    appProvider.isDarkMode ? 'Enabled' : 'Disabled',
+                    style: TextStyle(
+                      fontSize: 12,
+                      color: Colors.grey[600],
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            Switch(
+              value: appProvider.isDarkMode,
+              onChanged: (value) => appProvider.toggleDarkMode(),
+              activeColor: Colors.blue[600],
+            ),
+          ],
+        ),
       ),
     );
   }
