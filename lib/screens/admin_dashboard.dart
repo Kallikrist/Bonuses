@@ -5440,6 +5440,10 @@ class _EmployeeProfileScreenState extends State<EmployeeProfileScreen> {
                       if (widget.appProvider.currentUser?.id !=
                           currentEmployee.id)
                         _buildMessageButton(),
+                      // Add gift points button if not viewing own profile
+                      if (widget.appProvider.currentUser?.id !=
+                          currentEmployee.id)
+                        _buildGiftPointsButton(),
                     ],
                   ),
                   const SizedBox(height: 24),
@@ -5699,6 +5703,194 @@ class _EmployeeProfileScreenState extends State<EmployeeProfileScreen> {
             ],
           ),
         ),
+      ),
+    );
+  }
+
+  Widget _buildGiftPointsButton() {
+    return Container(
+      margin: const EdgeInsets.only(bottom: 16),
+      child: InkWell(
+        onTap: _showGiftPointsDialog,
+        borderRadius: BorderRadius.circular(12),
+        child: Container(
+          padding: const EdgeInsets.all(16),
+          decoration: BoxDecoration(
+            color: Colors.grey[50],
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(color: Colors.grey[200]!),
+          ),
+          child: Row(
+            children: [
+              Icon(Icons.card_giftcard, color: Colors.blue[600], size: 24),
+              const SizedBox(width: 16),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Gift Points',
+                      style: TextStyle(
+                        fontSize: 14,
+                        color: Colors.grey[600],
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    const Text(
+                      'Send points as a gift',
+                      style: TextStyle(
+                        fontSize: 18,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              Icon(Icons.arrow_forward_ios, size: 16, color: Colors.grey[400]),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  void _showGiftPointsDialog() {
+    final currentUser = widget.appProvider.currentUser;
+    if (currentUser == null) return;
+
+    // Get the company context for points
+    final companyId = widget.companyContext ?? currentUser.primaryCompanyId;
+    if (companyId == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('No company context available'),
+          backgroundColor: Colors.red,
+        ),
+      );
+      return;
+    }
+
+    // Get sender's current points in this company
+    final senderPoints = widget.appProvider.getUserCompanyPoints(
+      currentUser.id,
+      companyId,
+    );
+
+    final pointsController = TextEditingController();
+    final messageController = TextEditingController();
+
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Gift Points'),
+        content: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                'Send points to ${currentEmployee.name}',
+                style: const TextStyle(
+                  fontSize: 16,
+                  fontWeight: FontWeight.w500,
+                ),
+              ),
+              const SizedBox(height: 8),
+              Text(
+                'Your available points: $senderPoints',
+                style: TextStyle(
+                  fontSize: 14,
+                  color: Colors.grey[600],
+                ),
+              ),
+              const SizedBox(height: 16),
+              TextField(
+                controller: pointsController,
+                decoration: const InputDecoration(
+                  labelText: 'Points to gift',
+                  border: OutlineInputBorder(),
+                  prefixIcon: Icon(Icons.stars),
+                  hintText: 'Enter amount',
+                ),
+                keyboardType: TextInputType.number,
+              ),
+              const SizedBox(height: 16),
+              TextField(
+                controller: messageController,
+                decoration: const InputDecoration(
+                  labelText: 'Message (optional)',
+                  border: OutlineInputBorder(),
+                  prefixIcon: Icon(Icons.note),
+                  hintText: 'Add a note',
+                ),
+                maxLines: 3,
+              ),
+            ],
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Cancel'),
+          ),
+          ElevatedButton(
+            onPressed: () async {
+              final points = int.tryParse(pointsController.text);
+              if (points == null || points <= 0) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(
+                    content: Text('Please enter a valid positive number'),
+                    backgroundColor: Colors.red,
+                  ),
+                );
+                return;
+              }
+
+              if (points > senderPoints) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(
+                    content: Text('You don\'t have enough points'),
+                    backgroundColor: Colors.red,
+                  ),
+                );
+                return;
+              }
+
+              // Deduct points from sender and add to recipient
+              final giftMessage = messageController.text.isNotEmpty
+                  ? ': ${messageController.text}'
+                  : '';
+
+              await widget.appProvider.updateUserPoints(
+                currentUser.id,
+                -points,
+                'Gifted to ${currentEmployee.name}$giftMessage',
+                companyId: companyId,
+              );
+
+              await widget.appProvider.updateUserPoints(
+                currentEmployee.id,
+                points,
+                'Gift from ${currentUser.name}$giftMessage',
+                companyId: companyId,
+              );
+
+              if (context.mounted) {
+                Navigator.pop(context);
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(
+                    content: Text(
+                        'Gifted $points points to ${currentEmployee.name}!'),
+                    backgroundColor: Colors.green,
+                  ),
+                );
+                setState(() {}); // Refresh the UI
+              }
+            },
+            child: const Text('Send Gift'),
+          ),
+        ],
       ),
     );
   }
