@@ -5246,15 +5246,7 @@ class _EmployeeProfileScreenState extends State<EmployeeProfileScreen> {
             : null, // No back button when viewing own profile from tab bar
         automaticallyImplyLeading:
             widget.showBackButton, // Prevent default back button
-        actions: widget.readOnly
-            ? [] // Hide edit button in read-only mode
-            : [
-                IconButton(
-                  icon: const Icon(Icons.edit, color: Colors.white),
-                  onPressed: () => _showQuickEditDialog(),
-                  tooltip: 'Quick Edit',
-                ),
-              ],
+        actions: [],
       ),
       body: SingleChildScrollView(
         child: Column(

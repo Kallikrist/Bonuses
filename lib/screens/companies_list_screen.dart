@@ -210,10 +210,10 @@ class _CompaniesListScreenState extends State<CompaniesListScreen> {
               final allCompanies = snapshot.data!;
               final currentUser = provider.currentUser;
 
-              // Filter companies to only show the currently active company
+              // Show ALL companies the user is enrolled in
               final companies = allCompanies.where((company) {
                 return currentUser != null &&
-                    company.id == currentUser.primaryCompanyId;
+                    currentUser.companyIds.contains(company.id);
               }).toList();
 
               // Show empty state if user has no companies
@@ -249,6 +249,9 @@ class _CompaniesListScreenState extends State<CompaniesListScreen> {
                 itemBuilder: (context, index) {
                   final company = companies[index];
 
+                  final bool isActive = currentUser != null &&
+                      currentUser.primaryCompanyId == company.id;
+
                   return Card(
                     margin: const EdgeInsets.only(bottom: 12),
                     child: ListTile(
@@ -263,12 +266,46 @@ class _CompaniesListScreenState extends State<CompaniesListScreen> {
                           color: Colors.white,
                         ),
                       ),
-                      title: Text(
-                        company.name,
-                        style: const TextStyle(
-                          fontWeight: FontWeight.bold,
-                          fontSize: 16,
-                        ),
+                      title: Row(
+                        children: [
+                          Expanded(
+                            child: Text(
+                              company.name,
+                              style: const TextStyle(
+                                fontWeight: FontWeight.bold,
+                                fontSize: 16,
+                              ),
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ),
+                          if (isActive)
+                            Container(
+                              margin: const EdgeInsets.only(left: 8),
+                              padding: const EdgeInsets.symmetric(
+                                  horizontal: 8, vertical: 4),
+                              decoration: BoxDecoration(
+                                color: Colors.green[50],
+                                borderRadius: BorderRadius.circular(12),
+                                border: Border.all(color: Colors.green[300]!),
+                              ),
+                              child: Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: const [
+                                  Icon(Icons.check_circle,
+                                      size: 14, color: Colors.green),
+                                  SizedBox(width: 4),
+                                  Text(
+                                    'Active',
+                                    style: TextStyle(
+                                      color: Colors.green,
+                                      fontWeight: FontWeight.w600,
+                                      fontSize: 12,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                        ],
                       ),
                       subtitle: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
@@ -293,7 +330,55 @@ class _CompaniesListScreenState extends State<CompaniesListScreen> {
                             ),
                         ],
                       ),
-                      trailing: const Icon(Icons.arrow_forward_ios, size: 16),
+                      trailing: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          IconButton(
+                            icon: const Icon(Icons.delete_outline,
+                                color: Colors.redAccent),
+                            tooltip: 'Remove company',
+                            onPressed: () async {
+                              final confirmed = await showDialog<bool>(
+                                context: context,
+                                builder: (context) => AlertDialog(
+                                  title: const Text('Remove Company'),
+                                  content: Text(
+                                      'Are you sure you want to remove "${company.name}"? This will also remove it from all users.'),
+                                  actions: [
+                                    TextButton(
+                                      onPressed: () =>
+                                          Navigator.pop(context, false),
+                                      child: const Text('Cancel'),
+                                    ),
+                                    ElevatedButton(
+                                      style: ElevatedButton.styleFrom(
+                                        backgroundColor: Colors.redAccent,
+                                        foregroundColor: Colors.white,
+                                      ),
+                                      onPressed: () =>
+                                          Navigator.pop(context, true),
+                                      child: const Text('Remove'),
+                                    ),
+                                  ],
+                                ),
+                              );
+
+                              if (confirmed == true) {
+                                await provider.deleteCompany(company.id);
+                                if (!mounted) return;
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  SnackBar(
+                                    content: Text('Removed ${company.name}'),
+                                    backgroundColor: Colors.redAccent,
+                                  ),
+                                );
+                                setState(() {});
+                              }
+                            },
+                          ),
+                          const Icon(Icons.arrow_forward_ios, size: 16),
+                        ],
+                      ),
                       onTap: () => _navigateToCompanyProfile(company),
                     ),
                   );
