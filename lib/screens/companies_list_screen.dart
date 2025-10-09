@@ -18,6 +18,9 @@ class CompaniesListScreen extends StatefulWidget {
 }
 
 class _CompaniesListScreenState extends State<CompaniesListScreen> {
+  bool _selectionMode = false;
+  Company? _selectedCompany;
+
   void _showAddCompanyDialog() {
     final nameController = TextEditingController();
     final addressController = TextEditingController();
@@ -160,6 +163,99 @@ class _CompaniesListScreenState extends State<CompaniesListScreen> {
     );
   }
 
+  Future<bool?> _showDeleteOrTransferDialog(
+      BuildContext context, Company company) async {
+    final appProvider = Provider.of<AppProvider>(context, listen: false);
+    return showDialog<bool>(
+      context: context,
+      builder: (context) {
+        return FutureBuilder<List<User>>(
+          future: appProvider.getCompanyUsersFor(company.id),
+          builder: (context, usersSnapshot) {
+            final users = usersSnapshot.data ?? [];
+            final candidates = users; // allow transfer to any member
+            User? selectedOwner =
+                candidates.isNotEmpty ? candidates.first : null;
+            return StatefulBuilder(
+              builder: (context, setState) => AlertDialog(
+                title: const Text('Remove Company'),
+                content: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text('Are you sure you want to remove "${company.name}"?'),
+                    const SizedBox(height: 12),
+                    Text(
+                      'Recommendation: Transfer ownership to another person to keep all users and data.',
+                      style: TextStyle(color: Colors.orange[700], fontSize: 13),
+                    ),
+                    const SizedBox(height: 12),
+                    if (candidates.isNotEmpty) ...[
+                      const Text('Select new owner:',
+                          style: TextStyle(fontWeight: FontWeight.w600)),
+                      const SizedBox(height: 8),
+                      DropdownButtonFormField<User>(
+                        value: selectedOwner,
+                        items: candidates
+                            .map((u) => DropdownMenuItem<User>(
+                                value: u, child: Text(u.name)))
+                            .toList(),
+                        onChanged: (val) => setState(() {
+                          selectedOwner = val;
+                        }),
+                        decoration:
+                            const InputDecoration(border: OutlineInputBorder()),
+                      ),
+                    ] else ...[
+                      Text(
+                        'No other admins found. Deleting will remove this company from all users.',
+                        style: TextStyle(color: Colors.red[700], fontSize: 13),
+                      ),
+                    ],
+                  ],
+                ),
+                actions: [
+                  TextButton(
+                    onPressed: () => Navigator.pop(context, false),
+                    child: const Text('Cancel'),
+                  ),
+                  if (candidates.isNotEmpty)
+                    ElevatedButton(
+                      onPressed: () async {
+                        final newOwner = selectedOwner;
+                        if (newOwner != null) {
+                          await appProvider.transferCompanyOwnership(
+                            companyId: company.id,
+                            newAdminUserId: newOwner.id,
+                          );
+                          if (!mounted) return;
+                          Navigator.pop(context, false);
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            SnackBar(
+                                content: Text(
+                                    'Ownership transferred to ${newOwner.name}'),
+                                backgroundColor: Colors.green),
+                          );
+                        }
+                      },
+                      child: const Text('Transfer Ownership'),
+                    ),
+                  ElevatedButton(
+                    style: ElevatedButton.styleFrom(
+                        backgroundColor: Colors.redAccent,
+                        foregroundColor: Colors.white),
+                    onPressed: () => Navigator.pop(context, true),
+                    child: const Text('Delete Company'),
+                  ),
+                ],
+              ),
+            );
+          },
+        );
+      },
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -171,6 +267,19 @@ class _CompaniesListScreenState extends State<CompaniesListScreen> {
           icon: const Icon(Icons.arrow_back),
           onPressed: () => Navigator.pop(context),
         ),
+        actions: [
+          IconButton(
+            tooltip: _selectionMode ? 'Cancel delete select' : 'Delete select',
+            icon: Icon(
+              _selectionMode ? Icons.close : Icons.delete_sweep,
+              color: _selectionMode ? null : Colors.redAccent,
+            ),
+            onPressed: () => setState(() {
+              _selectionMode = !_selectionMode;
+              if (!_selectionMode) _selectedCompany = null;
+            }),
+          ),
+        ],
       ),
       body: Consumer<AppProvider>(
         builder: (context, provider, child) {
@@ -251,9 +360,16 @@ class _CompaniesListScreenState extends State<CompaniesListScreen> {
 
                   final bool isActive = currentUser != null &&
                       currentUser.primaryCompanyId == company.id;
+                  final bool isSelected = _selectedCompany?.id == company.id;
 
                   return Card(
                     margin: const EdgeInsets.only(bottom: 12),
+                    shape: RoundedRectangleBorder(
+                      side: _selectionMode && isSelected
+                          ? const BorderSide(color: Colors.redAccent)
+                          : BorderSide.none,
+                      borderRadius: BorderRadius.circular(8),
+                    ),
                     child: ListTile(
                       contentPadding: const EdgeInsets.symmetric(
                         horizontal: 16,
@@ -330,56 +446,16 @@ class _CompaniesListScreenState extends State<CompaniesListScreen> {
                             ),
                         ],
                       ),
-                      trailing: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          IconButton(
-                            icon: const Icon(Icons.delete_outline,
-                                color: Colors.redAccent),
-                            tooltip: 'Remove company',
-                            onPressed: () async {
-                              final confirmed = await showDialog<bool>(
-                                context: context,
-                                builder: (context) => AlertDialog(
-                                  title: const Text('Remove Company'),
-                                  content: Text(
-                                      'Are you sure you want to remove "${company.name}"? This will also remove it from all users.'),
-                                  actions: [
-                                    TextButton(
-                                      onPressed: () =>
-                                          Navigator.pop(context, false),
-                                      child: const Text('Cancel'),
-                                    ),
-                                    ElevatedButton(
-                                      style: ElevatedButton.styleFrom(
-                                        backgroundColor: Colors.redAccent,
-                                        foregroundColor: Colors.white,
-                                      ),
-                                      onPressed: () =>
-                                          Navigator.pop(context, true),
-                                      child: const Text('Remove'),
-                                    ),
-                                  ],
-                                ),
-                              );
-
-                              if (confirmed == true) {
-                                await provider.deleteCompany(company.id);
-                                if (!mounted) return;
-                                ScaffoldMessenger.of(context).showSnackBar(
-                                  SnackBar(
-                                    content: Text('Removed ${company.name}'),
-                                    backgroundColor: Colors.redAccent,
-                                  ),
-                                );
-                                setState(() {});
-                              }
-                            },
-                          ),
-                          const Icon(Icons.arrow_forward_ios, size: 16),
-                        ],
-                      ),
-                      onTap: () => _navigateToCompanyProfile(company),
+                      trailing: const Icon(Icons.arrow_forward_ios, size: 16),
+                      onTap: () {
+                        if (_selectionMode) {
+                          setState(() {
+                            _selectedCompany = isSelected ? null : company;
+                          });
+                        } else {
+                          _navigateToCompanyProfile(company);
+                        }
+                      },
                     ),
                   );
                 },
@@ -388,12 +464,41 @@ class _CompaniesListScreenState extends State<CompaniesListScreen> {
           );
         },
       ),
-      floatingActionButton: FloatingActionButton(
-        onPressed: _showAddCompanyDialog,
-        backgroundColor: Colors.blue,
-        foregroundColor: Colors.white,
-        child: const Icon(Icons.add),
-      ),
+      floatingActionButton: _selectionMode
+          ? (_selectedCompany == null
+              ? null
+              : FloatingActionButton.extended(
+                  onPressed: () async {
+                    final provider =
+                        Provider.of<AppProvider>(context, listen: false);
+                    final company = _selectedCompany!;
+                    final confirmed =
+                        await _showDeleteOrTransferDialog(context, company);
+                    if (confirmed == true) {
+                      await provider.deleteCompany(company.id);
+                      if (!mounted) return;
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(
+                          content: Text('Removed ${company.name}'),
+                          backgroundColor: Colors.redAccent,
+                        ),
+                      );
+                      setState(() {
+                        _selectionMode = false;
+                        _selectedCompany = null;
+                      });
+                    }
+                  },
+                  icon: const Icon(Icons.delete_outline),
+                  label: const Text('Delete'),
+                  backgroundColor: Colors.redAccent,
+                ))
+          : FloatingActionButton(
+              onPressed: _showAddCompanyDialog,
+              backgroundColor: Colors.blue,
+              foregroundColor: Colors.white,
+              child: const Icon(Icons.add),
+            ),
     );
   }
 }

@@ -317,7 +317,32 @@ class StorageService {
 
   // Run data migrations - called every time app initializes
   static Future<void> runMigrations() async {
-    const demoCompanyId = 'demo_company_utilif';
+    // Get the actual company ID from existing data
+    final companies = await getCompanies();
+    final users = await getUsers();
+
+    // Find the most common primaryCompanyId among users, or fall back to first company
+    String? actualCompanyId;
+    if (users.isNotEmpty) {
+      final companyIdCounts = <String, int>{};
+      for (final user in users) {
+        if (user.primaryCompanyId != null) {
+          companyIdCounts[user.primaryCompanyId!] =
+              (companyIdCounts[user.primaryCompanyId!] ?? 0) + 1;
+        }
+      }
+      if (companyIdCounts.isNotEmpty) {
+        actualCompanyId = companyIdCounts.entries
+            .reduce((a, b) => a.value > b.value ? a : b)
+            .key;
+      }
+    }
+
+    // Fallback to first company or demo company
+    actualCompanyId ??=
+        companies.isNotEmpty ? companies.first.id : 'demo_company_utilif';
+
+    print('DEBUG: Migration - Using company ID: $actualCompanyId');
 
     // Migration: Update existing workplaces without companyId
     final workplaces = await getWorkplaces();
@@ -330,7 +355,7 @@ class StorageService {
           name: wp.name,
           address: wp.address,
           createdAt: wp.createdAt,
-          companyId: demoCompanyId,
+          companyId: actualCompanyId,
         );
       }
       return wp;
@@ -349,8 +374,8 @@ class StorageService {
       if (target.companyId == null || target.companyId!.isEmpty) {
         targetsNeedUpdate = true;
         print(
-            'DEBUG: Migration - Updating target ${target.id} with companyId: $demoCompanyId');
-        return target.copyWith(companyId: demoCompanyId);
+            'DEBUG: Migration - Updating target ${target.id} with companyId: $actualCompanyId');
+        return target.copyWith(companyId: actualCompanyId);
       }
       return target;
     }).toList();
@@ -358,7 +383,7 @@ class StorageService {
     if (targetsNeedUpdate) {
       await saveSalesTargets(updatedTargets);
       print(
-          'DEBUG: Migration - Updated ${updatedTargets.where((t) => t.companyId == demoCompanyId).length} targets with companyId');
+          'DEBUG: Migration - Updated ${updatedTargets.where((t) => t.companyId == actualCompanyId).length} targets with companyId');
 
       // Verify the migration worked
       final verifyTargets = await getSalesTargets();
@@ -374,6 +399,115 @@ class StorageService {
       } else {
         print('DEBUG: Migration verification - All targets now have companyId');
       }
+    }
+
+    // Migration: Update existing points transactions without companyId OR with wrong companyId
+    final pointsTransactions = await getPointsTransactions();
+    bool pointsNeedUpdate = false;
+    final updatedPointsTransactions = pointsTransactions.map((transaction) {
+      if (transaction.companyId == null ||
+          transaction.companyId!.isEmpty ||
+          transaction.companyId == 'demo_company_utilif') {
+        pointsNeedUpdate = true;
+        print(
+            'DEBUG: Migration - Updating points transaction ${transaction.id} from ${transaction.companyId} to companyId: $actualCompanyId');
+        return transaction.copyWith(companyId: actualCompanyId);
+      }
+      return transaction;
+    }).toList();
+
+    if (pointsNeedUpdate) {
+      await savePointsTransactions(updatedPointsTransactions);
+      print(
+          'DEBUG: Migration - Updated ${updatedPointsTransactions.where((t) => t.companyId == actualCompanyId).length} points transactions with companyId');
+
+      // Verify the migration worked
+      final verifyTransactions = await getPointsTransactions();
+      final nullCompanyTransactions = verifyTransactions
+          .where((t) => t.companyId == null || t.companyId!.isEmpty)
+          .toList();
+      if (nullCompanyTransactions.isNotEmpty) {
+        print(
+            'WARNING: Points migration failed! Still have ${nullCompanyTransactions.length} transactions without companyId');
+        for (var t in nullCompanyTransactions) {
+          print('  - Transaction ${t.id}: companyId=${t.companyId}');
+        }
+      } else {
+        print(
+            'DEBUG: Points migration verification - All transactions now have companyId');
+      }
+    }
+
+    // Migration: Fix targets where actual=$1000 and points=20 should be 10
+    final prefs = await SharedPreferences.getInstance();
+    final fixedKey = 'migration_fixed_1000_target_v1';
+    if (!(prefs.getBool(fixedKey) ?? false)) {
+      print(
+          'DEBUG: Running migration to fix \$1000 targets with incorrect points');
+
+      final targets = await getSalesTargets();
+      final transactions = await getPointsTransactions();
+
+      print('DEBUG: Checking ${targets.length} targets for points correction');
+      int fixedCount = 0;
+
+      for (final target in targets) {
+        // Find targets with actual=$1000, points=20, and approved
+        if (target.actualAmount == 1000 &&
+            target.pointsAwarded == 20 &&
+            target.isApproved &&
+            target.collaborativeEmployeeIds.isNotEmpty) {
+          print(
+              'DEBUG: Found candidate target ${target.id} - actual:\$${target.actualAmount}, target:\$${target.targetAmount}, points:${target.pointsAwarded}');
+          // Calculate what the points SHOULD be based on target/actual ratio
+          final effectivePercent =
+              (target.actualAmount / target.targetAmount) * 100.0;
+
+          // If they're at exactly 100% (target=$1000), they should get 10 points not 20
+          if (effectivePercent >= 100.0 && effectivePercent < 110.0) {
+            print(
+                'DEBUG: Fixing target ${target.id} - actual:\$${target.actualAmount}, target:\$${target.targetAmount}, $effectivePercent%');
+            print(
+                'DEBUG: Reducing points from 20 to 10 for ${target.collaborativeEmployeeIds.length} team members');
+
+            // Create withdrawal transactions for each team member
+            final correctionTransactions = <PointsTransaction>[];
+            for (final employeeId in target.collaborativeEmployeeIds) {
+              final correctionTx = PointsTransaction(
+                id: '${DateTime.now().millisecondsSinceEpoch}_fix1000_$employeeId',
+                userId: employeeId,
+                type: PointsTransactionType.redeemed,
+                points: 10,
+                description:
+                    'Points correction: -10 (target adjusted from \$${target.targetAmount.toStringAsFixed(0)} to \$1000)',
+                date: DateTime.now(),
+                relatedTargetId: target.id,
+                companyId: target.companyId ?? actualCompanyId,
+              );
+              correctionTransactions.add(correctionTx);
+            }
+
+            // Save all correction transactions
+            final allTransactions = await getPointsTransactions();
+            allTransactions.addAll(correctionTransactions);
+            await savePointsTransactions(allTransactions);
+
+            // Update the target with correct target amount and points
+            final fixedTarget = target.copyWith(
+              targetAmount: 1000,
+              pointsAwarded: 10,
+            );
+            await updateSalesTarget(fixedTarget);
+
+            fixedCount++;
+            print(
+                'DEBUG: Fixed target ${target.id} - created ${correctionTransactions.length} correction transactions');
+          }
+        }
+      }
+
+      await prefs.setBool(fixedKey, true);
+      print('DEBUG: Migration complete - fixed $fixedCount \$1000 targets');
     }
   }
 

@@ -710,6 +710,7 @@ class _EmployeeDashboardState extends State<EmployeeDashboard> {
                     salesTargets: allTargets,
                     userCompanies: userCompanies,
                     currentCompanyId: user.primaryCompanyId,
+                    selectedDate: _selectedDate,
                     onDateSelected: (selectedDate) {
                       setState(() {
                         _selectedDate = selectedDate;
@@ -2099,13 +2100,17 @@ class _EmployeeDashboardState extends State<EmployeeDashboard> {
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text('Join Target as Team Member'),
+        title: Text(target.isSubmitted
+            ? 'Request to Join Submitted Target'
+            : 'Join Target as Team Member'),
         content: Column(
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Text(
-              'Do you want to join this sales target as a team member?',
+              target.isSubmitted
+                  ? 'This target has been submitted. Your request to join will need admin approval.'
+                  : 'Do you want to join this sales target as a team member?',
               style: Theme.of(context).textTheme.bodyMedium,
             ),
             const SizedBox(height: 16),
@@ -2159,9 +2164,11 @@ class _EmployeeDashboardState extends State<EmployeeDashboard> {
           ElevatedButton.icon(
             onPressed: () => Navigator.pop(context, true),
             icon: const Icon(Icons.person_add, size: 18),
-            label: const Text('Join Team'),
+            label: Text(target.isSubmitted ? 'Request to Join' : 'Join Team'),
             style: ElevatedButton.styleFrom(
-              backgroundColor: Colors.blue.shade600,
+              backgroundColor: target.isSubmitted
+                  ? Colors.orange.shade600
+                  : Colors.blue.shade600,
               foregroundColor: Colors.white,
             ),
           ),
@@ -2170,41 +2177,75 @@ class _EmployeeDashboardState extends State<EmployeeDashboard> {
     );
 
     if (confirmed == true) {
-      // Add current user as a collaborator (prevent duplicates)
-      final updatedCollaboratorIds = [
-        ...target.collaborativeEmployeeIds,
-        if (!target.collaborativeEmployeeIds.contains(userId)) userId,
-      ];
-      final updatedCollaboratorNames = [
-        ...target.collaborativeEmployeeNames,
-        if (!target.collaborativeEmployeeIds.contains(userId)) currentUser.name,
-      ];
+      if (target.isSubmitted) {
+        // For submitted targets, create an approval request instead of direct update
+        final updatedCollaboratorIds = [
+          ...target.collaborativeEmployeeIds,
+          if (!target.collaborativeEmployeeIds.contains(userId)) userId,
+        ];
+        final updatedCollaboratorNames = [
+          ...target.collaborativeEmployeeNames,
+          if (!target.collaborativeEmployeeIds.contains(userId))
+            currentUser.name,
+        ];
 
-      // Remove duplicates
-      final uniqueIds = updatedCollaboratorIds.toSet().toList();
-      final uniqueNames = updatedCollaboratorNames.toSet().toList();
+        // Remove duplicates
+        final uniqueIds = updatedCollaboratorIds.toSet().toList();
+        final uniqueNames = updatedCollaboratorNames.toSet().toList();
 
-      final updatedTarget = target.copyWith(
-        collaborativeEmployeeIds: uniqueIds,
-        collaborativeEmployeeNames: uniqueNames,
-      );
-
-      await appProvider.updateSalesTarget(updatedTarget);
-
-      if (context.mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('You joined the target as a team member!'),
-            backgroundColor: Colors.green,
-            action: SnackBarAction(
-              label: 'View',
-              textColor: Colors.white,
-              onPressed: () {
-                // Could navigate to target details
-              },
-            ),
-          ),
+        await appProvider.submitTeamChange(
+          target.id,
+          uniqueIds,
+          uniqueNames,
+          userId,
         );
+
+        if (context.mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('Join request submitted for admin approval!'),
+              backgroundColor: Colors.orange,
+            ),
+          );
+        }
+      } else {
+        // For non-submitted targets, update directly
+        final updatedCollaboratorIds = [
+          ...target.collaborativeEmployeeIds,
+          if (!target.collaborativeEmployeeIds.contains(userId)) userId,
+        ];
+        final updatedCollaboratorNames = [
+          ...target.collaborativeEmployeeNames,
+          if (!target.collaborativeEmployeeIds.contains(userId))
+            currentUser.name,
+        ];
+
+        // Remove duplicates
+        final uniqueIds = updatedCollaboratorIds.toSet().toList();
+        final uniqueNames = updatedCollaboratorNames.toSet().toList();
+
+        final updatedTarget = target.copyWith(
+          collaborativeEmployeeIds: uniqueIds,
+          collaborativeEmployeeNames: uniqueNames,
+        );
+
+        await appProvider.updateSalesTarget(updatedTarget);
+
+        if (context.mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('You joined the target as a team member!'),
+              backgroundColor: Colors.green,
+              action: SnackBarAction(
+                label: 'View',
+                textColor: Colors.white,
+                onPressed: () {
+                  // Could navigate to target details
+                },
+              ),
+            ),
+          );
+        }
       }
 
       // Refresh the view

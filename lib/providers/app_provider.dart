@@ -277,8 +277,23 @@ class AppProvider with ChangeNotifier {
       orElse: () => target,
     );
 
-    // Check if points need to be adjusted
-    if (originalTarget.pointsAwarded != target.pointsAwarded) {
+    // Determine if team membership changed
+    final originalMembers = <String>{
+      if (originalTarget.assignedEmployeeId != null)
+        originalTarget.assignedEmployeeId!,
+      ...originalTarget.collaborativeEmployeeIds,
+    };
+    final updatedMembers = <String>{
+      if (target.assignedEmployeeId != null) target.assignedEmployeeId!,
+      ...target.collaborativeEmployeeIds,
+    };
+    final membershipChanged = originalMembers.length != updatedMembers.length ||
+        !originalMembers.containsAll(updatedMembers) ||
+        !updatedMembers.containsAll(originalMembers);
+
+    // Check if points or membership need to be adjusted
+    if (originalTarget.pointsAwarded != target.pointsAwarded ||
+        membershipChanged) {
       await _adjustPointsForTargetUpdate(originalTarget, target);
     }
 
@@ -311,48 +326,107 @@ class AppProvider with ChangeNotifier {
     final pointsDifference =
         updatedTarget.pointsAwarded - originalTarget.pointsAwarded;
 
-    if (pointsDifference == 0) return; // No change needed
+    // Determine membership changes
+    final originalMembers = <String>{
+      if (originalTarget.assignedEmployeeId != null)
+        originalTarget.assignedEmployeeId!,
+      ...originalTarget.collaborativeEmployeeIds,
+    };
+    final updatedMembers = <String>{
+      if (updatedTarget.assignedEmployeeId != null)
+        updatedTarget.assignedEmployeeId!,
+      ...updatedTarget.collaborativeEmployeeIds,
+    };
+    final removedMembers = originalMembers.difference(updatedMembers);
+    final addedMembers = updatedMembers.difference(originalMembers);
 
-    // Skip adjustment if target is being approved (status change from submitted to approved)
-    // or if target is already approved and being edited
-    // or if target is being edited and has points (admin editing)
-    if ((originalTarget.status == TargetStatus.submitted &&
-            updatedTarget.status == TargetStatus.approved) ||
-        (originalTarget.status == TargetStatus.approved &&
-            updatedTarget.status == TargetStatus.approved) ||
-        (originalTarget.pointsAwarded > 0 &&
-            updatedTarget.pointsAwarded == 0)) {
-      print('DEBUG: Skipping points adjustment for approval/editing process');
+    // Skip only when transitioning from submitted -> approved (to avoid double-award)
+    if (originalTarget.status == TargetStatus.submitted &&
+        updatedTarget.status == TargetStatus.approved) {
+      print(
+          'DEBUG: Skipping adjustment due to submitted -> approved transition');
       return;
     }
 
-    // Get all employees involved in this target
-    final allEmployeeIds = <String>{};
-    if (originalTarget.assignedEmployeeId != null) {
-      allEmployeeIds.add(originalTarget.assignedEmployeeId!);
+    // If target is approved and members were removed, withdraw their previously granted points
+    if (updatedTarget.isApproved && removedMembers.isNotEmpty) {
+      for (final userId in removedMembers) {
+        final withdrawPoints = originalTarget.pointsAwarded;
+        if (withdrawPoints != 0) {
+          final tx = PointsTransaction(
+            id: '${DateTime.now().millisecondsSinceEpoch}_withdraw_$userId',
+            userId: userId,
+            type: PointsTransactionType.adjustment,
+            points: -withdrawPoints,
+            description:
+                'Points adjustment: Removed from target ${originalTarget.id} (-$withdrawPoints)',
+            date: DateTime.now(),
+            relatedTargetId: originalTarget.id,
+            companyId: updatedTarget.companyId,
+          );
+          await StorageService.addPointsTransaction(tx);
+          _pointsTransactions.add(tx);
+          print(
+              'DEBUG: Withdrew $withdrawPoints points from removed member $userId for target ${originalTarget.id}');
+        }
+      }
     }
-    allEmployeeIds.addAll(originalTarget.collaborativeEmployeeIds);
 
-    // Create adjustment transactions for each employee
-    for (final employeeId in allEmployeeIds) {
-      final transaction = PointsTransaction(
-        id: '${DateTime.now().millisecondsSinceEpoch}_$employeeId',
-        userId: employeeId,
-        type: PointsTransactionType.adjustment,
-        points: pointsDifference, // Can be positive or negative
-        description: pointsDifference > 0
-            ? 'Points adjustment: Target ${originalTarget.id} increased by $pointsDifference points'
-            : 'Points adjustment: Target ${originalTarget.id} decreased by ${pointsDifference.abs()} points',
-        date: DateTime.now(),
-        relatedTargetId: originalTarget.id,
-      );
-
-      await StorageService.addPointsTransaction(transaction);
-      _pointsTransactions.add(transaction);
+    // If target is approved and members were added, grant them points (positive adjustment)
+    if (updatedTarget.isApproved && addedMembers.isNotEmpty) {
+      for (final userId in addedMembers) {
+        final grantPoints = updatedTarget.pointsAwarded;
+        if (grantPoints != 0) {
+          final tx = PointsTransaction(
+            id: '${DateTime.now().millisecondsSinceEpoch}_grant_$userId',
+            userId: userId,
+            type: PointsTransactionType.adjustment,
+            points: grantPoints,
+            description:
+                'Points adjustment: Added to target ${originalTarget.id} (+$grantPoints)',
+            date: DateTime.now(),
+            relatedTargetId: originalTarget.id,
+            companyId: updatedTarget.companyId,
+          );
+          await StorageService.addPointsTransaction(tx);
+          _pointsTransactions.add(tx);
+          print(
+              'DEBUG: Granted $grantPoints points to newly added member $userId for target ${originalTarget.id}');
+        }
+      }
     }
 
-    print(
-        'DEBUG: Adjusted points for target ${originalTarget.id}: ${pointsDifference > 0 ? '+' : ''}$pointsDifference points');
+    // If no points difference and no membership change, nothing else to do
+    if (pointsDifference == 0 &&
+        removedMembers.isEmpty &&
+        addedMembers.isEmpty) {
+      return;
+    }
+
+    // Apply difference-based adjustment for all current members when points change
+    if (pointsDifference != 0) {
+      final affectedMembers = updatedMembers;
+      for (final employeeId in affectedMembers) {
+        final transaction = PointsTransaction(
+          id: '${DateTime.now().millisecondsSinceEpoch}_$employeeId',
+          userId: employeeId,
+          type: PointsTransactionType.adjustment,
+          points: pointsDifference, // Can be positive or negative
+          description: pointsDifference > 0
+              ? 'Points adjustment: Target ${originalTarget.id} increased by $pointsDifference points'
+              : 'Points adjustment: Target ${originalTarget.id} decreased by ${pointsDifference.abs()} points',
+          date: DateTime.now(),
+          relatedTargetId: originalTarget.id,
+          companyId: updatedTarget.companyId,
+        );
+
+        await StorageService.addPointsTransaction(transaction);
+        _pointsTransactions.add(transaction);
+      }
+
+      print(
+          'DEBUG: Adjusted points for target ${originalTarget.id}: ${pointsDifference > 0 ? '+' : ''}$pointsDifference points');
+    }
   }
 
   Future<void> markTargetAsMissed(String targetId, String adminId) async {
@@ -587,6 +661,24 @@ class AppProvider with ChangeNotifier {
     } else {
       // Different user changing team - requires approval
       print('DEBUG: Non-assigned user changing team - sending for approval');
+
+      // Check if there's already a pending team change request for this target by this user
+      final existingRequests = _approvalRequests
+          .where(
+            (request) =>
+                request.targetId == targetId &&
+                request.submittedBy == employeeId &&
+                request.type == ApprovalRequestType.teamChange &&
+                request.status == ApprovalStatus.pending,
+          )
+          .toList();
+
+      if (existingRequests.isNotEmpty) {
+        print(
+            'DEBUG: Duplicate team change request detected - skipping creation');
+        print('DEBUG: Existing request ID: ${existingRequests.first.id}');
+        return;
+      }
 
       final approvalRequest = ApprovalRequest(
         id: DateTime.now().millisecondsSinceEpoch.toString(),
@@ -1153,6 +1245,37 @@ class AppProvider with ChangeNotifier {
     }
   }
 
+  // Transfer company ownership to another admin (updates company.adminUserId and roles)
+  Future<void> transferCompanyOwnership({
+    required String companyId,
+    required String newAdminUserId,
+  }) async {
+    // Load companies
+    final companies = await StorageService.getCompanies();
+    final companyIndex = companies.indexWhere((c) => c.id == companyId);
+    if (companyIndex == -1) return;
+
+    final currentCompany = companies[companyIndex];
+    final updatedCompany = currentCompany.copyWith(adminUserId: newAdminUserId);
+    companies[companyIndex] = updatedCompany;
+    await StorageService.saveCompanies(companies);
+
+    // Ensure new admin has admin role in this company
+    final users = await StorageService.getUsers();
+    for (final user in users) {
+      if (user.id == newAdminUserId) {
+        final updatedRoles = Map<String, String>.from(user.companyRoles);
+        updatedRoles[companyId] = UserRole.admin.toString().split('.').last;
+        final updatedUser = user.copyWith(companyRoles: updatedRoles);
+        await StorageService.updateUser(updatedUser);
+      }
+    }
+
+    // Refresh local cache
+    _companies = companies;
+    notifyListeners();
+  }
+
   int getUserTotalPoints(String userId) {
     final userTransactions = getUserPointsTransactions(userId);
     return userTransactions.fold(0, (sum, transaction) {
@@ -1189,7 +1312,7 @@ class AppProvider with ChangeNotifier {
 
   Future<void> updateUserPoints(
       String userId, int pointsChange, String description,
-      {String? companyId}) async {
+      {String? companyId, String? relatedTargetId}) async {
     // Get all users
     final users = await StorageService.getUsers();
     final userIndex = users.indexWhere((u) => u.id == userId);
@@ -1227,6 +1350,7 @@ class AppProvider with ChangeNotifier {
       description: description,
       date: DateTime.now(),
       companyId: companyId,
+      relatedTargetId: relatedTargetId,
     );
 
     await StorageService.addPointsTransaction(transaction);
@@ -1254,8 +1378,15 @@ class AppProvider with ChangeNotifier {
   int getUserCompanyPoints(String userId, String companyId) {
     final userTransactions = _pointsTransactions
         .where((t) => t.userId == userId && t.companyId == companyId);
+
+    print('DEBUG: getUserCompanyPoints - User: $userId, Company: $companyId');
+    print(
+        'DEBUG: Found ${userTransactions.length} transactions for this user/company');
+
     int points = 0;
     for (final transaction in userTransactions) {
+      print(
+          'DEBUG: Transaction - Type: ${transaction.type.name}, Points: ${transaction.points}, Description: ${transaction.description}');
       if (transaction.type == PointsTransactionType.earned ||
           transaction.type == PointsTransactionType.bonus ||
           transaction.type == PointsTransactionType.adjustment) {
@@ -1264,6 +1395,8 @@ class AppProvider with ChangeNotifier {
         points -= transaction.points;
       }
     }
+
+    print('DEBUG: Total points calculated: $points');
     return points;
   }
 
@@ -1296,6 +1429,10 @@ class AppProvider with ChangeNotifier {
   }
 
   Future<void> approveRequest(ApprovalRequest request) async {
+    print(
+        'DEBUG: approveRequest called - requestId: ${request.id}, type: ${request.type.name}');
+    print('DEBUG: Target ID: ${request.targetId}');
+
     final updatedRequest = request.copyWith(
       status: ApprovalStatus.approved,
       reviewedAt: DateTime.now(),
@@ -1307,8 +1444,10 @@ class AppProvider with ChangeNotifier {
 
     // Apply the approved changes
     if (request.type == ApprovalRequestType.salesSubmission) {
+      print('DEBUG: Processing sales submission approval');
       await _applySalesSubmission(request);
     } else if (request.type == ApprovalRequestType.teamChange) {
+      print('DEBUG: Processing team change approval');
       await _applyTeamChange(request);
     }
 
@@ -1370,32 +1509,86 @@ class AppProvider with ChangeNotifier {
   }
 
   Future<void> _applyTeamChange(ApprovalRequest request) async {
+    print('DEBUG: _applyTeamChange called for request ${request.id}');
+    print('DEBUG: Target ID: ${request.targetId}');
+    print('DEBUG: Previous team: ${request.previousTeamMemberNames}');
+    print('DEBUG: New team: ${request.newTeamMemberNames}');
+
     final target = _salesTargets.firstWhere((t) => t.id == request.targetId);
+    print(
+        'DEBUG: Found target - isApproved: ${target.isApproved}, pointsAwarded: ${target.pointsAwarded}');
+
     final updatedTarget = target.copyWith(
       collaborativeEmployeeIds: request.newTeamMemberIds!,
       collaborativeEmployeeNames: request.newTeamMemberNames!,
     );
     await updateSalesTargetForApproval(updatedTarget);
+
+    // If the target was already approved and had points awarded,
+    // award points to any new team members who weren't in the previous team
+    if (target.isApproved && target.pointsAwarded > 0) {
+      final previousTeamIds = Set<String>.from(request.previousTeamMemberIds!);
+      final newTeamIds = Set<String>.from(request.newTeamMemberIds!);
+      final newlyAddedMembers = newTeamIds.difference(previousTeamIds);
+
+      print(
+          'DEBUG: Target was already approved with ${target.pointsAwarded} points');
+      print('DEBUG: Previous team: ${request.previousTeamMemberNames}');
+      print('DEBUG: New team: ${request.newTeamMemberNames}');
+      print('DEBUG: Newly added members: $newlyAddedMembers');
+
+      // Award points to newly added team members with company context
+      for (final newMemberId in newlyAddedMembers) {
+        await updateUserPoints(
+          newMemberId,
+          target.pointsAwarded,
+          'Added to approved target: \$${target.targetAmount.toStringAsFixed(0)}',
+          companyId: target.companyId,
+        );
+        print(
+            'DEBUG: Awarded ${target.pointsAwarded} points to newly added member: $newMemberId in company ${target.companyId}');
+      }
+    } else {
+      print(
+          'DEBUG: Team change conditions not met - isApproved: ${target.isApproved}, pointsAwarded: ${target.pointsAwarded}');
+    }
   }
 
   Future<void> _awardPointsForTargetCompletion(SalesTarget target) async {
-    // Award points to the assigned employee
+    print(
+        'DEBUG: _awardPointsForTargetCompletion called for target ${target.id}');
+    print(
+        'DEBUG: Target has ${target.collaborativeEmployeeIds.length} team members');
+    print('DEBUG: Points to award: ${target.pointsAwarded}');
+
+    // Award points to the assigned employee with company context
     if (target.assignedEmployeeId != null) {
       await updateUserPoints(
         target.assignedEmployeeId!,
         target.pointsAwarded,
         'Target completed: \$${target.targetAmount.toStringAsFixed(0)}',
+        companyId: target.companyId,
+        relatedTargetId: target.id,
       );
+      print(
+          'DEBUG: Awarded ${target.pointsAwarded} points to assigned employee: ${target.assignedEmployeeId}');
     }
 
-    // Award points to team members
+    // Award points to team members with company context
     for (int i = 0; i < target.collaborativeEmployeeIds.length; i++) {
       final employeeId = target.collaborativeEmployeeIds[i];
+      final employeeName = i < target.collaborativeEmployeeNames.length
+          ? target.collaborativeEmployeeNames[i]
+          : employeeId;
       await updateUserPoints(
         employeeId,
         target.pointsAwarded,
         'Team target completed: \$${target.targetAmount.toStringAsFixed(0)}',
+        companyId: target.companyId,
+        relatedTargetId: target.id,
       );
+      print(
+          'DEBUG: Awarded ${target.pointsAwarded} points to team member $employeeName ($employeeId) in company ${target.companyId}');
     }
 
     // Award admin team participation points
@@ -1406,6 +1599,165 @@ class AppProvider with ChangeNotifier {
         target.id,
       );
     }
+  }
+
+  // Manual points correction for already-approved targets
+  Future<void> retroactivelyAwardPointsForTarget(String targetId) async {
+    print(
+        'DEBUG: retroactivelyAwardPointsForTarget called for target $targetId');
+    final target = _salesTargets.firstWhere((t) => t.id == targetId);
+
+    if (!target.isApproved || target.pointsAwarded == 0) {
+      print('DEBUG: Target is not approved or has no points to award');
+      return;
+    }
+
+    // Check if any team member has already received points for this target
+    // by looking for transactions with this target ID or matching description
+    final targetAmount = target.targetAmount.toStringAsFixed(0);
+    final targetTransactions = _pointsTransactions
+        .where((t) =>
+            t.relatedTargetId == targetId ||
+            (t.description.contains('Team target completed: \$$targetAmount') ||
+                t.description.contains('Target completed: \$$targetAmount')))
+        .toList();
+
+    if (targetTransactions.isNotEmpty) {
+      print(
+          'DEBUG: Found ${targetTransactions.length} existing transactions for this target');
+
+      // Check which team members already have transactions
+      final usersWithPoints = targetTransactions.map((t) => t.userId).toSet();
+      final teamMembers = Set<String>.from(target.collaborativeEmployeeIds);
+      if (target.assignedEmployeeId != null) {
+        teamMembers.add(target.assignedEmployeeId!);
+      }
+
+      final missingUsers = teamMembers.difference(usersWithPoints);
+
+      if (missingUsers.isEmpty) {
+        print(
+            'DEBUG: All team members have already received points for this target');
+        return;
+      }
+
+      // Award points only to users who haven't received them yet
+      print(
+          'DEBUG: Awarding points to ${missingUsers.length} users who haven\'t received them yet');
+      for (final userId in missingUsers) {
+        final userName = target.collaborativeEmployeeIds.contains(userId)
+            ? target.collaborativeEmployeeNames[
+                target.collaborativeEmployeeIds.indexOf(userId)]
+            : 'Assigned Employee';
+
+        await updateUserPoints(
+          userId,
+          target.pointsAwarded,
+          'Team target completed: \$${target.targetAmount.toStringAsFixed(0)}',
+          companyId: target.companyId,
+          relatedTargetId: targetId,
+        );
+        print(
+            'DEBUG: Awarded ${target.pointsAwarded} points to $userName ($userId)');
+      }
+    } else {
+      // No transactions exist yet - award to all team members
+      print(
+          'DEBUG: No existing transactions - awarding ${target.pointsAwarded} points to all team members');
+      await _awardPointsForTargetCompletion(target);
+    }
+
+    notifyListeners();
+  }
+
+  // Recalculate and adjust points for a target based on updated target amount (admin function)
+  Future<void> recalculateAndAdjustPoints(
+      String targetId, double newTargetAmount) async {
+    print(
+        'DEBUG: recalculateAndAdjustPoints called for target $targetId with new target: $newTargetAmount');
+
+    final target = _salesTargets.firstWhere((t) => t.id == targetId);
+    if (!target.isApproved) {
+      print('DEBUG: Target not approved - cannot adjust points');
+      return;
+    }
+
+    final currentPoints = target.pointsAwarded;
+
+    // Recalculate points based on actual amount vs new target amount
+    final effectivePercent = newTargetAmount > 0
+        ? (target.actualAmount / newTargetAmount) * 100.0
+        : 0.0;
+
+    final correctPoints = effectivePercent >= 100.0
+        ? getPointsForEffectivePercent(effectivePercent, target.companyId)
+        : 0;
+
+    final pointsDifference = correctPoints - currentPoints;
+
+    print(
+        'DEBUG: Old target: ${target.targetAmount}, New target: $newTargetAmount');
+    print('DEBUG: Actual amount: ${target.actualAmount}');
+    print('DEBUG: Effective percent: $effectivePercent%');
+    print(
+        'DEBUG: Current points: $currentPoints, Correct points: $correctPoints, Difference: $pointsDifference');
+
+    if (pointsDifference == 0) {
+      print('DEBUG: No points adjustment needed');
+      // Still update the target amount
+      final updatedTarget = target.copyWith(
+          targetAmount: newTargetAmount, pointsAwarded: correctPoints);
+      final index = _salesTargets.indexWhere((t) => t.id == targetId);
+      if (index != -1) {
+        _salesTargets[index] = updatedTarget;
+        await StorageService.updateSalesTarget(updatedTarget);
+      }
+      notifyListeners();
+      return;
+    }
+
+    // Create adjustment transactions for each team member
+    final users = await StorageService.getUsers();
+    for (final employeeId in target.collaborativeEmployeeIds) {
+      final employee = users.firstWhere((u) => u.id == employeeId,
+          orElse: () => User(
+                id: employeeId,
+                name: 'Unknown',
+                email: '',
+                role: UserRole.employee,
+                totalPoints: 0,
+                createdAt: DateTime.now(),
+              ));
+
+      // Update user points (this creates the transaction automatically)
+      await updateUserPoints(
+        employeeId,
+        pointsDifference,
+        pointsDifference > 0
+            ? 'Points correction: +$pointsDifference (target adjusted from \$${target.targetAmount.toStringAsFixed(0)} to \$${newTargetAmount.toStringAsFixed(0)})'
+            : 'Points correction: $pointsDifference (target adjusted from \$${target.targetAmount.toStringAsFixed(0)} to \$${newTargetAmount.toStringAsFixed(0)})',
+        companyId: target.companyId,
+        relatedTargetId: targetId,
+      );
+
+      print(
+          'DEBUG: Created adjustment for ${employee.name}: ${pointsDifference > 0 ? '+' : ''}$pointsDifference points');
+    }
+
+    // Update the target with new target amount and recalculated points
+    final updatedTarget = target.copyWith(
+      targetAmount: newTargetAmount,
+      pointsAwarded: correctPoints,
+    );
+    final index = _salesTargets.indexWhere((t) => t.id == targetId);
+    if (index != -1) {
+      _salesTargets[index] = updatedTarget;
+      await StorageService.updateSalesTarget(updatedTarget);
+    }
+
+    print(
+        'DEBUG: Points recalculated and adjusted - target updated from \$${target.targetAmount} to \$${newTargetAmount}, points from $currentPoints to $correctPoints');
+    notifyListeners();
   }
 
   int getPointsForEffectivePercent(double effectivePercent,
@@ -1527,6 +1879,18 @@ class AppProvider with ChangeNotifier {
             user.companyIds.contains(_currentUser!.primaryCompanyId) &&
             user.id != _currentUser!.id)
         .toList();
+  }
+
+  // Get users for a specific company (optionally excluding current user)
+  Future<List<User>> getCompanyUsersFor(String companyId,
+      {bool excludeCurrentUser = true}) async {
+    final users = await StorageService.getUsers();
+    return users.where((user) {
+      final inCompany = user.companyIds.contains(companyId);
+      if (!excludeCurrentUser) return inCompany;
+      if (_currentUser == null) return inCompany;
+      return inCompany && user.id != _currentUser!.id;
+    }).toList();
   }
 
   // Dark mode management

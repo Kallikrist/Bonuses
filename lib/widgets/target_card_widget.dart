@@ -15,6 +15,8 @@ class TargetCard extends StatelessWidget {
   final VoidCallback? onAddCollaborators;
   final VoidCallback? onSubmitSales;
   final VoidCallback? onJoinAsTeamMember;
+  final VoidCallback? onFixPoints;
+  final VoidCallback? onAdjustPoints;
 
   const TargetCard({
     super.key,
@@ -28,6 +30,8 @@ class TargetCard extends StatelessWidget {
     this.onAddCollaborators,
     this.onSubmitSales,
     this.onJoinAsTeamMember,
+    this.onFixPoints,
+    this.onAdjustPoints,
   });
 
   @override
@@ -223,6 +227,26 @@ class TargetCard extends StatelessWidget {
                               color: Colors.green),
                           onPressed: onQuickApprove,
                           tooltip: 'Quick Approve',
+                        ),
+                      ],
+                      if (target.isApproved &&
+                          target.pointsAwarded > 0 &&
+                          target.collaborativeEmployeeIds.isNotEmpty &&
+                          onFixPoints != null) ...[
+                        IconButton(
+                          icon: const Icon(Icons.refresh, color: Colors.orange),
+                          onPressed: onFixPoints,
+                          tooltip: 'Retroactively Award Points',
+                        ),
+                      ],
+                      if (target.isApproved &&
+                          target.pointsAwarded > 0 &&
+                          target.collaborativeEmployeeIds.isNotEmpty &&
+                          onAdjustPoints != null) ...[
+                        IconButton(
+                          icon: const Icon(Icons.tune, color: Colors.blue),
+                          onPressed: onAdjustPoints,
+                          tooltip: 'Adjust Target & Recalculate Points',
                         ),
                       ],
                       if (onEdit != null) ...[
@@ -473,15 +497,18 @@ class TargetCard extends StatelessWidget {
                       target.assignedEmployeeId != currentUserId &&
                       !target.collaborativeEmployeeIds
                           .contains(currentUserId) &&
-                      onJoinAsTeamMember != null &&
-                      !target.isSubmitted) ...[
+                      onJoinAsTeamMember != null) ...[
                     Expanded(
                       child: ElevatedButton.icon(
                         onPressed: onJoinAsTeamMember,
                         icon: const Icon(Icons.person_add, size: 16),
-                        label: const Text('Join as Team Member'),
+                        label: Text(target.isSubmitted
+                            ? 'Request to Join'
+                            : 'Join as Team Member'),
                         style: ElevatedButton.styleFrom(
-                          backgroundColor: Colors.blue.shade600,
+                          backgroundColor: target.isSubmitted
+                              ? Colors.orange.shade600
+                              : Colors.blue.shade600,
                           foregroundColor: Colors.white,
                         ),
                       ),
@@ -489,8 +516,7 @@ class TargetCard extends StatelessWidget {
                     const SizedBox(width: 8),
                   ],
                   // Show "Add Team" if user is the assigned employee OR a collaborator
-                  if (!target.isSubmitted &&
-                      onAddCollaborators != null &&
+                  if (onAddCollaborators != null &&
                       currentUserId != null &&
                       (target.assignedEmployeeId == currentUserId ||
                           target.collaborativeEmployeeIds
@@ -499,7 +525,16 @@ class TargetCard extends StatelessWidget {
                       child: ElevatedButton.icon(
                         onPressed: onAddCollaborators,
                         icon: const Icon(Icons.group_add, size: 16),
-                        label: const Text('Add Team'),
+                        label: Text(target.isSubmitted
+                            ? 'Request Team Change'
+                            : 'Add Team'),
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: target.isSubmitted
+                              ? Colors.orange.shade600
+                              : null,
+                          foregroundColor:
+                              target.isSubmitted ? Colors.white : null,
+                        ),
                       ),
                     ),
                     const SizedBox(width: 8),

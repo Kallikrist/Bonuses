@@ -15,6 +15,7 @@ class ProfileHeaderWidget extends StatelessWidget {
   final String? currentCompanyId;
   final Function(String companyId)? onCompanyChanged;
   final Function(DateTime selectedDate)? onDateSelected;
+  final DateTime? selectedDate;
 
   const ProfileHeaderWidget({
     super.key,
@@ -28,6 +29,7 @@ class ProfileHeaderWidget extends StatelessWidget {
     this.currentCompanyId,
     this.onCompanyChanged,
     this.onDateSelected,
+    this.selectedDate,
   });
 
   @override
@@ -225,7 +227,7 @@ class ProfileHeaderWidget extends StatelessWidget {
       MaterialPageRoute(
         builder: (context) => CalendarPage(
           title: 'Calendar',
-          selectedDate: DateTime.now(),
+          selectedDate: selectedDate ?? DateTime.now(),
           salesTargets: salesTargets,
           onDateSelected: (selectedDate) {
             // Call the callback to update the dashboard's selected date

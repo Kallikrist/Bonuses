@@ -90,6 +90,12 @@ class _AdminDashboardState extends State<AdminDashboard> {
                     () => _selectedIndex = 3), // Navigate to Profile tab
                 actionButtons: _getAdminActionButtons(context, appProvider),
                 salesTargets: allTargets,
+                selectedDate: _selectedDate,
+                onDateSelected: (selectedDate) {
+                  setState(() {
+                    _selectedDate = selectedDate;
+                  });
+                },
               ),
               // Main Content
               Expanded(
@@ -661,6 +667,10 @@ class _AdminDashboardState extends State<AdminDashboard> {
                                 request.status == ApprovalStatus.pending)
                             .toList(),
                         appProvider),
+                    onFixPoints: () =>
+                        _showFixPointsDialog(context, target, appProvider),
+                    onAdjustPoints: () => _showTargetPointsAdjustmentDialog(
+                        context, target, appProvider),
                   ),
                 )),
         ],
@@ -4489,11 +4499,36 @@ class _AdminDashboardState extends State<AdminDashboard> {
                   setState(() {});
                 }
 
+                // Check for team member changes
+                final originalTeamMembers =
+                    target.collaborativeEmployeeIds.toSet();
+                final updatedTeamMembers =
+                    verifyTarget.collaborativeEmployeeIds.toSet();
+                final teamMembersRemoved =
+                    originalTeamMembers.difference(updatedTeamMembers);
+                final teamMembersAdded =
+                    updatedTeamMembers.difference(originalTeamMembers);
+                final teamMembersChanged = teamMembersRemoved.isNotEmpty ||
+                    teamMembersAdded.isNotEmpty;
+
                 // Show appropriate feedback based on status change
                 String message;
                 Color backgroundColor = Colors.green;
 
-                if (!actualAmountChanged && !targetAmountChanged) {
+                if (teamMembersChanged) {
+                  if (teamMembersRemoved.isNotEmpty &&
+                      teamMembersAdded.isNotEmpty) {
+                    message =
+                        'Team members updated - points adjusted automatically';
+                  } else if (teamMembersRemoved.isNotEmpty) {
+                    message =
+                        'Team member(s) removed - points withdrawn automatically';
+                  } else {
+                    message =
+                        'Team member(s) added - points awarded automatically';
+                  }
+                  backgroundColor = Colors.orange;
+                } else if (!actualAmountChanged && !targetAmountChanged) {
                   message = 'Target details updated (no status change)';
                   backgroundColor = Colors.blue;
                 } else if (targetAmountChanged && !actualAmountChanged) {
@@ -5112,6 +5147,287 @@ class _AdminDashboardState extends State<AdminDashboard> {
             child: const Text('Approve All'),
           ),
         ],
+      ),
+    );
+  }
+
+  void _showFixPointsDialog(
+      BuildContext context, SalesTarget target, AppProvider appProvider) {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Award Points Retroactively'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text(
+              'This will award points to all team members for this already-approved target.',
+              style: TextStyle(fontSize: 14),
+            ),
+            const SizedBox(height: 16),
+            Text('Target: \$${target.targetAmount.toStringAsFixed(0)}',
+                style: const TextStyle(fontWeight: FontWeight.bold)),
+            Text('Points: ${target.pointsAwarded}',
+                style: const TextStyle(fontWeight: FontWeight.bold)),
+            const SizedBox(height: 8),
+            Text('Team Members (${target.collaborativeEmployeeIds.length}):'),
+            ...target.collaborativeEmployeeNames
+                .map((name) => Text('  • $name'))
+                .toList(),
+            const SizedBox(height: 16),
+            Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: Colors.orange.withOpacity(0.1),
+                borderRadius: BorderRadius.circular(8),
+                border: Border.all(color: Colors.orange),
+              ),
+              child: const Row(
+                children: [
+                  Icon(Icons.warning, color: Colors.orange, size: 20),
+                  SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      'This should only be used if points were not awarded initially.',
+                      style: TextStyle(fontSize: 12, color: Colors.orange),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Cancel'),
+          ),
+          ElevatedButton(
+            onPressed: () async {
+              await appProvider.retroactivelyAwardPointsForTarget(target.id);
+              Navigator.pop(context);
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(
+                  content: Text('Points awarded successfully!'),
+                  backgroundColor: Colors.green,
+                ),
+              );
+            },
+            style: ElevatedButton.styleFrom(backgroundColor: Colors.orange),
+            child: const Text('Award Points'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _showTargetPointsAdjustmentDialog(
+      BuildContext context, SalesTarget target, AppProvider appProvider) {
+    final targetController =
+        TextEditingController(text: target.targetAmount.toStringAsFixed(0));
+
+    // Calculate what the current effective percent is
+    final currentEffectivePercent = target.targetAmount > 0
+        ? (target.actualAmount / target.targetAmount) * 100.0
+        : 0.0;
+
+    showDialog(
+      context: context,
+      builder: (context) => StatefulBuilder(
+        builder: (context, setState) {
+          // Calculate preview of new points based on current input
+          final newTargetText = targetController.text.trim();
+          final newTarget =
+              double.tryParse(newTargetText) ?? target.targetAmount;
+          final newEffectivePercent =
+              newTarget > 0 ? (target.actualAmount / newTarget) * 100.0 : 0.0;
+          final newPoints = newEffectivePercent >= 100.0
+              ? appProvider.getPointsForEffectivePercent(
+                  newEffectivePercent, target.companyId)
+              : 0;
+          final pointsDiff = newPoints - target.pointsAwarded;
+
+          return AlertDialog(
+            title: const Text('Adjust Target & Recalculate Points'),
+            content: SingleChildScrollView(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Text(
+                    'If the target was set incorrectly, enter the correct target amount. Points will be automatically recalculated based on actual sales vs. the new target.',
+                    style: TextStyle(fontSize: 14),
+                  ),
+                  const SizedBox(height: 16),
+                  Text(
+                      'Actual Sales: \$${target.actualAmount.toStringAsFixed(0)}',
+                      style: const TextStyle(
+                          fontWeight: FontWeight.bold, color: Colors.green)),
+                  const Divider(height: 24),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            const Text('Current:',
+                                style: TextStyle(
+                                    fontSize: 12, color: Colors.grey)),
+                            Text(
+                                'Target: \$${target.targetAmount.toStringAsFixed(0)}',
+                                style: const TextStyle(
+                                    fontWeight: FontWeight.bold)),
+                            Text(
+                                '${currentEffectivePercent.toStringAsFixed(1)}% achieved',
+                                style: const TextStyle(fontSize: 12)),
+                            Text('${target.pointsAwarded} points',
+                                style: const TextStyle(
+                                    fontWeight: FontWeight.bold,
+                                    color: Colors.blue)),
+                          ],
+                        ),
+                      ),
+                      const Icon(Icons.arrow_forward, color: Colors.grey),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            const Text('New:',
+                                style: TextStyle(
+                                    fontSize: 12, color: Colors.grey)),
+                            Text('Target: \$${newTarget.toStringAsFixed(0)}',
+                                style: const TextStyle(
+                                    fontWeight: FontWeight.bold)),
+                            Text(
+                                '${newEffectivePercent.toStringAsFixed(1)}% achieved',
+                                style: const TextStyle(fontSize: 12)),
+                            Text('$newPoints points',
+                                style: TextStyle(
+                                    fontWeight: FontWeight.bold,
+                                    color: pointsDiff > 0
+                                        ? Colors.green
+                                        : pointsDiff < 0
+                                            ? Colors.red
+                                            : Colors.blue)),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 16),
+                  TextField(
+                    controller: targetController,
+                    keyboardType: TextInputType.number,
+                    decoration: const InputDecoration(
+                      labelText: 'Corrected Target Amount (\$)',
+                      border: OutlineInputBorder(),
+                      hintText: 'Enter correct target',
+                    ),
+                    onChanged: (_) =>
+                        setState(() {}), // Rebuild to update preview
+                  ),
+                  const SizedBox(height: 8),
+                  Text(
+                      'Team Members (${target.collaborativeEmployeeIds.length}):',
+                      style: const TextStyle(
+                          fontSize: 12, fontWeight: FontWeight.bold)),
+                  ...target.collaborativeEmployeeNames
+                      .map((name) => Text('  • $name',
+                          style: const TextStyle(fontSize: 12)))
+                      .toList(),
+                  if (pointsDiff != 0) ...[
+                    const SizedBox(height: 16),
+                    Container(
+                      padding: const EdgeInsets.all(12),
+                      decoration: BoxDecoration(
+                        color: (pointsDiff > 0 ? Colors.green : Colors.orange)
+                            .withOpacity(0.1),
+                        borderRadius: BorderRadius.circular(8),
+                        border: Border.all(
+                            color:
+                                pointsDiff > 0 ? Colors.green : Colors.orange),
+                      ),
+                      child: Row(
+                        children: [
+                          Icon(
+                              pointsDiff > 0
+                                  ? Icons.add_circle
+                                  : Icons.remove_circle,
+                              color:
+                                  pointsDiff > 0 ? Colors.green : Colors.orange,
+                              size: 20),
+                          const SizedBox(width: 8),
+                          Expanded(
+                            child: Text(
+                              pointsDiff > 0
+                                  ? 'Each team member will receive +$pointsDiff points'
+                                  : 'Each team member will lose ${pointsDiff.abs()} points',
+                              style: TextStyle(
+                                fontSize: 12,
+                                color: pointsDiff > 0
+                                    ? Colors.green
+                                    : Colors.orange,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ],
+              ),
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(context),
+                child: const Text('Cancel'),
+              ),
+              ElevatedButton(
+                onPressed: () async {
+                  final newTargetText = targetController.text.trim();
+                  if (newTargetText.isEmpty) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(
+                        content: Text('Please enter a valid target amount'),
+                        backgroundColor: Colors.red,
+                      ),
+                    );
+                    return;
+                  }
+
+                  final newTarget = double.tryParse(newTargetText);
+                  if (newTarget == null || newTarget <= 0) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(
+                        content: Text('Please enter a valid positive number'),
+                        backgroundColor: Colors.red,
+                      ),
+                    );
+                    return;
+                  }
+
+                  await appProvider.recalculateAndAdjustPoints(
+                      target.id, newTarget);
+                  Navigator.pop(context);
+
+                  final pointsDiff = newPoints - target.pointsAwarded;
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(
+                      content: Text(pointsDiff == 0
+                          ? 'Target updated to \$${newTarget.toStringAsFixed(0)}'
+                          : 'Target corrected! Points adjusted: ${pointsDiff > 0 ? '+' : ''}$pointsDiff per team member'),
+                      backgroundColor: Colors.green,
+                    ),
+                  );
+                },
+                style: ElevatedButton.styleFrom(backgroundColor: Colors.blue),
+                child: const Text('Recalculate & Adjust'),
+              ),
+            ],
+          );
+        },
       ),
     );
   }
