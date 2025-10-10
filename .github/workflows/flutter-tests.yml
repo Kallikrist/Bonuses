@@ -17,11 +17,30 @@ jobs:
       - name: Set up Flutter
         uses: subosito/flutter-action@v2
         with:
-          channel: stable
+          channel: beta
 
       - name: Flutter pub get
         run: flutter pub get
 
       - name: Run tests
-        run: flutter test --reporter expanded
+        run: |
+          flutter doctor -v
+          flutter --version
+          dart --version
+          flutter pub get
+          flutter test --reporter expanded || EXIT_CODE=$?
+          echo "Test exit code: ${EXIT_CODE:-0}"
+          mkdir -p build/test_logs
+          # Save verbose test output if available
+          # Note: flutter test already prints to stdout; capture GitHub step logs as artifact
+          # We'll still create a placeholder file to ensure artifact exists
+          date > build/test_logs/finished.txt
+          exit ${EXIT_CODE:-0}
+
+      - name: Upload test logs
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: flutter-test-logs
+          path: build/test_logs
 
