@@ -1,7 +1,7 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:bonuses/models/sales_target.dart';
-import 'mocks/testable_app_provider.dart';
-import 'mocks/mock_storage_service.dart';
+import 'helpers/testable_app_provider.dart';
+import 'helpers/mock_storage_service.dart';
 
 void main() {
   group('End-to-End Integration Tests', () {

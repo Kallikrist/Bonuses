@@ -1,5 +1,5 @@
 import 'package:flutter/foundation.dart';
-import '../mocks/mock_storage_service.dart';
+import 'mock_storage_service.dart';
 import 'package:bonuses/models/user.dart';
 import 'package:bonuses/models/sales_target.dart';
 import 'package:bonuses/models/points_transaction.dart';
