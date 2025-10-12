@@ -4543,6 +4543,28 @@ class _AdminDashboardState extends State<AdminDashboard> {
                 final teamMembersChanged = teamMembersRemoved.isNotEmpty ||
                     teamMembersAdded.isNotEmpty;
 
+                // Helper function to get user names from IDs
+                String _getUserNames(Set<String> userIds) {
+                  final allUsers = appProvider.getAllUsers();
+                  final names = userIds
+                      .map((id) {
+                        final user = allUsers
+                            .firstWhere((u) => u.id == id, orElse: () => User(
+                              id: id,
+                              name: 'Unknown User',
+                              email: '',
+                              role: UserRole.employee,
+                              primaryCompanyId: '',
+                              companyIds: [],
+                              companyRoles: {},
+                              createdAt: DateTime.now(),
+                            ));
+                        return user.name;
+                      })
+                      .toList();
+                  return names.join(', ');
+                }
+
                 // Show appropriate feedback based on status change
                 String message;
                 Color backgroundColor = Colors.green;
@@ -4550,14 +4572,18 @@ class _AdminDashboardState extends State<AdminDashboard> {
                 if (teamMembersChanged) {
                   if (teamMembersRemoved.isNotEmpty &&
                       teamMembersAdded.isNotEmpty) {
+                    final addedNames = _getUserNames(teamMembersAdded);
+                    final removedNames = _getUserNames(teamMembersRemoved);
                     message =
-                        'Team members updated - points adjusted automatically';
+                        'Team members updated: Added $addedNames, Removed $removedNames - points adjusted';
                   } else if (teamMembersRemoved.isNotEmpty) {
+                    final removedNames = _getUserNames(teamMembersRemoved);
                     message =
-                        'Team member(s) removed - points withdrawn automatically';
+                        'Team member(s) removed: $removedNames - points withdrawn automatically';
                   } else {
+                    final addedNames = _getUserNames(teamMembersAdded);
                     message =
-                        'Team member(s) added - points awarded automatically';
+                        'Team member(s) added: $addedNames - points awarded automatically';
                   }
                   backgroundColor = Colors.orange;
                 } else if (!actualAmountChanged && !targetAmountChanged) {
