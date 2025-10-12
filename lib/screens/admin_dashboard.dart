@@ -17,7 +17,6 @@ import '../models/points_rules.dart';
 import '../services/storage_service.dart';
 import '../widgets/profile_header_widget.dart';
 import '../widgets/target_card_widget.dart';
-import '../widgets/target_details_dialog.dart';
 import 'import_bonuses_screen.dart';
 import 'messaging_screen.dart';
 import 'chat_screen.dart';
@@ -658,8 +657,12 @@ class _AdminDashboardState extends State<AdminDashboard> {
                     target: target,
                     appProvider: appProvider,
                     isAdminView: true,
-                    onTap: () =>
-                        _showTargetDetailsDialog(context, target, appProvider),
+                    onTap: () => Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (context) => TargetProfileScreen(target: target),
+                          ),
+                        ),
                     onEdit: () =>
                         _showEditTargetDialog(context, target, appProvider),
                     onQuickApprove: () => _showQuickApproveDialog(
@@ -4190,18 +4193,6 @@ class _AdminDashboardState extends State<AdminDashboard> {
     );
   }
 
-  void _showTargetDetailsDialog(
-      BuildContext context, SalesTarget target, AppProvider appProvider) {
-    showDialog(
-      context: context,
-      builder: (context) => TargetDetailsDialog(
-        target: target,
-        appProvider: appProvider,
-        isAdminView: true,
-      ),
-    );
-  }
-
   void _showEditTargetDialog(
       BuildContext context, SalesTarget target, AppProvider appProvider) {
     final targetAmountController =
@@ -4416,10 +4407,11 @@ class _AdminDashboardState extends State<AdminDashboard> {
               onPressed: () async {
                 // Debounce: Prevent double submissions
                 if (isSaving) {
-                  print('DEBUG: Save already in progress, ignoring duplicate click');
+                  print(
+                      'DEBUG: Save already in progress, ignoring duplicate click');
                   return;
                 }
-                
+
                 setState(() {
                   isSaving = true;
                 });
@@ -4452,221 +4444,226 @@ class _AdminDashboardState extends State<AdminDashboard> {
                     return;
                   }
 
-                // Get employee and workplace names
-                final users = await appProvider.getUsers();
-                final workplaces = await appProvider.getWorkplaces();
+                  // Get employee and workplace names
+                  final users = await appProvider.getUsers();
+                  final workplaces = await appProvider.getWorkplaces();
 
-                final assignedEmployee = users.firstWhere(
-                  (u) => u.id == selectedEmployeeId,
-                  orElse: () => User(
-                    id: '',
-                    name: '',
-                    email: '',
-                    role: UserRole.employee,
-                    createdAt: DateTime.now(),
-                  ),
-                );
-
-                final assignedWorkplace = workplaces.firstWhere(
-                  (w) => w.id == selectedWorkplaceId,
-                  orElse: () => Workplace(
-                      id: '', name: '', address: '', createdAt: DateTime.now()),
-                );
-
-                final teamMembers = users
-                    .where((u) => selectedTeamMemberIds.contains(u.id))
-                    .toList();
-
-                // Remove duplicates from team member IDs
-                final uniqueTeamMemberIds =
-                    selectedTeamMemberIds.toSet().toList();
-                final uniqueTeamMembers = users
-                    .where((u) => uniqueTeamMemberIds.contains(u.id))
-                    .toList();
-
-                print(
-                    'DEBUG: Updating target - employeeId: $selectedEmployeeId, workplaceId: $selectedWorkplaceId');
-                print(
-                    'DEBUG: Updating target - team member IDs: $uniqueTeamMemberIds');
-
-                // Create updated target with recalculated status
-                final baseUpdatedTarget = target.copyWith(
-                  targetAmount: targetAmount,
-                  actualAmount: actualAmount,
-                  date: selectedDate,
-                  assignedEmployeeId: selectedEmployeeId,
-                  assignedEmployeeName:
-                      selectedEmployeeId != null ? assignedEmployee.name : null,
-                  assignedWorkplaceId: selectedWorkplaceId,
-                  assignedWorkplaceName: selectedWorkplaceId != null
-                      ? assignedWorkplace.name
-                      : null,
-                  collaborativeEmployeeIds: uniqueTeamMemberIds,
-                  collaborativeEmployeeNames:
-                      uniqueTeamMembers.map((u) => u.name).toList(),
-                );
-
-                // Smart status calculation logic
-                final actualAmountChanged = actualAmount != target.actualAmount;
-                final targetAmountChanged = targetAmount != target.targetAmount;
-
-                SalesTarget updatedTarget;
-                if (actualAmountChanged && actualAmount > 0) {
-                  // Only recalculate status when actual sales amount changes AND there's actual activity
-                  updatedTarget = baseUpdatedTarget.calculateResults();
-                } else if (actualAmountChanged && actualAmount == 0) {
-                  // If sales are reset to 0, set back to pending (target not started)
-                  updatedTarget = baseUpdatedTarget.copyWith(
-                    status: TargetStatus.pending,
-                    isMet: false,
-                    pointsAwarded: 0,
+                  final assignedEmployee = users.firstWhere(
+                    (u) => u.id == selectedEmployeeId,
+                    orElse: () => User(
+                      id: '',
+                      name: '',
+                      email: '',
+                      role: UserRole.employee,
+                      createdAt: DateTime.now(),
+                    ),
                   );
-                } else {
-                  // Keep existing status if actual amount didn't change or other details changed
-                  // This prevents marking targets as "missed" just for changing target amount or other details
-                  updatedTarget = baseUpdatedTarget;
-                }
 
-                // If the target is met and has points, recalculate points using the rules
-                if (updatedTarget.isMet && updatedTarget.actualAmount > 0) {
-                  final effectivePercent = (updatedTarget.actualAmount /
-                          updatedTarget.targetAmount) *
-                      100;
-                  final calculatedPoints = appProvider
-                      .getPointsForEffectivePercent(effectivePercent);
-
-                  // When admin directly sets a met target, mark it as approved
-                  final finalUpdatedTarget = updatedTarget.copyWith(
-                    pointsAwarded: calculatedPoints,
-                    status: TargetStatus.approved,
-                    isApproved: true,
-                    approvedBy: appProvider.currentUser?.id,
-                    approvedAt: DateTime.now(),
+                  final assignedWorkplace = workplaces.firstWhere(
+                    (w) => w.id == selectedWorkplaceId,
+                    orElse: () => Workplace(
+                        id: '',
+                        name: '',
+                        address: '',
+                        createdAt: DateTime.now()),
                   );
-                  await appProvider.updateSalesTarget(finalUpdatedTarget);
-                } else {
-                  // Update the target
-                  await appProvider.updateSalesTarget(updatedTarget);
-                }
 
-                // Verify the target was updated correctly
-                final verifyTarget = appProvider.salesTargets
-                    .firstWhere((t) => t.id == target.id);
-                print(
-                    'DEBUG: After update - target employeeId: ${verifyTarget.assignedEmployeeId}, employeeName: ${verifyTarget.assignedEmployeeName}');
-
-                if (context.mounted) {
-                  Navigator.pop(context);
-                }
-
-                // Force UI refresh
-                if (mounted) {
-                  setState(() {});
-                }
-
-                // Check for team member changes
-                final originalTeamMembers =
-                    target.collaborativeEmployeeIds.toSet();
-                final updatedTeamMembers =
-                    verifyTarget.collaborativeEmployeeIds.toSet();
-                final teamMembersRemoved =
-                    originalTeamMembers.difference(updatedTeamMembers);
-                final teamMembersAdded =
-                    updatedTeamMembers.difference(originalTeamMembers);
-                final teamMembersChanged = teamMembersRemoved.isNotEmpty ||
-                    teamMembersAdded.isNotEmpty;
-
-                // Get all users for name lookup
-                final allUsers = await appProvider.getUsers();
-
-                // Helper function to get user names from IDs
-                String _getUserNames(Set<String> userIds) {
-                  final names = userIds
-                      .map((id) {
-                        final user = allUsers
-                            .firstWhere((u) => u.id == id, orElse: () => User(
-                              id: id,
-                              name: 'Unknown User',
-                              email: '',
-                              role: UserRole.employee,
-                              primaryCompanyId: '',
-                              companyIds: [],
-                              companyRoles: {},
-                              createdAt: DateTime.now(),
-                            ));
-                        return user.name;
-                      })
+                  final teamMembers = users
+                      .where((u) => selectedTeamMemberIds.contains(u.id))
                       .toList();
-                  return names.join(', ');
-                }
 
-                // Show appropriate feedback based on status change
-                String message;
-                Color backgroundColor = Colors.green;
+                  // Remove duplicates from team member IDs
+                  final uniqueTeamMemberIds =
+                      selectedTeamMemberIds.toSet().toList();
+                  final uniqueTeamMembers = users
+                      .where((u) => uniqueTeamMemberIds.contains(u.id))
+                      .toList();
 
-                if (teamMembersChanged) {
-                  if (teamMembersRemoved.isNotEmpty &&
-                      teamMembersAdded.isNotEmpty) {
-                    final addedNames = _getUserNames(teamMembersAdded);
-                    final removedNames = _getUserNames(teamMembersRemoved);
-                    message =
-                        'Team members updated: Added $addedNames, Removed $removedNames - points adjusted';
-                  } else if (teamMembersRemoved.isNotEmpty) {
-                    final removedNames = _getUserNames(teamMembersRemoved);
-                    message =
-                        'Team member(s) removed: $removedNames - points withdrawn automatically';
+                  print(
+                      'DEBUG: Updating target - employeeId: $selectedEmployeeId, workplaceId: $selectedWorkplaceId');
+                  print(
+                      'DEBUG: Updating target - team member IDs: $uniqueTeamMemberIds');
+
+                  // Create updated target with recalculated status
+                  final baseUpdatedTarget = target.copyWith(
+                    targetAmount: targetAmount,
+                    actualAmount: actualAmount,
+                    date: selectedDate,
+                    assignedEmployeeId: selectedEmployeeId,
+                    assignedEmployeeName: selectedEmployeeId != null
+                        ? assignedEmployee.name
+                        : null,
+                    assignedWorkplaceId: selectedWorkplaceId,
+                    assignedWorkplaceName: selectedWorkplaceId != null
+                        ? assignedWorkplace.name
+                        : null,
+                    collaborativeEmployeeIds: uniqueTeamMemberIds,
+                    collaborativeEmployeeNames:
+                        uniqueTeamMembers.map((u) => u.name).toList(),
+                  );
+
+                  // Smart status calculation logic
+                  final actualAmountChanged =
+                      actualAmount != target.actualAmount;
+                  final targetAmountChanged =
+                      targetAmount != target.targetAmount;
+
+                  SalesTarget updatedTarget;
+                  if (actualAmountChanged && actualAmount > 0) {
+                    // Only recalculate status when actual sales amount changes AND there's actual activity
+                    updatedTarget = baseUpdatedTarget.calculateResults();
+                  } else if (actualAmountChanged && actualAmount == 0) {
+                    // If sales are reset to 0, set back to pending (target not started)
+                    updatedTarget = baseUpdatedTarget.copyWith(
+                      status: TargetStatus.pending,
+                      isMet: false,
+                      pointsAwarded: 0,
+                    );
                   } else {
-                    final addedNames = _getUserNames(teamMembersAdded);
-                    message =
-                        'Team member(s) added: $addedNames - points awarded automatically';
+                    // Keep existing status if actual amount didn't change or other details changed
+                    // This prevents marking targets as "missed" just for changing target amount or other details
+                    updatedTarget = baseUpdatedTarget;
                   }
-                  backgroundColor = Colors.orange;
-                } else if (!actualAmountChanged && !targetAmountChanged) {
-                  message = 'Target details updated (no status change)';
-                  backgroundColor = Colors.blue;
-                } else if (targetAmountChanged && !actualAmountChanged) {
-                  message = 'Target amount updated (status preserved)';
-                  backgroundColor = Colors.blue;
-                } else if (actualAmountChanged && actualAmount == 0) {
-                  message = 'Sales reset - target back to pending';
-                  backgroundColor = Colors.blue;
-                } else if (actualAmountChanged &&
-                    updatedTarget.status == TargetStatus.missed) {
-                  message = 'Sales updated and marked as missed (below target)';
-                  backgroundColor = Colors.orange;
-                } else if (actualAmountChanged &&
-                    updatedTarget.status == TargetStatus.met) {
-                  message = 'Sales updated and marked as completed';
-                  backgroundColor = Colors.green;
-                } else if (updatedTarget.status == TargetStatus.approved) {
-                  message = 'Target updated and approved';
-                  backgroundColor = Colors.green;
-                } else {
-                  message = 'Target updated successfully';
-                  backgroundColor = Colors.green;
-                }
 
-                // Add points adjustment information
-                final pointsDifference =
-                    updatedTarget.pointsAwarded - target.pointsAwarded;
-                if (pointsDifference != 0) {
-                  if (pointsDifference > 0) {
-                    message +=
-                        '\n+${pointsDifference} points awarded to employees';
+                  // If the target is met and has points, recalculate points using the rules
+                  if (updatedTarget.isMet && updatedTarget.actualAmount > 0) {
+                    final effectivePercent = (updatedTarget.actualAmount /
+                            updatedTarget.targetAmount) *
+                        100;
+                    final calculatedPoints = appProvider
+                        .getPointsForEffectivePercent(effectivePercent);
+
+                    // When admin directly sets a met target, mark it as approved
+                    final finalUpdatedTarget = updatedTarget.copyWith(
+                      pointsAwarded: calculatedPoints,
+                      status: TargetStatus.approved,
+                      isApproved: true,
+                      approvedBy: appProvider.currentUser?.id,
+                      approvedAt: DateTime.now(),
+                    );
+                    await appProvider.updateSalesTarget(finalUpdatedTarget);
                   } else {
-                    message +=
-                        '\n${pointsDifference.abs()} points withdrawn from employees';
+                    // Update the target
+                    await appProvider.updateSalesTarget(updatedTarget);
+                  }
+
+                  // Verify the target was updated correctly
+                  final verifyTarget = appProvider.salesTargets
+                      .firstWhere((t) => t.id == target.id);
+                  print(
+                      'DEBUG: After update - target employeeId: ${verifyTarget.assignedEmployeeId}, employeeName: ${verifyTarget.assignedEmployeeName}');
+
+                  if (context.mounted) {
+                    Navigator.pop(context);
+                  }
+
+                  // Force UI refresh
+                  if (mounted) {
+                    setState(() {});
+                  }
+
+                  // Check for team member changes
+                  final originalTeamMembers =
+                      target.collaborativeEmployeeIds.toSet();
+                  final updatedTeamMembers =
+                      verifyTarget.collaborativeEmployeeIds.toSet();
+                  final teamMembersRemoved =
+                      originalTeamMembers.difference(updatedTeamMembers);
+                  final teamMembersAdded =
+                      updatedTeamMembers.difference(originalTeamMembers);
+                  final teamMembersChanged = teamMembersRemoved.isNotEmpty ||
+                      teamMembersAdded.isNotEmpty;
+
+                  // Get all users for name lookup
+                  final allUsers = await appProvider.getUsers();
+
+                  // Helper function to get user names from IDs
+                  String _getUserNames(Set<String> userIds) {
+                    final names = userIds.map((id) {
+                      final user = allUsers.firstWhere((u) => u.id == id,
+                          orElse: () => User(
+                                id: id,
+                                name: 'Unknown User',
+                                email: '',
+                                role: UserRole.employee,
+                                primaryCompanyId: '',
+                                companyIds: [],
+                                companyRoles: {},
+                                createdAt: DateTime.now(),
+                              ));
+                      return user.name;
+                    }).toList();
+                    return names.join(', ');
+                  }
+
+                  // Show appropriate feedback based on status change
+                  String message;
+                  Color backgroundColor = Colors.green;
+
+                  if (teamMembersChanged) {
+                    if (teamMembersRemoved.isNotEmpty &&
+                        teamMembersAdded.isNotEmpty) {
+                      final addedNames = _getUserNames(teamMembersAdded);
+                      final removedNames = _getUserNames(teamMembersRemoved);
+                      message =
+                          'Team members updated: Added $addedNames, Removed $removedNames - points adjusted';
+                    } else if (teamMembersRemoved.isNotEmpty) {
+                      final removedNames = _getUserNames(teamMembersRemoved);
+                      message =
+                          'Team member(s) removed: $removedNames - points withdrawn automatically';
+                    } else {
+                      final addedNames = _getUserNames(teamMembersAdded);
+                      message =
+                          'Team member(s) added: $addedNames - points awarded automatically';
+                    }
                     backgroundColor = Colors.orange;
+                  } else if (!actualAmountChanged && !targetAmountChanged) {
+                    message = 'Target details updated (no status change)';
+                    backgroundColor = Colors.blue;
+                  } else if (targetAmountChanged && !actualAmountChanged) {
+                    message = 'Target amount updated (status preserved)';
+                    backgroundColor = Colors.blue;
+                  } else if (actualAmountChanged && actualAmount == 0) {
+                    message = 'Sales reset - target back to pending';
+                    backgroundColor = Colors.blue;
+                  } else if (actualAmountChanged &&
+                      updatedTarget.status == TargetStatus.missed) {
+                    message =
+                        'Sales updated and marked as missed (below target)';
+                    backgroundColor = Colors.orange;
+                  } else if (actualAmountChanged &&
+                      updatedTarget.status == TargetStatus.met) {
+                    message = 'Sales updated and marked as completed';
+                    backgroundColor = Colors.green;
+                  } else if (updatedTarget.status == TargetStatus.approved) {
+                    message = 'Target updated and approved';
+                    backgroundColor = Colors.green;
+                  } else {
+                    message = 'Target updated successfully';
+                    backgroundColor = Colors.green;
                   }
-                }
 
-                ScaffoldMessenger.of(context).showSnackBar(
-                  SnackBar(
-                    content: Text(message),
-                    backgroundColor: backgroundColor,
-                    duration: const Duration(seconds: 4),
-                  ),
-                );
+                  // Add points adjustment information
+                  final pointsDifference =
+                      updatedTarget.pointsAwarded - target.pointsAwarded;
+                  if (pointsDifference != 0) {
+                    if (pointsDifference > 0) {
+                      message +=
+                          '\n+${pointsDifference} points awarded to employees';
+                    } else {
+                      message +=
+                          '\n${pointsDifference.abs()} points withdrawn from employees';
+                      backgroundColor = Colors.orange;
+                    }
+                  }
+
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(
+                      content: Text(message),
+                      backgroundColor: backgroundColor,
+                      duration: const Duration(seconds: 4),
+                    ),
+                  );
                 } finally {
                   // Reset debounce flag
                   if (mounted) {
@@ -4676,7 +4673,7 @@ class _AdminDashboardState extends State<AdminDashboard> {
                   }
                 }
               },
-              child: isSaving 
+              child: isSaving
                   ? const SizedBox(
                       width: 16,
                       height: 16,

@@ -42,7 +42,9 @@ class TargetDetailsDialog extends StatelessWidget {
               child: Row(
                 children: [
                   Icon(
-                    target.isApproved ? Icons.check_circle : Icons.track_changes,
+                    target.isApproved
+                        ? Icons.check_circle
+                        : Icons.track_changes,
                     color: Colors.white,
                     size: 32,
                   ),
@@ -105,7 +107,8 @@ class TargetDetailsDialog extends StatelessWidget {
                             'Achievement',
                             '${((target.actualAmount / target.targetAmount) * 100).toStringAsFixed(1)}%',
                             target.isMet ? Icons.check_circle : Icons.warning,
-                            valueColor: target.isMet ? Colors.green : Colors.orange,
+                            valueColor:
+                                target.isMet ? Colors.green : Colors.orange,
                           ),
                         _buildInfoRow(
                           'Points Awarded',
@@ -553,17 +556,13 @@ class TargetDetailsDialog extends StatelessWidget {
 
   Future<List<PointsTransaction>> _getTargetPointsTransactions() async {
     final allTransactions = await appProvider.getAllPointsTransactions();
-    return allTransactions
-        .where((t) => t.relatedTargetId == target.id)
-        .toList()
+    return allTransactions.where((t) => t.relatedTargetId == target.id).toList()
       ..sort((a, b) => b.date.compareTo(a.date));
   }
 
   Future<List<PointsTransaction>> _getAllTargetTransactions() async {
     final allTransactions = await appProvider.getAllPointsTransactions();
-    return allTransactions
-        .where((t) => t.relatedTargetId == target.id)
-        .toList()
+    return allTransactions.where((t) => t.relatedTargetId == target.id).toList()
       ..sort((a, b) => b.date.compareTo(a.date));
   }
 
@@ -640,4 +639,3 @@ class TargetDetailsDialog extends StatelessWidget {
     }
   }
 }
-

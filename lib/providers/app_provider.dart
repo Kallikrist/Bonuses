@@ -324,11 +324,11 @@ class AppProvider with ChangeNotifier {
   Future<void> _adjustPointsForTargetUpdate(
       SalesTarget originalTarget, SalesTarget updatedTarget) async {
     // Guard: Validate companyId
-    if (updatedTarget.companyId == null || updatedTarget.companyId?.isEmpty == true) {
+    if (updatedTarget.companyId == null ||
+        updatedTarget.companyId?.isEmpty == true) {
       print(
           'ERROR: _adjustPointsForTargetUpdate called with null/empty companyId for target ${updatedTarget.id}');
-      print(
-          'WARNING: Skipping points adjustment to prevent data corruption');
+      print('WARNING: Skipping points adjustment to prevent data corruption');
       return;
     }
 
@@ -1744,7 +1744,7 @@ class AppProvider with ChangeNotifier {
         'DEBUG: recalculateAndAdjustPoints called for target $targetId with new target: $newTargetAmount');
 
     final target = _salesTargets.firstWhere((t) => t.id == targetId);
-    
+
     // Guard: Validate companyId
     if (target.companyId == null || target.companyId?.isEmpty == true) {
       print(
@@ -1752,7 +1752,7 @@ class AppProvider with ChangeNotifier {
       print('WARNING: Cannot adjust points without valid company context');
       return;
     }
-    
+
     if (!target.isApproved) {
       print('DEBUG: Target not approved - cannot adjust points');
       return;

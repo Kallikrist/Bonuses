@@ -52,7 +52,8 @@ void main() {
         createdBy: 'admin',
       );
 
-      final achievementPercent = (target.actualAmount / target.targetAmount) * 100;
+      final achievementPercent =
+          (target.actualAmount / target.targetAmount) * 100;
       expect(achievementPercent.round(), 110);
     });
 
@@ -145,4 +146,3 @@ void main() {
     });
   });
 }
-
