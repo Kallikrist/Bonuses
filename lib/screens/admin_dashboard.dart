@@ -5562,7 +5562,17 @@ class _EmployeeProfileScreenState extends State<EmployeeProfileScreen> {
             : null, // No back button when viewing own profile from tab bar
         automaticallyImplyLeading:
             widget.showBackButton, // Prevent default back button
-        actions: [],
+        actions: widget.readOnly ? [] : [
+          IconButton(
+            icon: const Icon(Icons.edit, color: Colors.white),
+            onPressed: () {
+              // TODO: Implement edit functionality
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(content: Text('Edit functionality coming soon')),
+              );
+            },
+          ),
+        ],
       ),
       body: SingleChildScrollView(
         child: Column(
