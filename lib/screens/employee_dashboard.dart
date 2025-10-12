@@ -26,6 +26,42 @@ class _EmployeeDashboardState extends State<EmployeeDashboard> {
   bool _showAvailableBonuses = true; // toggle between available and redeemed
 
   Widget _buildTargetsTab(AppProvider appProvider, List<SalesTarget> targets) {
+    if (targets.isEmpty) {
+      return Card(
+        margin: const EdgeInsets.all(16),
+        child: Padding(
+          padding: const EdgeInsets.all(32),
+          child: Center(
+            child: Column(
+              children: [
+                Icon(
+                  Icons.track_changes,
+                  size: 64,
+                  color: Colors.grey[400],
+                ),
+                const SizedBox(height: 16),
+                Text(
+                  'No targets for today',
+                  style: TextStyle(
+                    fontSize: 18,
+                    color: Colors.grey[600],
+                  ),
+                ),
+                const SizedBox(height: 8),
+                Text(
+                  'Targets will appear here when assigned',
+                  style: TextStyle(
+                    fontSize: 14,
+                    color: Colors.grey[500],
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      );
+    }
+
     return ListView.builder(
       padding: const EdgeInsets.all(16),
       itemCount: targets.length,
@@ -919,14 +955,37 @@ class _EmployeeDashboardState extends State<EmployeeDashboard> {
           if (selectedDateTargets.isEmpty)
             Card(
               child: Padding(
-                padding: const EdgeInsets.all(16),
-                child: Text(
-                  isToday
-                      ? 'No sales targets set for today'
-                      : 'No sales targets for selected date',
-                  style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                        color: Colors.grey[600],
+                padding: const EdgeInsets.all(32),
+                child: Center(
+                  child: Column(
+                    children: [
+                      Icon(
+                        Icons.track_changes,
+                        size: 64,
+                        color: Colors.grey[400],
                       ),
+                      const SizedBox(height: 16),
+                      Text(
+                        isToday
+                            ? 'No sales targets set for today'
+                            : 'No sales targets for selected date',
+                        style: TextStyle(
+                          fontSize: 18,
+                          color: Colors.grey[600],
+                        ),
+                      ),
+                      const SizedBox(height: 8),
+                      Text(
+                        isToday
+                            ? 'Targets will appear here when assigned'
+                            : 'Select a different date to view targets',
+                        style: TextStyle(
+                          fontSize: 14,
+                          color: Colors.grey[500],
+                        ),
+                      ),
+                    ],
+                  ),
                 ),
               ),
             )
@@ -1521,8 +1580,42 @@ class _EmployeeDashboardState extends State<EmployeeDashboard> {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   const SizedBox(height: 12),
-                  ...availableBonuses.map((bonus) =>
-                      _buildSimpleBonusCard(bonus, userPoints, userId, false)),
+                  if (availableBonuses.isEmpty)
+                    Card(
+                      child: Padding(
+                        padding: const EdgeInsets.all(32),
+                        child: Center(
+                          child: Column(
+                            children: [
+                              Icon(
+                                Icons.card_giftcard,
+                                size: 64,
+                                color: Colors.grey[400],
+                              ),
+                              const SizedBox(height: 16),
+                              Text(
+                                'No bonuses available',
+                                style: TextStyle(
+                                  fontSize: 18,
+                                  color: Colors.grey[600],
+                                ),
+                              ),
+                              const SizedBox(height: 8),
+                              Text(
+                                'Bonuses will appear here when created',
+                                style: TextStyle(
+                                  fontSize: 14,
+                                  color: Colors.grey[500],
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                    )
+                  else
+                    ...availableBonuses.map((bonus) => _buildSimpleBonusCard(
+                        bonus, userPoints, userId, false)),
                 ],
               ),
             ),
@@ -1538,31 +1631,35 @@ class _EmployeeDashboardState extends State<EmployeeDashboard> {
                 children: [
                   const SizedBox(height: 12),
                   redeemedBonuses.isEmpty
-                      ? Container(
-                          padding: const EdgeInsets.all(32),
-                          decoration: BoxDecoration(
-                            color: Colors.grey.shade100,
-                            borderRadius: BorderRadius.circular(12),
-                          ),
-                          child: const Center(
-                            child: Column(
-                              children: [
-                                Icon(Icons.card_giftcard,
-                                    size: 48, color: Colors.grey),
-                                SizedBox(height: 12),
-                                Text(
-                                  'No bonuses claimed yet',
-                                  style: TextStyle(
-                                    fontSize: 16,
-                                    color: Colors.grey,
+                      ? Card(
+                          child: Padding(
+                            padding: const EdgeInsets.all(32),
+                            child: Center(
+                              child: Column(
+                                children: [
+                                  Icon(
+                                    Icons.card_giftcard,
+                                    size: 64,
+                                    color: Colors.grey[400],
                                   ),
-                                ),
-                                SizedBox(height: 4),
-                                Text(
-                                  'Start earning points to claim bonuses!',
-                                  style: TextStyle(color: Colors.grey),
-                                ),
-                              ],
+                                  const SizedBox(height: 16),
+                                  Text(
+                                    'No bonuses claimed yet',
+                                    style: TextStyle(
+                                      fontSize: 18,
+                                      color: Colors.grey[600],
+                                    ),
+                                  ),
+                                  const SizedBox(height: 8),
+                                  Text(
+                                    'Start earning points to claim bonuses!',
+                                    style: TextStyle(
+                                      fontSize: 14,
+                                      color: Colors.grey[500],
+                                    ),
+                                  ),
+                                ],
+                              ),
                             ),
                           ),
                         )

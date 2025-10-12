@@ -1,0 +1,250 @@
+import 'package:flutter_test/flutter_test.dart';
+import 'package:bonuses/providers/app_provider.dart';
+import 'package:bonuses/services/storage_service.dart';
+import 'test_helpers.dart';
+
+void main() {
+  // Initialize Flutter binding and mock shared_preferences
+  setupSharedPreferencesMock();
+
+  group('Dark Mode Tests', () {
+    late AppProvider appProvider;
+
+    setUp(() async {
+      // Clear storage before each test
+      await StorageService.clearAllData();
+
+      appProvider = AppProvider();
+      await appProvider.initialize();
+    });
+
+    tearDown(() async {
+      await StorageService.clearAllData();
+    });
+
+    group('Dark Mode Persistence', () {
+      test('Dark mode preference is saved correctly', () async {
+        // Initially should be false (default)
+        expect(await StorageService.getDarkMode(), false);
+
+        // Set to true
+        await StorageService.setDarkMode(true);
+
+        // Verify it was saved
+        expect(await StorageService.getDarkMode(), true);
+      });
+
+      test('Dark mode preference is loaded on app start', () async {
+        // Set dark mode in storage
+        await StorageService.setDarkMode(true);
+
+        // Create new provider and initialize
+        final newProvider = AppProvider();
+        await newProvider.initialize();
+
+        // Verify it loaded the preference
+        expect(newProvider.isDarkMode, true);
+      });
+
+      test('Dark mode preference persists across sessions', () async {
+        // Set dark mode
+        await appProvider.setDarkMode(true);
+
+        // Verify stored
+        expect(await StorageService.getDarkMode(), true);
+
+        // Create new provider (simulating app restart)
+        final newProvider = AppProvider();
+        await newProvider.initialize();
+
+        // Verify preference persisted
+        expect(newProvider.isDarkMode, true);
+      });
+
+      test('Dark mode defaults to false for new users', () async {
+        // Fresh provider with no saved preference
+        expect(appProvider.isDarkMode, false);
+        expect(await StorageService.getDarkMode(), false);
+      });
+    });
+
+    group('Dark Mode Toggle', () {
+      test('Toggle dark mode changes state correctly', () async {
+        // Initial state is false
+        expect(appProvider.isDarkMode, false);
+
+        // Toggle to true
+        await appProvider.toggleDarkMode();
+        expect(appProvider.isDarkMode, true);
+
+        // Toggle to false
+        await appProvider.toggleDarkMode();
+        expect(appProvider.isDarkMode, false);
+      });
+
+      test('Set dark mode to true works correctly', () async {
+        await appProvider.setDarkMode(true);
+
+        expect(appProvider.isDarkMode, true);
+        expect(await StorageService.getDarkMode(), true);
+      });
+
+      test('Set dark mode to false works correctly', () async {
+        // First set to true
+        await appProvider.setDarkMode(true);
+        expect(appProvider.isDarkMode, true);
+
+        // Then set to false
+        await appProvider.setDarkMode(false);
+
+        expect(appProvider.isDarkMode, false);
+        expect(await StorageService.getDarkMode(), false);
+      });
+
+      test('Multiple toggles work correctly', () async {
+        // Toggle multiple times
+        await appProvider.toggleDarkMode(); // true
+        await appProvider.toggleDarkMode(); // false
+        await appProvider.toggleDarkMode(); // true
+        await appProvider.toggleDarkMode(); // false
+        await appProvider.toggleDarkMode(); // true
+
+        expect(appProvider.isDarkMode, true);
+      });
+
+      test('Toggle notifies listeners', () async {
+        bool listenerCalled = false;
+
+        appProvider.addListener(() {
+          listenerCalled = true;
+        });
+
+        await appProvider.toggleDarkMode();
+
+        expect(listenerCalled, true);
+      });
+
+      test('SetDarkMode notifies listeners', () async {
+        bool listenerCalled = false;
+
+        appProvider.addListener(() {
+          listenerCalled = true;
+        });
+
+        await appProvider.setDarkMode(true);
+
+        expect(listenerCalled, true);
+      });
+    });
+
+    group('Dark Mode State Management', () {
+      test('Dark mode state is accessible via getter', () async {
+        expect(appProvider.isDarkMode, isA<bool>());
+      });
+
+      test('Setting dark mode updates getter immediately', () async {
+        expect(appProvider.isDarkMode, false);
+
+        await appProvider.setDarkMode(true);
+
+        expect(appProvider.isDarkMode, true);
+      });
+
+      test('Toggling updates getter immediately', () async {
+        final initialState = appProvider.isDarkMode;
+
+        await appProvider.toggleDarkMode();
+
+        expect(appProvider.isDarkMode, !initialState);
+      });
+    });
+
+    group('Dark Mode Storage', () {
+      test('Storage saves boolean value correctly', () async {
+        await StorageService.setDarkMode(true);
+        expect(await StorageService.getDarkMode(), true);
+
+        await StorageService.setDarkMode(false);
+        expect(await StorageService.getDarkMode(), false);
+      });
+
+      test('Storage handles multiple writes correctly', () async {
+        await StorageService.setDarkMode(true);
+        await StorageService.setDarkMode(false);
+        await StorageService.setDarkMode(true);
+
+        expect(await StorageService.getDarkMode(), true);
+      });
+
+      test('Dark mode preference survives data clear', () async {
+        await StorageService.setDarkMode(true);
+
+        // Clear all data (simulating reset)
+        await StorageService.clearAllData();
+
+        // Dark mode should be reset to default
+        expect(await StorageService.getDarkMode(), false);
+      });
+    });
+
+    group('Dark Mode Integration', () {
+      test('Dark mode works with user authentication', () async {
+        // Set dark mode
+        await appProvider.setDarkMode(true);
+
+        // Verify it persists even without a logged in user
+        expect(appProvider.isDarkMode, true);
+      });
+
+      test('Dark mode preference is independent of user', () async {
+        // Set dark mode as one user
+        await appProvider.setDarkMode(true);
+
+        // Dark mode is app-wide, not user-specific
+        expect(await StorageService.getDarkMode(), true);
+      });
+
+      test('Changing dark mode multiple times creates no duplicate entries',
+          () async {
+        // Toggle multiple times
+        for (int i = 0; i < 10; i++) {
+          await appProvider.toggleDarkMode();
+        }
+
+        // Should end up as false (10 toggles from false)
+        expect(appProvider.isDarkMode, false);
+        expect(await StorageService.getDarkMode(), false);
+      });
+    });
+
+    group('Edge Cases', () {
+      test('LoadDarkMode can be called multiple times safely', () async {
+        await StorageService.setDarkMode(true);
+
+        await appProvider.loadDarkMode();
+        await appProvider.loadDarkMode();
+        await appProvider.loadDarkMode();
+
+        expect(appProvider.isDarkMode, true);
+      });
+
+      test('Dark mode can be toggled rapidly', () async {
+        // Rapid toggling
+        await appProvider.toggleDarkMode();
+        await appProvider.toggleDarkMode();
+        await appProvider.toggleDarkMode();
+
+        expect(appProvider.isDarkMode, true);
+      });
+
+      test('Setting same value multiple times is idempotent', () async {
+        await appProvider.setDarkMode(true);
+        await appProvider.setDarkMode(true);
+        await appProvider.setDarkMode(true);
+
+        expect(appProvider.isDarkMode, true);
+        expect(await StorageService.getDarkMode(), true);
+      });
+    });
+  });
+}

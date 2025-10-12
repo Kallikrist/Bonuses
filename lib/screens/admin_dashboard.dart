@@ -4056,7 +4056,39 @@ class _AdminDashboardState extends State<AdminDashboard> {
           return Center(child: Text('Error: ${snapshot.error}'));
         }
         if (!snapshot.hasData || snapshot.data!.isEmpty) {
-          return const Center(child: Text('No targets found'));
+          return Card(
+            margin: const EdgeInsets.all(16),
+            child: Padding(
+              padding: const EdgeInsets.all(32),
+              child: Center(
+                child: Column(
+                  children: [
+                    Icon(
+                      Icons.track_changes,
+                      size: 64,
+                      color: Colors.grey[400],
+                    ),
+                    const SizedBox(height: 16),
+                    Text(
+                      'No targets found',
+                      style: TextStyle(
+                        fontSize: 18,
+                        color: Colors.grey[600],
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    Text(
+                      'Create targets to assign to employees',
+                      style: TextStyle(
+                        fontSize: 14,
+                        color: Colors.grey[500],
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          );
         }
 
         final targets = snapshot.data!;
@@ -5562,17 +5594,20 @@ class _EmployeeProfileScreenState extends State<EmployeeProfileScreen> {
             : null, // No back button when viewing own profile from tab bar
         automaticallyImplyLeading:
             widget.showBackButton, // Prevent default back button
-        actions: widget.readOnly ? [] : [
-          IconButton(
-            icon: const Icon(Icons.edit, color: Colors.white),
-            onPressed: () {
-              // TODO: Implement edit functionality
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(content: Text('Edit functionality coming soon')),
-              );
-            },
-          ),
-        ],
+        actions: widget.readOnly
+            ? []
+            : [
+                IconButton(
+                  icon: const Icon(Icons.edit, color: Colors.white),
+                  onPressed: () {
+                    // TODO: Implement edit functionality
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(
+                          content: Text('Edit functionality coming soon')),
+                    );
+                  },
+                ),
+              ],
       ),
       body: SingleChildScrollView(
         child: Column(
