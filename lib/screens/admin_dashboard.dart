@@ -4543,9 +4543,11 @@ class _AdminDashboardState extends State<AdminDashboard> {
                 final teamMembersChanged = teamMembersRemoved.isNotEmpty ||
                     teamMembersAdded.isNotEmpty;
 
+                // Get all users for name lookup
+                final allUsers = await appProvider.getUsers();
+
                 // Helper function to get user names from IDs
                 String _getUserNames(Set<String> userIds) {
-                  final allUsers = appProvider.getAllUsers();
                   final names = userIds
                       .map((id) {
                         final user = allUsers
