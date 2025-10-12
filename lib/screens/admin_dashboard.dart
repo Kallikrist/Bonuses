@@ -4198,6 +4198,7 @@ class _AdminDashboardState extends State<AdminDashboard> {
     List<String> selectedTeamMemberIds =
         List.from(target.collaborativeEmployeeIds);
     DateTime selectedDate = target.date;
+    bool isSaving = false; // Debounce flag to prevent double submissions
 
     showDialog(
       context: context,
@@ -4398,26 +4399,43 @@ class _AdminDashboardState extends State<AdminDashboard> {
             ),
             TextButton(
               onPressed: () async {
-                final targetAmount =
-                    double.tryParse(targetAmountController.text);
-                final actualAmount =
-                    double.tryParse(actualAmountController.text);
-
-                if (targetAmount == null || targetAmount <= 0) {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(
-                        content: Text('Please enter a valid target amount')),
-                  );
+                // Debounce: Prevent double submissions
+                if (isSaving) {
+                  print('DEBUG: Save already in progress, ignoring duplicate click');
                   return;
                 }
+                
+                setState(() {
+                  isSaving = true;
+                });
 
-                if (actualAmount == null || actualAmount < 0) {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(
-                        content: Text('Please enter a valid actual amount')),
-                  );
-                  return;
-                }
+                try {
+                  final targetAmount =
+                      double.tryParse(targetAmountController.text);
+                  final actualAmount =
+                      double.tryParse(actualAmountController.text);
+
+                  if (targetAmount == null || targetAmount <= 0) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(
+                          content: Text('Please enter a valid target amount')),
+                    );
+                    setState(() {
+                      isSaving = false;
+                    });
+                    return;
+                  }
+
+                  if (actualAmount == null || actualAmount < 0) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(
+                          content: Text('Please enter a valid actual amount')),
+                    );
+                    setState(() {
+                      isSaving = false;
+                    });
+                    return;
+                  }
 
                 // Get employee and workplace names
                 final users = await appProvider.getUsers();
@@ -4634,8 +4652,25 @@ class _AdminDashboardState extends State<AdminDashboard> {
                     duration: const Duration(seconds: 4),
                   ),
                 );
+                } finally {
+                  // Reset debounce flag
+                  if (mounted) {
+                    setState(() {
+                      isSaving = false;
+                    });
+                  }
+                }
               },
-              child: const Text('Update'),
+              child: isSaving 
+                  ? const SizedBox(
+                      width: 16,
+                      height: 16,
+                      child: CircularProgressIndicator(
+                        strokeWidth: 2,
+                        valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                      ),
+                    )
+                  : const Text('Update'),
             ),
             TextButton(
               onPressed: () {
