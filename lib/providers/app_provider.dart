@@ -323,6 +323,15 @@ class AppProvider with ChangeNotifier {
 
   Future<void> _adjustPointsForTargetUpdate(
       SalesTarget originalTarget, SalesTarget updatedTarget) async {
+    // Guard: Validate companyId
+    if (updatedTarget.companyId == null || updatedTarget.companyId?.isEmpty == true) {
+      print(
+          'ERROR: _adjustPointsForTargetUpdate called with null/empty companyId for target ${updatedTarget.id}');
+      print(
+          'WARNING: Skipping points adjustment to prevent data corruption');
+      return;
+    }
+
     final pointsDifference =
         updatedTarget.pointsAwarded - originalTarget.pointsAwarded;
 
@@ -1313,6 +1322,38 @@ class AppProvider with ChangeNotifier {
   Future<void> updateUserPoints(
       String userId, int pointsChange, String description,
       {String? companyId, String? relatedTargetId}) async {
+    // Guard: Validate companyId
+    if (companyId == null || companyId.isEmpty) {
+      print(
+          'ERROR: updateUserPoints called with null/empty companyId for user $userId');
+      print('STACK TRACE: Description: $description');
+      // Try to recover by finding user's primary company
+      final users = await StorageService.getUsers();
+      final user = users.firstWhere((u) => u.id == userId,
+          orElse: () => User(
+                id: userId,
+                name: 'Unknown',
+                email: '',
+                role: UserRole.employee,
+                primaryCompanyId: '',
+                companyIds: [],
+                companyRoles: {},
+                createdAt: DateTime.now(),
+              ));
+      if (user.primaryCompanyId != null && user.primaryCompanyId!.isNotEmpty) {
+        print(
+            'WARNING: Recovered companyId from user primary company: ${user.primaryCompanyId}');
+        companyId = user.primaryCompanyId;
+      } else {
+        print(
+            'CRITICAL ERROR: Cannot update points - no valid companyId found for user $userId');
+        return;
+      }
+    }
+
+    // At this point companyId is guaranteed to be non-null and non-empty
+    final validCompanyId = companyId!;
+
     // Get all users
     final users = await StorageService.getUsers();
     final userIndex = users.indexWhere((u) => u.id == userId);
@@ -1325,17 +1366,15 @@ class AppProvider with ChangeNotifier {
     final user = users[userIndex];
 
     // Calculate current points from transactions for this specific company
-    final currentPoints = companyId != null
-        ? getUserCompanyPoints(userId, companyId)
-        : getUserTotalPoints(userId);
+    final currentPoints = getUserCompanyPoints(userId, validCompanyId);
     final newTotalPoints = currentPoints + pointsChange;
 
     print(
-        'DEBUG: updateUserPoints - User: ${user.name}, Company: $companyId, Current points: $currentPoints, Change: $pointsChange, New total: $newTotalPoints');
+        'DEBUG: updateUserPoints - User: ${user.name}, Company: $validCompanyId, Current points: $currentPoints, Change: $pointsChange, New total: $newTotalPoints');
 
     // Ensure points don't go below 0
     if (newTotalPoints < 0) {
-      print('DEBUG: Cannot reduce points below 0 for company $companyId');
+      print('DEBUG: Cannot reduce points below 0 for company $validCompanyId');
       return;
     }
 
@@ -1349,7 +1388,7 @@ class AppProvider with ChangeNotifier {
       points: pointsChange.abs(),
       description: description,
       date: DateTime.now(),
-      companyId: companyId,
+      companyId: validCompanyId,
       relatedTargetId: relatedTargetId,
     );
 
@@ -1360,7 +1399,7 @@ class AppProvider with ChangeNotifier {
 
     // Update user's companyPoints map
     final updatedUser = user.setCompanyPoints(
-      companyId ?? 'global',
+      validCompanyId,
       newTotalPoints,
     );
     users[userIndex] = updatedUser;
@@ -1518,6 +1557,14 @@ class AppProvider with ChangeNotifier {
     print(
         'DEBUG: Found target - isApproved: ${target.isApproved}, pointsAwarded: ${target.pointsAwarded}');
 
+    // Guard: Validate companyId before processing team changes
+    if (target.companyId == null || target.companyId?.isEmpty == true) {
+      print(
+          'ERROR: _applyTeamChange called with null/empty companyId for target ${request.targetId}');
+      print('WARNING: Cannot apply team changes without valid company context');
+      return;
+    }
+
     final updatedTarget = target.copyWith(
       collaborativeEmployeeIds: request.newTeamMemberIds!,
       collaborativeEmployeeNames: request.newTeamMemberNames!,
@@ -1560,6 +1607,14 @@ class AppProvider with ChangeNotifier {
     print(
         'DEBUG: Target has ${target.collaborativeEmployeeIds.length} team members');
     print('DEBUG: Points to award: ${target.pointsAwarded}');
+
+    // Guard: Validate companyId
+    if (target.companyId == null || target.companyId?.isEmpty == true) {
+      print(
+          'ERROR: _awardPointsForTargetCompletion called with null/empty companyId for target ${target.id}');
+      print('WARNING: Cannot award points without valid company context');
+      return;
+    }
 
     // Award points to the assigned employee with company context
     if (target.assignedEmployeeId != null) {
@@ -1606,6 +1661,14 @@ class AppProvider with ChangeNotifier {
     print(
         'DEBUG: retroactivelyAwardPointsForTarget called for target $targetId');
     final target = _salesTargets.firstWhere((t) => t.id == targetId);
+
+    // Guard: Validate companyId
+    if (target.companyId == null || target.companyId?.isEmpty == true) {
+      print(
+          'ERROR: retroactivelyAwardPointsForTarget called with null/empty companyId for target $targetId');
+      print('WARNING: Cannot award points without valid company context');
+      return;
+    }
 
     if (!target.isApproved || target.pointsAwarded == 0) {
       print('DEBUG: Target is not approved or has no points to award');
@@ -1677,6 +1740,15 @@ class AppProvider with ChangeNotifier {
         'DEBUG: recalculateAndAdjustPoints called for target $targetId with new target: $newTargetAmount');
 
     final target = _salesTargets.firstWhere((t) => t.id == targetId);
+    
+    // Guard: Validate companyId
+    if (target.companyId == null || target.companyId?.isEmpty == true) {
+      print(
+          'ERROR: recalculateAndAdjustPoints called with null/empty companyId for target $targetId');
+      print('WARNING: Cannot adjust points without valid company context');
+      return;
+    }
+    
     if (!target.isApproved) {
       print('DEBUG: Target not approved - cannot adjust points');
       return;
