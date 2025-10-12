@@ -1117,6 +1117,10 @@ class AppProvider with ChangeNotifier {
     return await StorageService.getWorkplaces();
   }
 
+  Future<List<PointsTransaction>> getAllPointsTransactions() async {
+    return await StorageService.getPointsTransactions();
+  }
+
   // Get target history for charting - returns monthly aggregated data
   List<Map<String, dynamic>> getTargetHistory({
     String? employeeId,

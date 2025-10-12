@@ -17,6 +17,7 @@ import '../models/points_rules.dart';
 import '../services/storage_service.dart';
 import '../widgets/profile_header_widget.dart';
 import '../widgets/target_card_widget.dart';
+import '../widgets/target_details_dialog.dart';
 import 'import_bonuses_screen.dart';
 import 'messaging_screen.dart';
 import 'chat_screen.dart';
@@ -657,6 +658,8 @@ class _AdminDashboardState extends State<AdminDashboard> {
                     target: target,
                     appProvider: appProvider,
                     isAdminView: true,
+                    onTap: () =>
+                        _showTargetDetailsDialog(context, target, appProvider),
                     onEdit: () =>
                         _showEditTargetDialog(context, target, appProvider),
                     onQuickApprove: () => _showQuickApproveDialog(
@@ -4184,6 +4187,18 @@ class _AdminDashboardState extends State<AdminDashboard> {
           ],
         );
       },
+    );
+  }
+
+  void _showTargetDetailsDialog(
+      BuildContext context, SalesTarget target, AppProvider appProvider) {
+    showDialog(
+      context: context,
+      builder: (context) => TargetDetailsDialog(
+        target: target,
+        appProvider: appProvider,
+        isAdminView: true,
+      ),
     );
   }
 

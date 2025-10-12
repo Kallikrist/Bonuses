@@ -17,6 +17,7 @@ class TargetCard extends StatelessWidget {
   final VoidCallback? onJoinAsTeamMember;
   final VoidCallback? onFixPoints;
   final VoidCallback? onAdjustPoints;
+  final VoidCallback? onTap; // New: tap to view details
 
   const TargetCard({
     super.key,
@@ -32,6 +33,7 @@ class TargetCard extends StatelessWidget {
     this.onJoinAsTeamMember,
     this.onFixPoints,
     this.onAdjustPoints,
+    this.onTap,
   });
 
   @override
@@ -67,11 +69,14 @@ class TargetCard extends StatelessWidget {
               side: BorderSide(color: Colors.green[400]!, width: 2),
             )
           : null,
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(12),
+        child: Padding(
+          padding: const EdgeInsets.all(16),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
             // Header Row
             Row(
               children: [
@@ -759,6 +764,7 @@ class TargetCard extends StatelessWidget {
               ],
             ],
           ],
+        ),
         ),
       ),
     );

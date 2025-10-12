@@ -10,6 +10,7 @@ import '../models/country.dart';
 import '../models/points_transaction.dart';
 import '../widgets/profile_header_widget.dart';
 import '../widgets/target_card_widget.dart';
+import '../widgets/target_details_dialog.dart';
 import 'admin_dashboard.dart'; // Import for EmployeeProfileScreen and EmployeesListScreen
 import 'messaging_screen.dart';
 
@@ -995,6 +996,7 @@ class _EmployeeDashboardState extends State<EmployeeDashboard> {
                   appProvider: appProvider,
                   currentUserId: userId,
                   isAdminView: false,
+                  onTap: () => _showTargetDetailsDialog(context, target, appProvider),
                   onAddCollaborators: () =>
                       _showAddCollaboratorsDialog(context, target, userId),
                   onSubmitSales: () => _showSubmitSalesDialog(context, target),
@@ -2174,6 +2176,18 @@ class _EmployeeDashboardState extends State<EmployeeDashboard> {
             child: const Text('Submit'),
           ),
         ],
+      ),
+    );
+  }
+
+  void _showTargetDetailsDialog(
+      BuildContext context, SalesTarget target, AppProvider appProvider) {
+    showDialog(
+      context: context,
+      builder: (context) => TargetDetailsDialog(
+        target: target,
+        appProvider: appProvider,
+        isAdminView: false,
       ),
     );
   }
