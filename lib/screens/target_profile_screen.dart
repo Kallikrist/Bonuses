@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
-import 'package:fl_chart/fl_chart.dart';
 
 import '../models/sales_target.dart';
 import '../models/user.dart';
@@ -133,55 +132,121 @@ class _TargetProfileScreenState extends State<TargetProfileScreen> {
 
                 const SizedBox(height: 16),
 
-                // Actions
-                Wrap(
-                  spacing: 12,
-                  runSpacing: 8,
-                  children: [
-                    OutlinedButton.icon(
-                      onPressed: () => _showEditTargetDialog(context, app),
-                      icon: const Icon(Icons.edit),
-                      label: const Text('Edit'),
-                    ),
-                    if (_currentTarget.isSubmitted &&
-                        !_currentTarget.isApproved)
-                      ElevatedButton.icon(
-                        onPressed: () async {
-                          try {
-                            final pending = app.approvalRequests.firstWhere(
-                              (r) =>
-                                  r.targetId == _currentTarget.id &&
-                                  r.type ==
-                                      ApprovalRequestType.salesSubmission &&
-                                  r.status == ApprovalStatus.pending,
-                            );
-                            await app.approveRequest(pending);
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              const SnackBar(
-                                  content: Text('Submission approved')),
-                            );
-                          } catch (_) {
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              const SnackBar(
-                                  content: Text('No pending submission found')),
-                            );
-                          }
-                        },
-                        icon: const Icon(Icons.check_circle),
-                        label: const Text('Approve'),
-                      ),
-                  ],
-                ),
-
-                const SizedBox(height: 24),
-
-                // Performance Chart
+                // Performance Chart (moved above team members)
                 Text(
                   'Performance Trend (Last 2 Years)',
                   style: Theme.of(context).textTheme.titleMedium,
                 ),
                 const SizedBox(height: 8),
                 _buildPerformanceChart(app),
+
+                const SizedBox(height: 24),
+
+                // Team Members Section (if any)
+                if (_currentTarget.collaborativeEmployeeIds.isNotEmpty) ...[
+                  _buildTeamMembersSection(app),
+                  const SizedBox(height: 16),
+                ],
+
+                // Points History Section (if approved)
+                if (_currentTarget.isApproved &&
+                    _currentTarget.pointsAwarded > 0) ...[
+                  _buildPointsHistorySection(app),
+                  const SizedBox(height: 16),
+                ],
+
+                // Adjustments History (Admin View)
+                if (app.currentUser?.role == UserRole.admin) ...[
+                  _buildAdjustmentsHistorySection(app),
+                  const SizedBox(height: 16),
+                ],
+
+                // Actions
+                Builder(builder: (context) {
+                  final currentUser = app.currentUser;
+                  final isAdmin = currentUser?.role == UserRole.admin;
+                  final isMember = currentUser != null &&
+                      (_currentTarget.assignedEmployeeId == currentUser.id ||
+                          _currentTarget.collaborativeEmployeeIds
+                              .contains(currentUser.id));
+
+                  return Wrap(
+                    spacing: 12,
+                    runSpacing: 8,
+                    children: [
+                      if (isAdmin) ...[
+                        OutlinedButton.icon(
+                          onPressed: () => _showEditTargetDialog(context, app),
+                          icon: const Icon(Icons.edit),
+                          label: const Text('Edit'),
+                        ),
+                        if (_currentTarget.isSubmitted &&
+                            !_currentTarget.isApproved)
+                          ElevatedButton.icon(
+                            onPressed: () async {
+                              try {
+                                final pending = app.approvalRequests.firstWhere(
+                                  (r) =>
+                                      r.targetId == _currentTarget.id &&
+                                      r.type ==
+                                          ApprovalRequestType.salesSubmission &&
+                                      r.status == ApprovalStatus.pending,
+                                );
+                                await app.approveRequest(pending);
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  const SnackBar(
+                                      content: Text('Submission approved')),
+                                );
+                              } catch (_) {
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  const SnackBar(
+                                      content:
+                                          Text('No pending submission found')),
+                                );
+                              }
+                            },
+                            icon: const Icon(Icons.check_circle),
+                            label: const Text('Approve'),
+                          ),
+                      ] else if (currentUser != null && !isMember) ...[
+                        ElevatedButton.icon(
+                          onPressed: () async {
+                            // Request to join target as team member
+                            final newIds = <String>{
+                              ..._currentTarget.collaborativeEmployeeIds,
+                            }..add(currentUser.id);
+                            final newNames = <String>{
+                              ..._currentTarget.collaborativeEmployeeNames,
+                            }..add(currentUser.name);
+
+                            await app.submitTeamChange(
+                              _currentTarget.id,
+                              newIds.toList(),
+                              newNames.toList(),
+                              currentUser.id,
+                            );
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              const SnackBar(
+                                content: Text('Join request sent for approval'),
+                              ),
+                            );
+                          },
+                          icon: const Icon(Icons.group_add),
+                          label: const Text('Request to Join'),
+                        ),
+                      ] else if (currentUser != null && isMember) ...[
+                        ElevatedButton.icon(
+                          onPressed: () {
+                            _showSubmitSalesDialog(
+                                context, _currentTarget, app);
+                          },
+                          icon: const Icon(Icons.upload),
+                          label: const Text('Submit Sales'),
+                        ),
+                      ],
+                    ],
+                  );
+                }),
 
                 const SizedBox(height: 24),
 
@@ -630,50 +695,82 @@ class _TargetProfileScreenState extends State<TargetProfileScreen> {
     );
   }
 
+  // Lightweight submit sales dialog scoped to Target Profile screen
+  void _showSubmitSalesDialog(
+      BuildContext context, SalesTarget target, AppProvider app) {
+    final controller = TextEditingController();
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Submit Sales'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text('Target: ${target.targetAmount.toStringAsFixed(0)}'),
+            const SizedBox(height: 12),
+            TextField(
+              controller: controller,
+              decoration: const InputDecoration(
+                labelText: 'Your Actual Sales',
+                border: OutlineInputBorder(),
+              ),
+              keyboardType: TextInputType.number,
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Cancel'),
+          ),
+          ElevatedButton(
+            onPressed: () async {
+              final amount = double.tryParse(controller.text);
+              final user = app.currentUser;
+              if (amount == null || amount < 0 || user == null) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(
+                    content: Text('Enter a valid amount'),
+                    backgroundColor: Colors.red,
+                  ),
+                );
+                return;
+              }
+              await app.submitEmployeeSales(target.id, amount, user.id);
+              if (context.mounted) Navigator.pop(context);
+              if (context.mounted) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(
+                    content: Text(amount >= target.targetAmount
+                        ? 'Sales submitted — target met (awaiting approval)'
+                        : 'Sales submitted for review'),
+                  ),
+                );
+              }
+            },
+            child: const Text('Submit'),
+          ),
+        ],
+      ),
+    );
+  }
+
   Widget _buildPerformanceChart(AppProvider app) {
-    // Get all targets for the same employee/workplace (no date filtering for now)
-    print(
-        'DEBUG: Current target - employeeId: ${_currentTarget.assignedEmployeeId}, workplaceId: ${_currentTarget.assignedWorkplaceId}');
-    print('DEBUG: Total targets in app: ${app.salesTargets.length}');
-
+    // Filter similar to previous logic, but render with the same simple bar style
     final filteredTargets = app.salesTargets.where((target) {
-      print(
-          'DEBUG: Checking target ${target.id}: date=${target.date}, employeeId=${target.assignedEmployeeId}, workplaceId=${target.assignedWorkplaceId}');
-
-      // Match workplace - this is the key filter
       if (_currentTarget.assignedWorkplaceId != target.assignedWorkplaceId) {
-        print(
-            'DEBUG: Target ${target.id} filtered out - different workplace (${_currentTarget.assignedWorkplaceId} vs ${target.assignedWorkplaceId})');
         return false;
       }
-
-      // Only show targets for the same date (month and day) to show historical trends
-      // e.g., if viewing Oct 1, 2025, show Oct 1 from 2024, 2023, 2022, etc.
-      // regardless of which employee was assigned
       if (target.date.month != _currentTarget.date.month ||
           target.date.day != _currentTarget.date.day) {
-        print(
-            'DEBUG: Target ${target.id} filtered out - different date (${target.date.month}/${target.date.day} vs ${_currentTarget.date.month}/${_currentTarget.date.day})');
         return false;
       }
-
-      print(
-          'DEBUG: Target ${target.id} included in chart - same workplace (${target.assignedWorkplaceName}) and same date (${target.date.month}/${target.date.day})');
       return true;
-    }).toList();
+    }).toList()
+      ..sort((a, b) => a.date.compareTo(b.date));
 
-    // Sort by date (no deduplication - multiple targets can exist for same date)
-    filteredTargets.sort((a, b) => a.date.compareTo(b.date));
-    final finalTargets = filteredTargets;
-
-    print('DEBUG: Found ${finalTargets.length} targets for chart');
-    print('DEBUG: Will use scrollable chart: ${finalTargets.length >= 12}');
-    for (final target in finalTargets) {
-      print(
-          'DEBUG: Target ${target.id}: date=${target.date}, targetAmount=${target.targetAmount}, actualAmount=${target.actualAmount}, employee=${target.assignedEmployeeName}');
-    }
-
-    if (finalTargets.isEmpty) {
+    if (filteredTargets.isEmpty) {
       return Container(
         height: 200,
         decoration: BoxDecoration(
@@ -689,260 +786,425 @@ class _TargetProfileScreenState extends State<TargetProfileScreen> {
       );
     }
 
-    // Prepare chart data - show individual targets
-    final spots = <FlSpot>[];
-    final targetSpots = <FlSpot>[];
-    final labels = <String>[];
+    // Determine scale
+    final maxValue = filteredTargets
+        .map((t) =>
+            t.targetAmount > t.actualAmount ? t.targetAmount : t.actualAmount)
+        .fold<double>(0, (prev, el) => el > prev ? el : prev);
 
-    for (int i = 0; i < finalTargets.length; i++) {
-      final target = finalTargets[i];
+    // Build simple, rounded bars similar to weekly chart
+    final labels = filteredTargets
+        .map((t) => t.date.year.toString().substring(2))
+        .toList();
 
-      spots.add(FlSpot(i.toDouble(), target.actualAmount));
-      targetSpots.add(FlSpot(i.toDouble(), target.targetAmount));
+    return Container(
+      height: 220,
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: Colors.grey.shade200),
+      ),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+        crossAxisAlignment: CrossAxisAlignment.end,
+        children: [
+          for (int i = 0; i < filteredTargets.length; i++)
+            Column(
+              mainAxisAlignment: MainAxisAlignment.end,
+              children: [
+                // Bars group (Target + Actual), aligned to bottom
+                Row(
+                  crossAxisAlignment: CrossAxisAlignment.end,
+                  children: [
+                    // Target (blue) with value label
+                    Column(
+                      mainAxisAlignment: MainAxisAlignment.end,
+                      children: [
+                        Text(
+                          filteredTargets[i].targetAmount.toStringAsFixed(0),
+                          style: TextStyle(
+                            fontSize: 10,
+                            color: Colors.blue[700],
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                        const SizedBox(height: 4),
+                        Container(
+                          width: 16,
+                          height:
+                              (filteredTargets[i].targetAmount / maxValue * 150)
+                                  .clamp(8, 150),
+                          decoration: BoxDecoration(
+                            color: Colors.blue.withOpacity(0.8),
+                            borderRadius: BorderRadius.circular(4),
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(width: 6),
+                    // Actual (met=green / missed=red) with value label
+                    Column(
+                      mainAxisAlignment: MainAxisAlignment.end,
+                      children: [
+                        Text(
+                          filteredTargets[i].actualAmount.toStringAsFixed(0),
+                          style: TextStyle(
+                            fontSize: 10,
+                            color: filteredTargets[i].actualAmount >=
+                                    filteredTargets[i].targetAmount
+                                ? Colors.green[700]
+                                : Colors.red[700],
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                        const SizedBox(height: 4),
+                        Container(
+                          width: 16,
+                          height:
+                              (filteredTargets[i].actualAmount / maxValue * 150)
+                                  .clamp(8, 150),
+                          decoration: BoxDecoration(
+                            color: filteredTargets[i].actualAmount >=
+                                    filteredTargets[i].targetAmount
+                                ? Colors.green
+                                : Colors.red,
+                            borderRadius: BorderRadius.circular(4),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 8),
+                Text(
+                  labels[i],
+                  style: TextStyle(fontSize: 12, color: Colors.grey[600]),
+                ),
+              ],
+            ),
+        ],
+      ),
+    );
+  }
 
-      // Format date label to show just the year (last 2 digits)
-      final year = target.date.year;
-      final yearShort =
-          year.toString().substring(2); // Just "24", "25", "26" etc.
-
-      print('DEBUG: Target date: ${target.date}, label: $yearShort');
-      labels.add(yearShort);
-    }
-
-    return Column(
-      children: [
-        // Legend
-        Row(
-          mainAxisAlignment: MainAxisAlignment.center,
+  Widget _buildTeamMembersSection(AppProvider app) {
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.all(16.0),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Container(
-              width: 12,
-              height: 2,
-              color: Colors.blue,
-            ),
-            const SizedBox(width: 8),
-            const Text('Target', style: TextStyle(fontSize: 12)),
-            const SizedBox(width: 16),
-            Container(
-              width: 12,
-              height: 2,
-              color: Colors.green,
-            ),
-            const SizedBox(width: 8),
-            const Text('Met', style: TextStyle(fontSize: 12)),
-            const SizedBox(width: 16),
-            Container(
-              width: 12,
-              height: 2,
-              color: Colors.red,
-            ),
-            const SizedBox(width: 8),
-            const Text('Missed', style: TextStyle(fontSize: 12)),
-          ],
-        ),
-        const SizedBox(height: 8),
-        // Chart
-        Container(
-          height: 200,
-          padding: const EdgeInsets.all(16),
-          decoration: BoxDecoration(
-            color: Colors.white,
-            borderRadius: BorderRadius.circular(8),
-            border: Border.all(color: Colors.grey.shade300),
-          ),
-          child: finalTargets.length >= 12
-              ? SingleChildScrollView(
-                  scrollDirection: Axis.horizontal,
-                  physics: const BouncingScrollPhysics(),
-                  child: SizedBox(
-                    width: finalTargets.length *
-                        60.0, // 60px per bar group for better spacing
-                    child: BarChart(
-                      BarChartData(
-                        gridData: const FlGridData(show: true),
-                        barTouchData: BarTouchData(
-                          enabled: true,
-                          touchTooltipData: BarTouchTooltipData(
-                            getTooltipItem: (group, groupIndex, rod, rodIndex) {
-                              final target = finalTargets[groupIndex];
-                              final isTarget = rodIndex == 0;
-                              return BarTooltipItem(
-                                isTarget
-                                    ? 'Target: ${target.targetAmount.toStringAsFixed(0)}'
-                                    : 'Actual: ${target.actualAmount.toStringAsFixed(0)}',
-                                const TextStyle(
-                                  color: Colors.white,
-                                  fontWeight: FontWeight.bold,
-                                  fontSize: 12,
-                                ),
-                              );
-                            },
-                            fitInsideHorizontally: true,
-                            fitInsideVertically: true,
-                          ),
-                        ),
-                        titlesData: FlTitlesData(
-                          leftTitles: AxisTitles(
-                            sideTitles: SideTitles(
-                              showTitles: true,
-                              reservedSize: 40,
-                              getTitlesWidget: (value, meta) {
-                                return Text(
-                                  value.toInt().toString(),
-                                  style: const TextStyle(fontSize: 10),
-                                );
-                              },
-                            ),
-                          ),
-                          bottomTitles: AxisTitles(
-                            sideTitles: SideTitles(
-                              showTitles: true,
-                              reservedSize: 30,
-                              getTitlesWidget: (value, meta) {
-                                if (value.toInt() >= 0 &&
-                                    value.toInt() < labels.length) {
-                                  return Text(
-                                    labels[value.toInt()],
-                                    style: const TextStyle(fontSize: 10),
-                                  );
-                                }
-                                return const Text('');
-                              },
-                            ),
-                          ),
-                          topTitles: const AxisTitles(
-                              sideTitles: SideTitles(showTitles: false)),
-                          rightTitles: const AxisTitles(
-                              sideTitles: SideTitles(showTitles: false)),
-                        ),
-                        borderData: FlBorderData(show: true),
-                        barGroups: [
-                          for (int i = 0; i < finalTargets.length; i++)
-                            BarChartGroupData(
-                              x: i,
-                              barRods: [
-                                BarChartRodData(
-                                  toY: finalTargets[i].targetAmount,
-                                  color: Colors.blue,
-                                  width: 8,
-                                  borderRadius: const BorderRadius.only(
-                                    topLeft: Radius.circular(2),
-                                    topRight: Radius.circular(2),
-                                  ),
-                                ),
-                                BarChartRodData(
-                                  toY: finalTargets[i].actualAmount,
-                                  color: finalTargets[i].actualAmount >=
-                                          finalTargets[i].targetAmount
-                                      ? Colors.green
-                                      : Colors.red,
-                                  width: 8,
-                                  borderRadius: const BorderRadius.only(
-                                    topLeft: Radius.circular(2),
-                                    topRight: Radius.circular(2),
-                                  ),
-                                ),
-                              ],
-                              barsSpace: 4,
-                            ),
-                        ],
-                      ),
-                    ),
+            Row(
+              children: [
+                Icon(Icons.group, color: Colors.purple),
+                const SizedBox(width: 8),
+                Text(
+                  'Team Members (${_currentTarget.collaborativeEmployeeIds.length})',
+                  style: const TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.bold,
                   ),
-                )
-              : BarChart(
-                  BarChartData(
-                    gridData: const FlGridData(show: true),
-                    barTouchData: BarTouchData(
-                      enabled: true,
-                      touchTooltipData: BarTouchTooltipData(
-                        getTooltipItem: (group, groupIndex, rod, rodIndex) {
-                          final target = finalTargets[groupIndex];
-                          final isTarget = rodIndex == 0;
-                          return BarTooltipItem(
-                            isTarget
-                                ? 'Target: ${target.targetAmount.toStringAsFixed(0)}'
-                                : 'Actual: ${target.actualAmount.toStringAsFixed(0)}',
-                            const TextStyle(
-                              color: Colors.white,
-                              fontWeight: FontWeight.bold,
+                ),
+              ],
+            ),
+            const SizedBox(height: 12),
+            ...List.generate(
+              _currentTarget.collaborativeEmployeeNames.length,
+              (index) {
+                final name = _currentTarget.collaborativeEmployeeNames[index];
+                return Container(
+                  margin: const EdgeInsets.only(bottom: 8),
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: Colors.purple.shade50,
+                    borderRadius: BorderRadius.circular(8),
+                    border: Border.all(color: Colors.purple.shade200),
+                  ),
+                  child: Row(
+                    children: [
+                      CircleAvatar(
+                        backgroundColor: Colors.purple.shade100,
+                        radius: 16,
+                        child: Text(
+                          name[0].toUpperCase(),
+                          style: TextStyle(
+                            color: Colors.purple.shade700,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: Text(
+                          name,
+                          style: const TextStyle(
+                            fontWeight: FontWeight.w500,
+                            fontSize: 14,
+                          ),
+                        ),
+                      ),
+                      if (_currentTarget.isApproved &&
+                          _currentTarget.pointsAwarded > 0)
+                        Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 8,
+                            vertical: 4,
+                          ),
+                          decoration: BoxDecoration(
+                            color: Colors.purple.shade100,
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                          child: Text(
+                            '+${_currentTarget.pointsAwarded} pts',
+                            style: TextStyle(
+                              color: Colors.purple.shade700,
                               fontSize: 12,
+                              fontWeight: FontWeight.bold,
                             ),
-                          );
-                        },
-                        fitInsideHorizontally: true,
-                        fitInsideVertically: true,
-                      ),
-                    ),
-                    titlesData: FlTitlesData(
-                      leftTitles: AxisTitles(
-                        sideTitles: SideTitles(
-                          showTitles: true,
-                          reservedSize: 40,
-                          getTitlesWidget: (value, meta) {
-                            return Text(
-                              value.toInt().toString(),
-                              style: const TextStyle(fontSize: 10),
-                            );
-                          },
-                        ),
-                      ),
-                      bottomTitles: AxisTitles(
-                        sideTitles: SideTitles(
-                          showTitles: true,
-                          reservedSize: 30,
-                          getTitlesWidget: (value, meta) {
-                            if (value.toInt() >= 0 &&
-                                value.toInt() < labels.length) {
-                              return Text(
-                                labels[value.toInt()],
-                                style: const TextStyle(fontSize: 10),
-                              );
-                            }
-                            return const Text('');
-                          },
-                        ),
-                      ),
-                      topTitles: const AxisTitles(
-                          sideTitles: SideTitles(showTitles: false)),
-                      rightTitles: const AxisTitles(
-                          sideTitles: SideTitles(showTitles: false)),
-                    ),
-                    borderData: FlBorderData(show: true),
-                    barGroups: [
-                      for (int i = 0; i < finalTargets.length; i++)
-                        BarChartGroupData(
-                          x: i,
-                          barRods: [
-                            BarChartRodData(
-                              toY: finalTargets[i].targetAmount,
-                              color: Colors.blue,
-                              width: 8,
-                              borderRadius: const BorderRadius.only(
-                                topLeft: Radius.circular(2),
-                                topRight: Radius.circular(2),
-                              ),
-                            ),
-                            BarChartRodData(
-                              toY: finalTargets[i].actualAmount,
-                              color: finalTargets[i].actualAmount >=
-                                      finalTargets[i].targetAmount
-                                  ? Colors.green
-                                  : Colors.red,
-                              width: 8,
-                              borderRadius: const BorderRadius.only(
-                                topLeft: Radius.circular(2),
-                                topRight: Radius.circular(2),
-                              ),
-                            ),
-                          ],
-                          barsSpace: 4,
+                          ),
                         ),
                     ],
                   ),
-                ),
+                );
+              },
+            ),
+          ],
         ),
-      ],
+      ),
     );
+  }
+
+  Widget _buildPointsHistorySection(AppProvider app) {
+    return FutureBuilder<List<PointsTransaction>>(
+      future: _getTargetPointsTransactions(app),
+      builder: (context, snapshot) {
+        if (!snapshot.hasData || snapshot.data!.isEmpty) {
+          return const SizedBox.shrink();
+        }
+
+        final transactions = snapshot.data!;
+        return Card(
+          child: Padding(
+            padding: const EdgeInsets.all(16.0),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    Icon(Icons.history, color: Colors.green),
+                    const SizedBox(width: 8),
+                    Text(
+                      'Points History (${transactions.length} transactions)',
+                      style: const TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 12),
+                ...transactions.map((tx) {
+                  return Container(
+                    margin: const EdgeInsets.only(bottom: 8),
+                    padding: const EdgeInsets.all(12),
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      borderRadius: BorderRadius.circular(8),
+                      border: Border.all(color: Colors.grey.shade300),
+                    ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Row(
+                          children: [
+                            Icon(
+                              tx.type == PointsTransactionType.earned
+                                  ? Icons.add_circle
+                                  : tx.type == PointsTransactionType.adjustment
+                                      ? Icons.tune
+                                      : Icons.remove_circle,
+                              color: tx.type == PointsTransactionType.earned
+                                  ? Colors.green
+                                  : tx.type == PointsTransactionType.adjustment
+                                      ? Colors.orange
+                                      : Colors.red,
+                              size: 16,
+                            ),
+                            const SizedBox(width: 8),
+                            Expanded(
+                              child: Text(
+                                tx.description,
+                                style: const TextStyle(
+                                  fontSize: 13,
+                                  fontWeight: FontWeight.w500,
+                                ),
+                              ),
+                            ),
+                            Text(
+                              '${tx.type == PointsTransactionType.redeemed || tx.points < 0 ? '-' : '+'}${tx.points.abs()} pts',
+                              style: TextStyle(
+                                fontWeight: FontWeight.bold,
+                                fontSize: 13,
+                                color: tx.type == PointsTransactionType.earned
+                                    ? Colors.green
+                                    : tx.type ==
+                                            PointsTransactionType.adjustment
+                                        ? Colors.orange
+                                        : Colors.red,
+                              ),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 4),
+                        Text(
+                          DateFormat('MMM dd, yyyy • h:mm a').format(tx.date),
+                          style: TextStyle(
+                            fontSize: 11,
+                            color: Colors.grey[600],
+                          ),
+                        ),
+                      ],
+                    ),
+                  );
+                }).toList(),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+  }
+
+  Widget _buildAdjustmentsHistorySection(AppProvider app) {
+    return FutureBuilder<List<PointsTransaction>>(
+      future: _getAllTargetTransactions(app),
+      builder: (context, snapshot) {
+        if (!snapshot.hasData) {
+          return const SizedBox.shrink();
+        }
+
+        final transactions = snapshot.data!;
+        final adjustments = transactions
+            .where((t) => t.type == PointsTransactionType.adjustment)
+            .toList();
+
+        if (adjustments.isEmpty) {
+          return const SizedBox.shrink();
+        }
+
+        return Card(
+          child: Padding(
+            padding: const EdgeInsets.all(16.0),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    Icon(Icons.tune, color: Colors.orange),
+                    const SizedBox(width: 8),
+                    Text(
+                      'Adjustments History (${adjustments.length})',
+                      style: const TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 12),
+                ...adjustments.map((tx) {
+                  return Container(
+                    margin: const EdgeInsets.only(bottom: 8),
+                    padding: const EdgeInsets.all(12),
+                    decoration: BoxDecoration(
+                      color: Colors.orange.shade50,
+                      borderRadius: BorderRadius.circular(8),
+                      border: Border.all(color: Colors.orange.shade200),
+                    ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Row(
+                          children: [
+                            Expanded(
+                              child: Text(
+                                tx.description,
+                                style: const TextStyle(
+                                  fontSize: 13,
+                                  fontWeight: FontWeight.w500,
+                                ),
+                              ),
+                            ),
+                            Text(
+                              '${tx.points < 0 ? '' : '+'}${tx.points} pts',
+                              style: TextStyle(
+                                fontWeight: FontWeight.bold,
+                                fontSize: 13,
+                                color:
+                                    tx.points < 0 ? Colors.red : Colors.green,
+                              ),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 4),
+                        FutureBuilder<String>(
+                          future: _getUserName(tx.userId, app),
+                          builder: (context, userSnapshot) {
+                            return Text(
+                              'User: ${userSnapshot.data ?? tx.userId} • ${DateFormat('MMM dd, h:mm a').format(tx.date)}',
+                              style: TextStyle(
+                                fontSize: 11,
+                                color: Colors.grey[600],
+                              ),
+                            );
+                          },
+                        ),
+                      ],
+                    ),
+                  );
+                }).toList(),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+  }
+
+  Future<List<PointsTransaction>> _getTargetPointsTransactions(
+      AppProvider app) async {
+    final allTransactions = await app.getAllPointsTransactions();
+    return allTransactions
+        .where((t) => t.relatedTargetId == _currentTarget.id)
+        .toList()
+      ..sort((a, b) => b.date.compareTo(a.date));
+  }
+
+  Future<List<PointsTransaction>> _getAllTargetTransactions(
+      AppProvider app) async {
+    final allTransactions = await app.getAllPointsTransactions();
+    return allTransactions
+        .where((t) => t.relatedTargetId == _currentTarget.id)
+        .toList()
+      ..sort((a, b) => b.date.compareTo(a.date));
+  }
+
+  Future<String> _getUserName(String userId, AppProvider app) async {
+    final users = await app.getUsers();
+    final user = users.firstWhere(
+      (u) => u.id == userId,
+      orElse: () => User(
+        id: userId,
+        name: 'Unknown User',
+        email: '',
+        role: UserRole.employee,
+        primaryCompanyId: '',
+        companyIds: [],
+        companyRoles: {},
+        createdAt: DateTime.now(),
+      ),
+    );
+    return user.name;
   }
 }

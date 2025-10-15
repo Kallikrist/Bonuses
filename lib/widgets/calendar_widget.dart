@@ -722,10 +722,20 @@ class _CalendarPageState extends State<CalendarPage> {
     final selectedDateTargets =
         _getSalesTargetsForDate(_selectedDate, widget.salesTargets ?? []);
 
-    // Find met targets that need approval
+    // Determine targets with a real pending SALES SUBMISSION for this date
+    final pendingSubmissionTargetIds = appProvider.approvalRequests
+        .where((r) =>
+            r.status == ApprovalStatus.pending &&
+            r.type == ApprovalRequestType.salesSubmission &&
+            selectedDateTargets.any((t) => t.id == r.targetId))
+        .map((r) => r.targetId)
+        .toSet();
+
+    // Only allow approve-all for targets that both met AND have a pending submission
     final metTargetsToApprove = selectedDateTargets
         .where((target) =>
-            target.actualAmount >= target.targetAmount && // Met the target
+            pendingSubmissionTargetIds.contains(target.id) &&
+            target.actualAmount >= target.targetAmount &&
             !target.isApproved &&
             target.status != TargetStatus.approved &&
             target.actualAmount > 0)

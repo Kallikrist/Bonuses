@@ -86,9 +86,12 @@ class _AdminDashboardState extends State<AdminDashboard> {
               ProfileHeaderWidget(
                 userName: user.name,
                 userEmail: user.email,
-                onProfileTap: () => setState(
-                    () => _selectedIndex = 3), // Navigate to Profile tab
-                actionButtons: _getAdminActionButtons(context, appProvider),
+                // Profile navigation moved to bottom bar
+                onProfileTap: null,
+                // Keep quick actions but remove the duplicate Settings tile
+                actionButtons: _getAdminActionButtons(context, appProvider)
+                    .where((b) => b.label != 'Settings')
+                    .toList(),
                 salesTargets: allTargets,
                 selectedDate: _selectedDate,
                 onDateSelected: (selectedDate) {
@@ -657,12 +660,17 @@ class _AdminDashboardState extends State<AdminDashboard> {
                     target: target,
                     appProvider: appProvider,
                     isAdminView: true,
-                    onTap: () => Navigator.push(
-                          context,
-                          MaterialPageRoute(
-                            builder: (context) => TargetProfileScreen(target: target),
-                          ),
+                    onTap: () {
+                      print(
+                          'DEBUG: Admin dashboard onTap called for target ${target.id}');
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (context) =>
+                              TargetProfileScreen(target: target),
                         ),
+                      );
+                    },
                     onEdit: () =>
                         _showEditTargetDialog(context, target, appProvider),
                     onQuickApprove: () => _showQuickApproveDialog(
@@ -4921,8 +4929,47 @@ class _AdminDashboardState extends State<AdminDashboard> {
 
   Widget? _getFloatingActionButton(BuildContext context,
       AppProvider appProvider, List<SalesTarget> selectedDateTargets) {
-    // No floating action button needed
-    return null;
+    // Mirror calendar FAB logic: show Approve All only when there are
+    // pending sales submission requests for the selected date
+    final pendingSubmissionTargetIds = appProvider.approvalRequests
+        .where((r) =>
+            r.status == ApprovalStatus.pending &&
+            r.type == ApprovalRequestType.salesSubmission &&
+            selectedDateTargets.any((t) => t.id == r.targetId))
+        .map((r) => r.targetId)
+        .toSet();
+
+    final approvableTargets = selectedDateTargets
+        .where((t) => pendingSubmissionTargetIds.contains(t.id))
+        .toList();
+
+    if (_selectedIndex != 0 || approvableTargets.isEmpty) {
+      return null;
+    }
+
+    return FloatingActionButton.extended(
+      onPressed: () async {
+        int approved = 0;
+        for (final t in approvableTargets) {
+          try {
+            final req = appProvider.approvalRequests.firstWhere((r) =>
+                r.targetId == t.id &&
+                r.type == ApprovalRequestType.salesSubmission &&
+                r.status == ApprovalStatus.pending);
+            await appProvider.approveRequest(req);
+            approved++;
+          } catch (_) {}
+        }
+        if (context.mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text('Approved $approved submission(s)')),
+          );
+        }
+      },
+      icon: const Icon(Icons.check_circle),
+      label: const Text('Approve All'),
+      backgroundColor: Colors.green,
+    );
   }
 
   Widget _buildApprovalsManagementTab(AppProvider appProvider) {

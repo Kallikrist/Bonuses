@@ -996,12 +996,17 @@ class _EmployeeDashboardState extends State<EmployeeDashboard> {
                   appProvider: appProvider,
                   currentUserId: userId,
                   isAdminView: false,
-                  onTap: () => Navigator.push(
-                        context,
-                        MaterialPageRoute(
-                          builder: (context) => TargetProfileScreen(target: target),
-                        ),
+                  onTap: () {
+                    print(
+                        'DEBUG: Employee dashboard onTap called for target ${target.id}');
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (context) =>
+                            TargetProfileScreen(target: target),
                       ),
+                    );
+                  },
                   onAddCollaborators: () =>
                       _showAddCollaboratorsDialog(context, target, userId),
                   onSubmitSales: () => _showSubmitSalesDialog(context, target),
