@@ -24,6 +24,11 @@ class StorageService {
   static const String _onboardingCompleteKey = 'onboarding_complete';
   static const String _passwordsKey = 'user_passwords'; // Map<userId, password>
   static const String _darkModeKey = 'dark_mode';
+  // Navigation customization
+  static const String _navHeaderPrefsKey =
+      'nav_header_prefs'; // Map<role, List<String>>
+  static const String _navBottomPrefsKey =
+      'nav_bottom_prefs'; // Map<role, List<String>>
 
   static Future<SharedPreferences> get _prefs async =>
       await SharedPreferences.getInstance();
@@ -33,6 +38,36 @@ class StorageService {
     final prefs = await _prefs;
     final usersJson = prefs.getStringList(_usersKey) ?? [];
     return usersJson.map((json) => User.fromJson(jsonDecode(json))).toList();
+  }
+
+  // Navigation preferences: header shortcuts per role
+  static Future<Map<String, List<String>>> getHeaderNavPrefs() async {
+    final prefs = await _prefs;
+    final jsonString = prefs.getString(_navHeaderPrefsKey);
+    if (jsonString == null) return {};
+    final Map<String, dynamic> raw = jsonDecode(jsonString);
+    return raw.map((k, v) => MapEntry(k, List<String>.from(v as List)));
+  }
+
+  static Future<void> setHeaderNavPrefs(
+      Map<String, List<String>> prefsMap) async {
+    final prefs = await _prefs;
+    await prefs.setString(_navHeaderPrefsKey, jsonEncode(prefsMap));
+  }
+
+  // Navigation preferences: bottom tabs per role
+  static Future<Map<String, List<String>>> getBottomNavPrefs() async {
+    final prefs = await _prefs;
+    final jsonString = prefs.getString(_navBottomPrefsKey);
+    if (jsonString == null) return {};
+    final Map<String, dynamic> raw = jsonDecode(jsonString);
+    return raw.map((k, v) => MapEntry(k, List<String>.from(v as List)));
+  }
+
+  static Future<void> setBottomNavPrefs(
+      Map<String, List<String>> prefsMap) async {
+    final prefs = await _prefs;
+    await prefs.setString(_navBottomPrefsKey, jsonEncode(prefsMap));
   }
 
   static Future<void> saveUsers(List<User> users) async {

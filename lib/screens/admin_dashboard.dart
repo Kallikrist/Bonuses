@@ -52,6 +52,46 @@ class _AdminDashboardState extends State<AdminDashboard> {
   int _selectedIndex = 0;
   String _selectedTimePeriod = 'all';
   DateTime _selectedDate = DateTime.now();
+
+  // Header shortcut visibility (label -> enabled)
+  Map<String, bool> _headerShortcutPrefs = {
+    'Calendar': true,
+    'Targets': true,
+    'Messages': true,
+    'Import Bonuses': true,
+    'Settings': true,
+  };
+
+  @override
+  void initState() {
+    super.initState();
+    _loadHeaderPrefs();
+  }
+
+  Future<void> _loadHeaderPrefs() async {
+    try {
+      final saved = await StorageService.getHeaderNavPrefs();
+      final roleKey = 'admin';
+      if (saved.containsKey(roleKey)) {
+        final allowed = Set<String>.from(saved[roleKey]!);
+        setState(() {
+          _headerShortcutPrefs.updateAll((k, v) => allowed.contains(k));
+        });
+      }
+    } catch (_) {}
+  }
+
+  Future<void> _saveHeaderPrefs() async {
+    final roleKey = 'admin';
+    final allowed = _headerShortcutPrefs.entries
+        .where((e) => e.value)
+        .map((e) => e.key)
+        .toList();
+    final all = await StorageService.getHeaderNavPrefs();
+    all[roleKey] = allowed;
+    await StorageService.setHeaderNavPrefs(all);
+  }
+
   bool _showAvailableBonuses = true; // toggle between available and redeemed
 
   @override
@@ -75,8 +115,10 @@ class _AdminDashboardState extends State<AdminDashboard> {
             elevation: 0,
             actions: [
               IconButton(
-                icon: const Icon(Icons.logout),
-                onPressed: () => _showLogoutDialog(context, appProvider),
+                icon: const Icon(Icons.settings),
+                onPressed: () => setState(
+                    () => _selectedIndex = 2), // Navigate to Settings tab
+                tooltip: 'Settings',
               ),
             ],
           ),
@@ -88,9 +130,9 @@ class _AdminDashboardState extends State<AdminDashboard> {
                 userEmail: user.email,
                 // Profile navigation moved to bottom bar
                 onProfileTap: null,
-                // Keep quick actions but remove the duplicate Settings tile
+                // Apply header shortcut preferences
                 actionButtons: _getAdminActionButtons(context, appProvider)
-                    .where((b) => b.label != 'Settings')
+                    .where((b) => _headerShortcutPrefs[b.label] ?? true)
                     .toList(),
                 salesTargets: allTargets,
                 selectedDate: _selectedDate,
@@ -2610,6 +2652,17 @@ class _AdminDashboardState extends State<AdminDashboard> {
         onTap: () => setState(() => _selectedIndex = 0),
       ),
       ActionButton(
+        icon: Icons.track_changes,
+        label: 'Targets',
+        color: Colors.teal,
+        onTap: () => Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (context) => TargetListScreen(appProvider: appProvider),
+          ),
+        ),
+      ),
+      ActionButton(
         icon: Icons.card_giftcard,
         label: 'Import Bonuses',
         color: Colors.purple,
@@ -3095,6 +3148,61 @@ class _AdminDashboardState extends State<AdminDashboard> {
                     'Sign out of your account',
                     () => _showLogoutDialog(context, appProvider),
                   ),
+                ],
+              ),
+            ),
+          ),
+
+          const SizedBox(height: 16),
+          // Customize Navigation Section (Header shortcuts)
+          Card(
+            child: Padding(
+              padding: const EdgeInsets.all(16),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      Icon(Icons.tune, color: Colors.orange[700]),
+                      const SizedBox(width: 8),
+                      Text(
+                        'Customize Navigation',
+                        style: Theme.of(context)
+                            .textTheme
+                            .titleMedium
+                            ?.copyWith(fontWeight: FontWeight.bold),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    'Choose which shortcuts appear in the header',
+                    style: Theme.of(context).textTheme.bodySmall,
+                  ),
+                  const SizedBox(height: 12),
+                  ...[
+                    'Calendar',
+                    'Targets',
+                    'Messages',
+                    'Import Bonuses',
+                    'Settings'
+                  ].map((label) => SwitchListTile(
+                        dense: true,
+                        title: Text(label),
+                        value: _headerShortcutPrefs[label] ?? true,
+                        onChanged: (val) async {
+                          setState(() {
+                            _headerShortcutPrefs[label] = val;
+                          });
+                          await _saveHeaderPrefs();
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            SnackBar(
+                              content: Text('Saved header shortcut: $label'),
+                              duration: const Duration(seconds: 1),
+                            ),
+                          );
+                        },
+                      )),
                 ],
               ),
             ),

@@ -8,6 +8,7 @@ import '../models/user.dart';
 import '../models/company.dart';
 import '../models/country.dart';
 import '../models/points_transaction.dart';
+import '../services/storage_service.dart';
 import '../widgets/profile_header_widget.dart';
 import '../widgets/target_card_widget.dart';
 import 'target_profile_screen.dart';
@@ -25,6 +26,46 @@ class _EmployeeDashboardState extends State<EmployeeDashboard> {
   int _selectedIndex = 0;
   DateTime _selectedDate = DateTime.now();
   bool _showAvailableBonuses = true; // toggle between available and redeemed
+
+  // Header shortcut visibility (label -> enabled)
+  Map<String, bool> _headerShortcutPrefs = {
+    'Calendar': true,
+    'Targets': true,
+    'Bonuses':
+        false, // Default: hide Bonuses to avoid duplicate with bottom bar
+    'Messages': true,
+    'Profile': true,
+  };
+
+  @override
+  void initState() {
+    super.initState();
+    _loadHeaderPrefs();
+  }
+
+  Future<void> _loadHeaderPrefs() async {
+    try {
+      final saved = await StorageService.getHeaderNavPrefs();
+      final roleKey = 'employee';
+      if (saved.containsKey(roleKey)) {
+        final allowed = Set<String>.from(saved[roleKey]!);
+        setState(() {
+          _headerShortcutPrefs.updateAll((k, v) => allowed.contains(k));
+        });
+      }
+    } catch (_) {}
+  }
+
+  Future<void> _saveHeaderPrefs() async {
+    final roleKey = 'employee';
+    final allowed = _headerShortcutPrefs.entries
+        .where((e) => e.value)
+        .map((e) => e.key)
+        .toList();
+    final all = await StorageService.getHeaderNavPrefs();
+    all[roleKey] = allowed;
+    await StorageService.setHeaderNavPrefs(all);
+  }
 
   Widget _buildTargetsTab(AppProvider appProvider, List<SalesTarget> targets) {
     if (targets.isEmpty) {
@@ -250,6 +291,61 @@ class _EmployeeDashboardState extends State<EmployeeDashboard> {
                     'Sign out of your account',
                     () => _showLogoutDialog(context, appProvider),
                   ),
+                ],
+              ),
+            ),
+          ),
+
+          const SizedBox(height: 16),
+          // Customize Navigation Section (Header shortcuts)
+          Card(
+            child: Padding(
+              padding: const EdgeInsets.all(16),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      Icon(Icons.tune, color: Colors.orange[700]),
+                      const SizedBox(width: 8),
+                      Text(
+                        'Customize Navigation',
+                        style: Theme.of(context)
+                            .textTheme
+                            .titleMedium
+                            ?.copyWith(fontWeight: FontWeight.bold),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    'Choose which shortcuts appear in the header',
+                    style: Theme.of(context).textTheme.bodySmall,
+                  ),
+                  const SizedBox(height: 12),
+                  ...[
+                    'Calendar',
+                    'Targets',
+                    'Bonuses',
+                    'Messages',
+                    'Profile'
+                  ].map((label) => SwitchListTile(
+                        dense: true,
+                        title: Text(label),
+                        value: _headerShortcutPrefs[label] ?? true,
+                        onChanged: (val) async {
+                          setState(() {
+                            _headerShortcutPrefs[label] = val;
+                          });
+                          await _saveHeaderPrefs();
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            SnackBar(
+                              content: Text('Saved header shortcut: $label'),
+                              duration: const Duration(seconds: 1),
+                            ),
+                          );
+                        },
+                      )),
                 ],
               ),
             ),
@@ -721,8 +817,10 @@ class _EmployeeDashboardState extends State<EmployeeDashboard> {
             elevation: 0,
             actions: [
               IconButton(
-                icon: const Icon(Icons.logout),
-                onPressed: () => _showLogoutDialog(context, appProvider),
+                icon: const Icon(Icons.settings),
+                onPressed: () => setState(
+                    () => _selectedIndex = 3), // Navigate to Settings tab
+                tooltip: 'Settings',
               ),
             ],
           ),
@@ -742,8 +840,11 @@ class _EmployeeDashboardState extends State<EmployeeDashboard> {
                     userEmail: user.email,
                     onProfileTap: () => setState(
                         () => _selectedIndex = 4), // Navigate to Profile tab
+                    // Apply header shortcut preferences
                     actionButtons:
-                        _getEmployeeActionButtons(context, appProvider),
+                        _getEmployeeActionButtons(context, appProvider)
+                            .where((b) => _headerShortcutPrefs[b.label] ?? true)
+                            .toList(),
                     salesTargets: allTargets,
                     userCompanies: userCompanies,
                     currentCompanyId: user.primaryCompanyId,
