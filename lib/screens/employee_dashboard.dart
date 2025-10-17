@@ -37,10 +37,21 @@ class _EmployeeDashboardState extends State<EmployeeDashboard> {
     'Profile': true,
   };
 
+  // Bottom bar tab visibility (label -> enabled)
+  Map<String, bool> _bottomBarPrefs = {
+    'Overview': true,
+    'Targets': true,
+    'Bonuses': true,
+    'Messages': false, // Default: hide Messages (available in header)
+    'Settings': true, // Always show Settings to prevent lockout
+    'Profile': true,
+  };
+
   @override
   void initState() {
     super.initState();
     _loadHeaderPrefs();
+    _loadBottomBarPrefs();
   }
 
   Future<void> _loadHeaderPrefs() async {
@@ -65,6 +76,128 @@ class _EmployeeDashboardState extends State<EmployeeDashboard> {
     final all = await StorageService.getHeaderNavPrefs();
     all[roleKey] = allowed;
     await StorageService.setHeaderNavPrefs(all);
+  }
+
+  Future<void> _loadBottomBarPrefs() async {
+    try {
+      final saved = await StorageService.getBottomNavPrefs();
+      final roleKey = 'employee';
+      if (saved.containsKey(roleKey)) {
+        final allowed = Set<String>.from(saved[roleKey]!);
+        setState(() {
+          _bottomBarPrefs.updateAll((k, v) => allowed.contains(k));
+        });
+      }
+    } catch (_) {}
+  }
+
+  Future<void> _saveBottomBarPrefs() async {
+    final roleKey = 'employee';
+    final allowed = _bottomBarPrefs.entries
+        .where((e) => e.value)
+        .map((e) => e.key)
+        .toList();
+    final all = await StorageService.getBottomNavPrefs();
+    all[roleKey] = allowed;
+    await StorageService.setBottomNavPrefs(all);
+  }
+
+  List<BottomNavigationBarItem> _getBottomBarItems() {
+    final allItems = [
+      {'key': 'Overview', 'icon': Icons.dashboard, 'label': 'Overview'},
+      {'key': 'Targets', 'icon': Icons.track_changes, 'label': 'Targets'},
+      {'key': 'Bonuses', 'icon': Icons.card_giftcard, 'label': 'Bonuses'},
+      {'key': 'Messages', 'icon': Icons.message, 'label': 'Messages'},
+      {'key': 'Settings', 'icon': Icons.analytics, 'label': 'Settings'},
+      {'key': 'Profile', 'icon': Icons.person, 'label': 'Profile'},
+    ];
+
+    final visibleItems =
+        allItems.where((item) => _bottomBarPrefs[item['key']] ?? true).toList();
+
+    // Safeguard: ensure at least two items (Overview + Settings)
+    if (visibleItems.length < 2) {
+      visibleItems.clear();
+      visibleItems.addAll(allItems
+          .where((i) => i['key'] == 'Overview' || i['key'] == 'Settings'));
+    }
+
+    return visibleItems
+        .map((item) => BottomNavigationBarItem(
+              icon: Icon(item['icon'] as IconData),
+              label: item['label'] as String,
+            ))
+        .toList();
+  }
+
+  int _getActualTabIndex(int bottomNavIndex) {
+    // Map bottom nav index to actual tab index based on visible tabs
+    final visibleTabs = [
+      'Overview',
+      'Targets',
+      'Bonuses',
+      'Messages',
+      'Settings',
+      'Profile'
+    ].where((tab) => _bottomBarPrefs[tab] ?? true).toList();
+
+    if (bottomNavIndex >= visibleTabs.length) return 0;
+
+    final selectedTab = visibleTabs[bottomNavIndex];
+    switch (selectedTab) {
+      case 'Overview':
+        return 0;
+      case 'Targets':
+        return 1;
+      case 'Bonuses':
+        return 2;
+      case 'Messages':
+        return 5; // Messages screen index
+      case 'Settings':
+        return 3;
+      case 'Profile':
+        return 4;
+      default:
+        return 0;
+    }
+  }
+
+  int _getBottomNavIndex(int actualTabIndex) {
+    // Map actual tab index to bottom nav index based on visible tabs
+    final visibleTabs = [
+      'Overview',
+      'Targets',
+      'Bonuses',
+      'Messages',
+      'Settings',
+      'Profile'
+    ].where((tab) => _bottomBarPrefs[tab] ?? true).toList();
+
+    String currentTab;
+    switch (actualTabIndex) {
+      case 0:
+        currentTab = 'Overview';
+        break;
+      case 1:
+        currentTab = 'Targets';
+        break;
+      case 2:
+        currentTab = 'Bonuses';
+        break;
+      case 3:
+        currentTab = 'Settings';
+        break;
+      case 4:
+        currentTab = 'Profile';
+        break;
+      case 5:
+        currentTab = 'Messages';
+        break;
+      default:
+        currentTab = 'Overview';
+    }
+
+    return visibleTabs.indexOf(currentTab).clamp(0, visibleTabs.length - 1);
   }
 
   Widget _buildTargetsTab(AppProvider appProvider, List<SalesTarget> targets) {
@@ -345,6 +478,70 @@ class _EmployeeDashboardState extends State<EmployeeDashboard> {
                             ),
                           );
                         },
+                      )),
+                ],
+              ),
+            ),
+          ),
+
+          const SizedBox(height: 16),
+          // Customize Bottom Bar Section
+          Card(
+            child: Padding(
+              padding: const EdgeInsets.all(16),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      Icon(Icons.view_carousel, color: Colors.blue[700]),
+                      const SizedBox(width: 8),
+                      Text(
+                        'Customize Bottom Bar',
+                        style: Theme.of(context)
+                            .textTheme
+                            .titleMedium
+                            ?.copyWith(fontWeight: FontWeight.bold),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    'Choose which tabs appear in the bottom navigation',
+                    style: Theme.of(context).textTheme.bodySmall,
+                  ),
+                  const SizedBox(height: 12),
+                  ...[
+                    'Overview',
+                    'Targets',
+                    'Bonuses',
+                    'Messages',
+                    'Settings',
+                    'Profile'
+                  ].map((label) => SwitchListTile(
+                        dense: true,
+                        title: Text(label),
+                        subtitle: label == 'Settings'
+                            ? const Text('Required - cannot be disabled',
+                                style: TextStyle(
+                                    fontSize: 11, fontStyle: FontStyle.italic))
+                            : null,
+                        value: _bottomBarPrefs[label] ?? true,
+                        onChanged: label == 'Settings'
+                            ? null // Disable Settings toggle to prevent lockout
+                            : (val) async {
+                                setState(() {
+                                  _bottomBarPrefs[label] = val;
+                                });
+                                await _saveBottomBarPrefs();
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  SnackBar(
+                                    content:
+                                        Text('Saved bottom bar tab: $label'),
+                                    duration: const Duration(seconds: 1),
+                                  ),
+                                );
+                              },
                       )),
                 ],
               ),
@@ -882,53 +1079,40 @@ class _EmployeeDashboardState extends State<EmployeeDashboard> {
                     _buildBonusesTab(availableBonuses, redeemedBonuses, user.id,
                         userPoints, appProvider),
                     _buildReportsTab(allTargets, allTransactions, appProvider),
+                    _buildProfileTab(user, appProvider),
+                    const MessagingScreen(), // Messages tab
                   ],
                 ),
               ),
             ],
           ),
-          bottomNavigationBar: BottomNavigationBar(
-            currentIndex: _selectedIndex == 0
-                ? 0
-                : _selectedIndex == 1
-                    ? 0 // Targets (index 1) - show Overview as selected
-                    : _selectedIndex == 2
-                        ? 1 // Bonuses (index 2) -> bottom nav index 1
-                        : 2, // Reports (index 3) -> bottom nav index 2
-            onTap: (index) {
-              setState(() {
-                // Map bottom nav index to actual tab index
-                _selectedIndex = index == 0
-                    ? 0 // Overview
-                    : index == 1
-                        ? 2 // Bonuses (skip Targets at index 1)
-                        : 3; // Reports
-              });
+          bottomNavigationBar: Builder(
+            builder: (context) {
+              final items = _getBottomBarItems();
+              if (items.length < 2) {
+                // Hide bottom bar entirely if fewer than 2 items are visible
+                return const SizedBox.shrink();
+              }
+              return BottomNavigationBar(
+                currentIndex: _getBottomNavIndex(_selectedIndex),
+                onTap: (index) {
+                  setState(() {
+                    _selectedIndex = _getActualTabIndex(index);
+                  });
+                },
+                backgroundColor: Colors.white,
+                selectedItemColor: Colors.grey[800],
+                unselectedItemColor: Colors.grey[800],
+                selectedLabelStyle: const TextStyle(
+                  fontWeight: FontWeight.bold,
+                ),
+                unselectedLabelStyle: const TextStyle(
+                  fontWeight: FontWeight.normal,
+                  color: Colors.black,
+                ),
+                items: items,
+              );
             },
-            backgroundColor: Colors.white,
-            selectedItemColor: Colors.grey[800],
-            unselectedItemColor: Colors.grey[800],
-            selectedLabelStyle: const TextStyle(
-              fontWeight: FontWeight.bold,
-            ),
-            unselectedLabelStyle: const TextStyle(
-              fontWeight: FontWeight.normal,
-              color: Colors.black,
-            ),
-            items: const [
-              BottomNavigationBarItem(
-                icon: Icon(Icons.dashboard),
-                label: 'Overview',
-              ),
-              BottomNavigationBarItem(
-                icon: Icon(Icons.card_giftcard),
-                label: 'Bonuses',
-              ),
-              BottomNavigationBarItem(
-                icon: Icon(Icons.analytics),
-                label: 'Settings',
-              ),
-            ],
           ),
         );
       },

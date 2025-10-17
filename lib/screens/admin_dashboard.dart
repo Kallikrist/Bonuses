@@ -62,10 +62,19 @@ class _AdminDashboardState extends State<AdminDashboard> {
     'Settings': true,
   };
 
+  // Bottom bar tab visibility (label -> enabled)
+  Map<String, bool> _bottomBarPrefs = {
+    'Dashboard': true,
+    'Bonuses': true,
+    'Messages': false, // Default: hide Messages (available in header)
+    'Settings': true, // Always show Settings to prevent lockout
+  };
+
   @override
   void initState() {
     super.initState();
     _loadHeaderPrefs();
+    _loadBottomBarPrefs();
   }
 
   Future<void> _loadHeaderPrefs() async {
@@ -90,6 +99,30 @@ class _AdminDashboardState extends State<AdminDashboard> {
     final all = await StorageService.getHeaderNavPrefs();
     all[roleKey] = allowed;
     await StorageService.setHeaderNavPrefs(all);
+  }
+
+  Future<void> _loadBottomBarPrefs() async {
+    try {
+      final saved = await StorageService.getBottomNavPrefs();
+      final roleKey = 'admin';
+      if (saved.containsKey(roleKey)) {
+        final allowed = Set<String>.from(saved[roleKey]!);
+        setState(() {
+          _bottomBarPrefs.updateAll((k, v) => allowed.contains(k));
+        });
+      }
+    } catch (_) {}
+  }
+
+  Future<void> _saveBottomBarPrefs() async {
+    final roleKey = 'admin';
+    final allowed = _bottomBarPrefs.entries
+        .where((e) => e.value)
+        .map((e) => e.key)
+        .toList();
+    final all = await StorageService.getBottomNavPrefs();
+    all[roleKey] = allowed;
+    await StorageService.setBottomNavPrefs(all);
   }
 
   bool _showAvailableBonuses = true; // toggle between available and redeemed
@@ -151,31 +184,37 @@ class _AdminDashboardState extends State<AdminDashboard> {
           ),
           floatingActionButton: _getFloatingActionButton(
               context, appProvider, selectedDateTargets),
-          bottomNavigationBar: Container(
-            decoration: BoxDecoration(
-              color: Colors.grey[100],
-              boxShadow: [
-                BoxShadow(
-                  color: Colors.black.withOpacity(0.1),
-                  blurRadius: 10,
-                  offset: const Offset(0, -2),
-                ),
-              ],
-            ),
-            child: SafeArea(
-              child: Container(
-                height: 80,
-                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceAround,
-                  children: [
-                    _buildNavItem(0, Icons.dashboard, 'Dashboard'),
-                    _buildNavItem(1, Icons.card_giftcard, 'Bonuses'),
-                    _buildNavItem(2, Icons.settings, 'Settings'),
+          bottomNavigationBar: Builder(
+            builder: (context) {
+              final navItems = _buildVisibleNavItems();
+              if (navItems.length < 2) {
+                // Hide custom bottom bar if fewer than 2 items are visible
+                return const SizedBox.shrink();
+              }
+              return Container(
+                decoration: BoxDecoration(
+                  color: Colors.grey[100],
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withOpacity(0.1),
+                      blurRadius: 10,
+                      offset: const Offset(0, -2),
+                    ),
                   ],
                 ),
-              ),
-            ),
+                child: SafeArea(
+                  child: Container(
+                    height: 80,
+                    padding:
+                        const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceAround,
+                      children: navItems,
+                    ),
+                  ),
+                ),
+              );
+            },
           ),
         );
       },
@@ -487,10 +526,78 @@ class _AdminDashboardState extends State<AdminDashboard> {
       case 2:
         return _buildSettingsTab(
             appProvider, allTargets, allTransactions, allBonuses);
+      case 3:
+        return const MessagingScreen(); // Messages tab
       default:
         return _buildDashboardTab(selectedDateTargets, allTargets,
             allTransactions, appProvider, allBonuses);
     }
+  }
+
+  List<BottomNavigationBarItem> _getBottomBarItems() {
+    final allItems = [
+      {'key': 'Dashboard', 'icon': Icons.dashboard, 'label': 'Dashboard'},
+      {'key': 'Bonuses', 'icon': Icons.card_giftcard, 'label': 'Bonuses'},
+      {'key': 'Settings', 'icon': Icons.analytics, 'label': 'Settings'},
+    ];
+
+    return allItems
+        .where((item) => _bottomBarPrefs[item['key']] ?? true)
+        .map((item) => BottomNavigationBarItem(
+              icon: Icon(item['icon'] as IconData),
+              label: item['label'] as String,
+            ))
+        .toList();
+  }
+
+  int _getActualTabIndex(int bottomNavIndex) {
+    // Map bottom nav index to actual tab index based on visible tabs
+    final visibleTabs = ['Dashboard', 'Bonuses', 'Messages', 'Settings']
+        .where((tab) => _bottomBarPrefs[tab] ?? true)
+        .toList();
+
+    if (bottomNavIndex >= visibleTabs.length) return 0;
+
+    final selectedTab = visibleTabs[bottomNavIndex];
+    switch (selectedTab) {
+      case 'Dashboard':
+        return 0;
+      case 'Bonuses':
+        return 1;
+      case 'Messages':
+        return 3; // Messages index
+      case 'Settings':
+        return 2;
+      default:
+        return 0;
+    }
+  }
+
+  int _getBottomNavIndex(int actualTabIndex) {
+    // Map actual tab index to bottom nav index based on visible tabs
+    final visibleTabs = ['Dashboard', 'Bonuses', 'Messages', 'Settings']
+        .where((tab) => _bottomBarPrefs[tab] ?? true)
+        .toList();
+
+    String currentTab;
+    switch (actualTabIndex) {
+      case 0:
+        currentTab = 'Dashboard';
+        break;
+      case 1:
+        currentTab = 'Bonuses';
+        break;
+      case 2:
+        currentTab = 'Settings';
+        break;
+      case 3:
+        currentTab = 'Messages';
+        break;
+      default:
+        currentTab = 'Dashboard';
+    }
+
+    return visibleTabs.indexOf(currentTab).clamp(0, visibleTabs.length - 1);
   }
 
   Widget _buildDashboardTab(
@@ -2613,6 +2720,44 @@ class _AdminDashboardState extends State<AdminDashboard> {
     );
   }
 
+  List<Widget> _buildVisibleNavItems() {
+    final allItems = [
+      {
+        'index': 0,
+        'icon': Icons.dashboard,
+        'label': 'Dashboard',
+        'key': 'Dashboard'
+      },
+      {
+        'index': 1,
+        'icon': Icons.card_giftcard,
+        'label': 'Bonuses',
+        'key': 'Bonuses'
+      },
+      {
+        'index': 3,
+        'icon': Icons.message,
+        'label': 'Messages',
+        'key': 'Messages'
+      },
+      {
+        'index': 2,
+        'icon': Icons.settings,
+        'label': 'Settings',
+        'key': 'Settings'
+      },
+    ];
+
+    return allItems
+        .where((item) => _bottomBarPrefs[item['key']] ?? true)
+        .map((item) => _buildNavItem(
+              item['index'] as int,
+              item['icon'] as IconData,
+              item['label'] as String,
+            ))
+        .toList();
+  }
+
   Widget _buildNavItem(int index, IconData icon, String label) {
     final isSelected = _selectedIndex == index;
     return GestureDetector(
@@ -3202,6 +3347,68 @@ class _AdminDashboardState extends State<AdminDashboard> {
                             ),
                           );
                         },
+                      )),
+                ],
+              ),
+            ),
+          ),
+
+          const SizedBox(height: 16),
+          // Customize Bottom Bar Section
+          Card(
+            child: Padding(
+              padding: const EdgeInsets.all(16),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      Icon(Icons.view_carousel, color: Colors.blue[700]),
+                      const SizedBox(width: 8),
+                      Text(
+                        'Customize Bottom Bar',
+                        style: Theme.of(context)
+                            .textTheme
+                            .titleMedium
+                            ?.copyWith(fontWeight: FontWeight.bold),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    'Choose which tabs appear in the bottom navigation',
+                    style: Theme.of(context).textTheme.bodySmall,
+                  ),
+                  const SizedBox(height: 12),
+                  ...[
+                    'Dashboard',
+                    'Bonuses',
+                    'Messages',
+                    'Settings'
+                  ].map((label) => SwitchListTile(
+                        dense: true,
+                        title: Text(label),
+                        subtitle: label == 'Settings'
+                            ? const Text('Required - cannot be disabled',
+                                style: TextStyle(
+                                    fontSize: 11, fontStyle: FontStyle.italic))
+                            : null,
+                        value: _bottomBarPrefs[label] ?? true,
+                        onChanged: label == 'Settings'
+                            ? null // Disable Settings toggle to prevent lockout
+                            : (val) async {
+                                setState(() {
+                                  _bottomBarPrefs[label] = val;
+                                });
+                                await _saveBottomBarPrefs();
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  SnackBar(
+                                    content:
+                                        Text('Saved bottom bar tab: $label'),
+                                    duration: const Duration(seconds: 1),
+                                  ),
+                                );
+                              },
                       )),
                 ],
               ),
