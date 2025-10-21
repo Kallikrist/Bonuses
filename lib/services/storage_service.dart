@@ -10,6 +10,7 @@ import '../models/approval_request.dart';
 import '../models/points_rules.dart';
 import '../models/message.dart';
 import '../models/company_subscription.dart';
+import '../models/payment_record.dart';
 
 class StorageService {
   static const String _usersKey = 'users';
@@ -362,9 +363,11 @@ class StorageService {
         .toList();
   }
 
-  static Future<void> saveSubscriptions(List<CompanySubscription> subscriptions) async {
+  static Future<void> saveSubscriptions(
+      List<CompanySubscription> subscriptions) async {
     final prefs = await _prefs;
-    final subscriptionsJson = subscriptions.map((s) => jsonEncode(s.toJson())).toList();
+    final subscriptionsJson =
+        subscriptions.map((s) => jsonEncode(s.toJson())).toList();
     await prefs.setStringList(_subscriptionsKey, subscriptionsJson);
   }
 
@@ -374,7 +377,8 @@ class StorageService {
     await saveSubscriptions(subscriptions);
   }
 
-  static Future<void> updateSubscription(CompanySubscription subscription) async {
+  static Future<void> updateSubscription(
+      CompanySubscription subscription) async {
     final subscriptions = await getSubscriptions();
     final index = subscriptions.indexWhere((s) => s.id == subscription.id);
     if (index != -1) {
@@ -389,13 +393,67 @@ class StorageService {
     await saveSubscriptions(subscriptions);
   }
 
-  static Future<CompanySubscription?> getSubscriptionByCompanyId(String companyId) async {
+  static Future<CompanySubscription?> getSubscriptionByCompanyId(
+      String companyId) async {
     final subscriptions = await getSubscriptions();
     try {
       return subscriptions.firstWhere((s) => s.companyId == companyId);
     } catch (e) {
       return null;
     }
+  }
+
+  // Alias for getPointsTransactions for convenience
+  static Future<List<PointsTransaction>> getTransactions() async {
+    return await getPointsTransactions();
+  }
+
+  // Payment Records Management
+  static const String _paymentRecordsKey = 'payment_records';
+
+  static Future<List<PaymentRecord>> getPaymentRecords() async {
+    final prefs = await _prefs;
+    final recordsJson = prefs.getStringList(_paymentRecordsKey) ?? [];
+    return recordsJson
+        .map((json) => PaymentRecord.fromJson(jsonDecode(json)))
+        .toList();
+  }
+
+  static Future<void> savePaymentRecords(List<PaymentRecord> records) async {
+    final prefs = await _prefs;
+    final recordsJson = records.map((r) => jsonEncode(r.toJson())).toList();
+    await prefs.setStringList(_paymentRecordsKey, recordsJson);
+  }
+
+  static Future<void> addPaymentRecord(PaymentRecord record) async {
+    final records = await getPaymentRecords();
+    records.add(record);
+    await savePaymentRecords(records);
+  }
+
+  static Future<void> updatePaymentRecord(PaymentRecord record) async {
+    final records = await getPaymentRecords();
+    final index = records.indexWhere((r) => r.id == record.id);
+    if (index != -1) {
+      records[index] = record;
+      await savePaymentRecords(records);
+    }
+  }
+
+  static Future<void> deletePaymentRecord(String recordId) async {
+    final records = await getPaymentRecords();
+    records.removeWhere((r) => r.id == recordId);
+    await savePaymentRecords(records);
+  }
+
+  static Future<List<PaymentRecord>> getPaymentsByCompanyId(String companyId) async {
+    final records = await getPaymentRecords();
+    return records.where((r) => r.companyId == companyId).toList();
+  }
+
+  static Future<List<PaymentRecord>> getPaymentsBySubscriptionId(String subscriptionId) async {
+    final records = await getPaymentRecords();
+    return records.where((r) => r.subscriptionId == subscriptionId).toList();
   }
 
   // Run data migrations - called every time app initializes
@@ -1012,20 +1070,22 @@ class StorageService {
 
       for (final company in allCompanies) {
         // Create a subscription for each company
-        final tier = company.id == demoCompanyId 
+        final tier = company.id == demoCompanyId
             ? 'tier_professional' // Utilif gets professional
             : 'tier_starter'; // Other companies get starter
-        
+
         final now = DateTime.now();
         final subscription = CompanySubscription(
           id: 'sub_${company.id}',
           companyId: company.id,
           tierId: tier,
-          startDate: now.subtract(const Duration(days: 30)), // Started 30 days ago
+          startDate:
+              now.subtract(const Duration(days: 30)), // Started 30 days ago
           status: SubscriptionStatus.active,
           paymentMethod: PaymentMethod.creditCard,
           billingInterval: BillingInterval.monthly,
-          nextBillingDate: now.add(const Duration(days: 30)), // Next billing in 30 days
+          nextBillingDate:
+              now.add(const Duration(days: 30)), // Next billing in 30 days
           currentPrice: tier == 'tier_professional' ? 99 : 29,
           gracePeriodDays: 7,
           createdAt: now.subtract(const Duration(days: 30)),
@@ -1036,7 +1096,38 @@ class StorageService {
 
       if (demoSubscriptions.isNotEmpty) {
         await saveSubscriptions(demoSubscriptions);
-        print('DEBUG: Demo Data - Added ${demoSubscriptions.length} demo subscriptions');
+        print(
+            'DEBUG: Demo Data - Added ${demoSubscriptions.length} demo subscriptions');
+        
+        // Create demo payment records for active subscriptions
+        final demoPayments = <PaymentRecord>[];
+        final paymentNow = DateTime.now();
+        for (final subscription in demoSubscriptions) {
+          if (subscription.status == SubscriptionStatus.active) {
+            // Create 3 monthly payments for each active subscription
+            for (int i = 0; i < 3; i++) {
+              final paymentDate = paymentNow.subtract(Duration(days: 30 * (3 - i)));
+              final payment = PaymentRecord(
+                id: 'payment_${subscription.companyId}_$i',
+                companyId: subscription.companyId,
+                subscriptionId: subscription.id,
+                amount: subscription.currentPrice,
+                currency: 'USD',
+                status: PaymentStatus.completed,
+                date: paymentDate,
+                invoiceId: 'INV-${subscription.companyId}-$i',
+                transactionId: 'TXN-${DateTime.now().millisecondsSinceEpoch}-$i',
+                paymentGateway: 'stripe',
+              );
+              demoPayments.add(payment);
+            }
+          }
+        }
+        
+        if (demoPayments.isNotEmpty) {
+          await savePaymentRecords(demoPayments);
+          print('DEBUG: Demo Data - Added ${demoPayments.length} demo payment records');
+        }
       }
     }
   }

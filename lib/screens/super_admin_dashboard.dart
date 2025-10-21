@@ -5,8 +5,13 @@ import '../models/user.dart';
 import '../models/company.dart';
 import '../models/subscription_tier.dart';
 import '../models/company_subscription.dart';
+import '../models/platform_metrics.dart';
+import '../models/sales_target.dart';
+import '../models/points_transaction.dart';
+import '../models/payment_record.dart';
 import '../services/storage_service.dart';
 import 'package:intl/intl.dart';
+import 'package:fl_chart/fl_chart.dart';
 
 class SuperAdminDashboard extends StatefulWidget {
   const SuperAdminDashboard({super.key});
@@ -314,7 +319,8 @@ class _SuperAdminDashboardState extends State<SuperAdminDashboard> {
             }
 
             final data = snapshot.data!;
-            final subscriptions = data['subscriptions'] as List<CompanySubscription>;
+            final subscriptions =
+                data['subscriptions'] as List<CompanySubscription>;
             final companies = data['companies'] as List<Company>;
             final tiers = data['tiers'] as List<SubscriptionTier>;
 
@@ -332,7 +338,8 @@ class _SuperAdminDashboardState extends State<SuperAdminDashboard> {
                   const SizedBox(height: 24),
 
                   // Subscriptions List
-                  _buildSubscriptionsList(subscriptions, companies, tiers, appProvider),
+                  _buildSubscriptionsList(
+                      subscriptions, companies, tiers, appProvider),
                 ],
               ),
             );
@@ -343,9 +350,14 @@ class _SuperAdminDashboardState extends State<SuperAdminDashboard> {
   }
 
   Widget _buildSubscriptionStats(List<CompanySubscription> subscriptions) {
-    final activeCount = subscriptions.where((s) => s.status == SubscriptionStatus.active).length;
-    final trialCount = subscriptions.where((s) => s.status == SubscriptionStatus.trial).length;
-    final pastDueCount = subscriptions.where((s) => s.status == SubscriptionStatus.pastDue).length;
+    final activeCount = subscriptions
+        .where((s) => s.status == SubscriptionStatus.active)
+        .length;
+    final trialCount =
+        subscriptions.where((s) => s.status == SubscriptionStatus.trial).length;
+    final pastDueCount = subscriptions
+        .where((s) => s.status == SubscriptionStatus.pastDue)
+        .length;
     final totalRevenue = subscriptions
         .where((s) => s.status == SubscriptionStatus.active)
         .fold<double>(0, (sum, s) => sum + s.currentPrice);
@@ -464,7 +476,8 @@ class _SuperAdminDashboardState extends State<SuperAdminDashboard> {
                   ),
                   if (!tier.isActive)
                     Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 8, vertical: 4),
                       decoration: BoxDecoration(
                         color: Colors.grey,
                         borderRadius: BorderRadius.circular(12),
@@ -559,7 +572,8 @@ class _SuperAdminDashboardState extends State<SuperAdminDashboard> {
                   style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
                 ),
                 ElevatedButton.icon(
-                  onPressed: () => _showCreateSubscriptionDialog(companies, tiers, appProvider),
+                  onPressed: () => _showCreateSubscriptionDialog(
+                      companies, tiers, appProvider),
                   icon: const Icon(Icons.add),
                   label: const Text('New Subscription'),
                   style: ElevatedButton.styleFrom(
@@ -743,7 +757,8 @@ class _SuperAdminDashboardState extends State<SuperAdminDashboard> {
     }
   }
 
-  Future<Map<String, dynamic>> _getSubscriptionsData(AppProvider appProvider) async {
+  Future<Map<String, dynamic>> _getSubscriptionsData(
+      AppProvider appProvider) async {
     final subscriptions = await StorageService.getSubscriptions();
     final companies = await appProvider.getCompanies();
     final tiers = SubscriptionTier.defaultTiers;
@@ -756,10 +771,69 @@ class _SuperAdminDashboardState extends State<SuperAdminDashboard> {
   }
 
   void _showManageTiersDialog() {
-    // TODO: Implement tier management dialog
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(
-        content: Text('Tier management coming soon'),
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Manage Subscription Tiers'),
+        content: SizedBox(
+          width: 600,
+          child: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text(
+                  'Available subscription tiers are currently using default values. '
+                  'Custom tier management will be available in a future update.',
+                  style: TextStyle(fontSize: 14, color: Colors.grey),
+                ),
+                const SizedBox(height: 24),
+                const Text(
+                  'Current Tiers:',
+                  style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+                ),
+                const SizedBox(height: 12),
+                ...SubscriptionTier.defaultTiers.map((tier) => Card(
+                      child: ListTile(
+                        leading: CircleAvatar(
+                          backgroundColor: Colors.deepPurple,
+                          child: Text(
+                            '\$${tier.monthlyPrice.toStringAsFixed(0)}',
+                            style: const TextStyle(
+                              color: Colors.white,
+                              fontSize: 12,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                        ),
+                        title: Text(tier.name),
+                        subtitle: Text(
+                          '${tier.maxEmployees == -1 ? "Unlimited" : tier.maxEmployees} employees, '
+                          '${tier.maxWorkplaces == -1 ? "Unlimited" : tier.maxWorkplaces} workplaces',
+                        ),
+                        trailing: tier.isActive
+                            ? const Chip(
+                                label: Text('Active'),
+                                backgroundColor: Colors.green,
+                                labelStyle: TextStyle(color: Colors.white, fontSize: 11),
+                              )
+                            : const Chip(
+                                label: Text('Inactive'),
+                                backgroundColor: Colors.grey,
+                                labelStyle: TextStyle(color: Colors.white, fontSize: 11),
+                              ),
+                      ),
+                    )),
+              ],
+            ),
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Close'),
+          ),
+        ],
       ),
     );
   }
@@ -830,7 +904,8 @@ class _SuperAdminDashboardState extends State<SuperAdminDashboard> {
                   'Trial Ends',
                   DateFormat('MMM d, yyyy').format(subscription.trialEndsAt!),
                 ),
-              _buildDetailRow('Payment Method', subscription.paymentMethod.name),
+              _buildDetailRow(
+                  'Payment Method', subscription.paymentMethod.name),
               const Divider(),
               const SizedBox(height: 8),
               const Text(
@@ -848,6 +923,93 @@ class _SuperAdminDashboardState extends State<SuperAdminDashboard> {
                       ],
                     ),
                   )),
+              const Divider(),
+              const SizedBox(height: 16),
+              const Text(
+                'Payment History:',
+                style: TextStyle(fontWeight: FontWeight.bold),
+              ),
+              const SizedBox(height: 8),
+              FutureBuilder<List<PaymentRecord>>(
+                future: StorageService.getPaymentsBySubscriptionId(subscription.id),
+                builder: (context, paymentSnapshot) {
+                  if (paymentSnapshot.connectionState == ConnectionState.waiting) {
+                    return const Center(
+                      child: Padding(
+                        padding: EdgeInsets.all(16),
+                        child: CircularProgressIndicator(),
+                      ),
+                    );
+                  }
+
+                  final payments = paymentSnapshot.data ?? [];
+                  
+                  if (payments.isEmpty) {
+                    return const Padding(
+                      padding: EdgeInsets.all(16),
+                      child: Center(
+                        child: Text(
+                          'No payment history',
+                          style: TextStyle(color: Colors.grey),
+                        ),
+                      ),
+                    );
+                  }
+
+                  return Column(
+                    children: [
+                      ...payments.take(5).map((payment) => Card(
+                            color: payment.isSuccessful
+                                ? Colors.green.withOpacity(0.1)
+                                : Colors.red.withOpacity(0.1),
+                            child: ListTile(
+                              dense: true,
+                              leading: Icon(
+                                payment.isSuccessful
+                                    ? Icons.check_circle
+                                    : Icons.error,
+                                color: payment.isSuccessful
+                                    ? Colors.green
+                                    : Colors.red,
+                                size: 20,
+                              ),
+                              title: Text(
+                                '\$${payment.amount.toStringAsFixed(2)}',
+                                style: const TextStyle(fontWeight: FontWeight.bold),
+                              ),
+                              subtitle: Text(
+                                DateFormat('MMM d, yyyy').format(payment.date),
+                                style: const TextStyle(fontSize: 11),
+                              ),
+                              trailing: Text(
+                                payment.status.name,
+                                style: TextStyle(
+                                  fontSize: 10,
+                                  color: payment.isSuccessful
+                                      ? Colors.green
+                                      : Colors.red,
+                                ),
+                              ),
+                            ),
+                          )),
+                      if (payments.length > 5)
+                        Padding(
+                          padding: const EdgeInsets.only(top: 8),
+                          child: Center(
+                            child: Text(
+                              '+${payments.length - 5} more payments',
+                              style: TextStyle(
+                                fontSize: 11,
+                                color: Colors.grey[600],
+                                fontStyle: FontStyle.italic,
+                              ),
+                            ),
+                          ),
+                        ),
+                    ],
+                  );
+                },
+              ),
             ],
           ),
         ),
@@ -932,15 +1094,621 @@ class _SuperAdminDashboardState extends State<SuperAdminDashboard> {
   }
 
   Widget _buildAnalyticsTab() {
-    return const Center(
-      child: Text(
-        'Platform Analytics\n(Coming Soon)',
-        textAlign: TextAlign.center,
-        style: TextStyle(
-          fontSize: 18,
-          color: Colors.grey,
+    return Consumer<AppProvider>(
+      builder: (context, appProvider, child) {
+        return FutureBuilder<PlatformMetrics>(
+          future: _calculatePlatformMetrics(appProvider),
+          builder: (context, snapshot) {
+            if (snapshot.connectionState == ConnectionState.waiting) {
+              return const Center(child: CircularProgressIndicator());
+            }
+
+            if (!snapshot.hasData) {
+              return const Center(
+                child: Text('Error loading analytics'),
+              );
+            }
+
+            final metrics = snapshot.data!;
+
+            return SingleChildScrollView(
+              padding: const EdgeInsets.all(16),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  // Key Metrics Cards
+                  _buildKeyMetricsCards(metrics),
+                  const SizedBox(height: 24),
+
+                  // Revenue Chart
+                  _buildRevenueChart(metrics),
+                  const SizedBox(height: 24),
+
+                  // Growth Metrics
+                  _buildGrowthMetrics(metrics),
+                  const SizedBox(height: 24),
+
+                  // Tier Distribution
+                  _buildTierDistribution(metrics),
+                  const SizedBox(height: 24),
+
+                  // Platform Activity
+                  _buildPlatformActivity(metrics),
+                ],
+              ),
+            );
+          },
+        );
+      },
+    );
+  }
+
+  Widget _buildKeyMetricsCards(PlatformMetrics metrics) {
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text(
+              'Key Platform Metrics',
+              style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+            ),
+            const SizedBox(height: 16),
+            Wrap(
+              spacing: 12,
+              runSpacing: 12,
+              children: [
+                _buildMetricCard(
+                  'Total Companies',
+                  metrics.totalCompanies.toString(),
+                  Icons.business,
+                  Colors.blue,
+                ),
+                _buildMetricCard(
+                  'Active Companies',
+                  metrics.activeCompanies.toString(),
+                  Icons.verified,
+                  Colors.green,
+                ),
+                _buildMetricCard(
+                  'Total Employees',
+                  metrics.totalEmployees.toString(),
+                  Icons.people,
+                  Colors.purple,
+                ),
+                _buildMetricCard(
+                  'MRR',
+                  '\$${metrics.monthlyRecurringRevenue.toStringAsFixed(0)}',
+                  Icons.attach_money,
+                  Colors.orange,
+                ),
+                _buildMetricCard(
+                  'Total Revenue',
+                  '\$${metrics.totalRevenue.toStringAsFixed(0)}',
+                  Icons.account_balance,
+                  Colors.teal,
+                ),
+                _buildMetricCard(
+                  'Avg Revenue/Company',
+                  '\$${metrics.averageRevenuePerCompany.toStringAsFixed(0)}',
+                  Icons.trending_up,
+                  Colors.indigo,
+                ),
+              ],
+            ),
+          ],
         ),
       ),
+    );
+  }
+
+  Widget _buildMetricCard(String title, String value, IconData icon, Color color) {
+    return Container(
+      width: 180,
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: color.withOpacity(0.1),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: color.withOpacity(0.3)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Icon(icon, color: color, size: 24),
+              Text(
+                value,
+                style: TextStyle(
+                  fontSize: 24,
+                  fontWeight: FontWeight.bold,
+                  color: color,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 8),
+          Text(
+            title,
+            style: TextStyle(
+              fontSize: 12,
+              color: Colors.grey[700],
+              fontWeight: FontWeight.w500,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildRevenueChart(PlatformMetrics metrics) {
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text(
+              'Revenue Trend (Last 12 Months)',
+              style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+            ),
+            const SizedBox(height: 24),
+            SizedBox(
+              height: 300,
+              child: metrics.revenueHistory.isEmpty
+                  ? const Center(
+                      child: Text(
+                        'No revenue data available',
+                        style: TextStyle(color: Colors.grey),
+                      ),
+                    )
+                  : LineChart(
+                      LineChartData(
+                        gridData: FlGridData(
+                          show: true,
+                          drawVerticalLine: false,
+                          horizontalInterval: 500,
+                          getDrawingHorizontalLine: (value) {
+                            return FlLine(
+                              color: Colors.grey[300]!,
+                              strokeWidth: 1,
+                            );
+                          },
+                        ),
+                        titlesData: FlTitlesData(
+                          bottomTitles: AxisTitles(
+                            sideTitles: SideTitles(
+                              showTitles: true,
+                              reservedSize: 30,
+                              getTitlesWidget: (value, meta) {
+                                final index = value.toInt();
+                                if (index < 0 || index >= metrics.revenueHistory.length) {
+                                  return const Text('');
+                                }
+                                return Padding(
+                                  padding: const EdgeInsets.only(top: 8),
+                                  child: Text(
+                                    metrics.revenueHistory[index].monthName,
+                                    style: const TextStyle(fontSize: 10),
+                                  ),
+                                );
+                              },
+                            ),
+                          ),
+                          leftTitles: AxisTitles(
+                            sideTitles: SideTitles(
+                              showTitles: true,
+                              reservedSize: 50,
+                              getTitlesWidget: (value, meta) {
+                                return Text(
+                                  '\$${value.toInt()}',
+                                  style: const TextStyle(fontSize: 10),
+                                );
+                              },
+                            ),
+                          ),
+                          topTitles: const AxisTitles(
+                            sideTitles: SideTitles(showTitles: false),
+                          ),
+                          rightTitles: const AxisTitles(
+                            sideTitles: SideTitles(showTitles: false),
+                          ),
+                        ),
+                        borderData: FlBorderData(show: false),
+                        lineBarsData: [
+                          LineChartBarData(
+                            spots: List.generate(
+                              metrics.revenueHistory.length,
+                              (index) => FlSpot(
+                                index.toDouble(),
+                                metrics.revenueHistory[index].revenue,
+                              ),
+                            ),
+                            isCurved: true,
+                            color: Colors.deepPurple,
+                            barWidth: 3,
+                            dotData: const FlDotData(show: true),
+                            belowBarData: BarAreaData(
+                              show: true,
+                              color: Colors.deepPurple.withOpacity(0.1),
+                            ),
+                          ),
+                        ],
+                        minY: 0,
+                      ),
+                    ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildGrowthMetrics(PlatformMetrics metrics) {
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text(
+              'Growth & Performance',
+              style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+            ),
+            const SizedBox(height: 16),
+            Row(
+              children: [
+                Expanded(
+                  child: _buildProgressCard(
+                    'Growth Rate',
+                    metrics.growthRate,
+                    '%',
+                    Colors.green,
+                    Icons.trending_up,
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: _buildProgressCard(
+                    'Churn Rate',
+                    metrics.churnRate,
+                    '%',
+                    Colors.red,
+                    Icons.trending_down,
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: _buildProgressCard(
+                    'Conversion Rate',
+                    metrics.conversionRate,
+                    '%',
+                    Colors.blue,
+                    Icons.swap_horiz,
+                  ),
+                ),
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildProgressCard(
+    String title,
+    double value,
+    String suffix,
+    Color color,
+    IconData icon,
+  ) {
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: color.withOpacity(0.1),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: color.withOpacity(0.3)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Icon(icon, color: color, size: 20),
+              const SizedBox(width: 8),
+              Text(
+                title,
+                style: TextStyle(
+                  fontSize: 14,
+                  color: Colors.grey[700],
+                  fontWeight: FontWeight.w500,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          Text(
+            '${value.toStringAsFixed(1)}$suffix',
+            style: TextStyle(
+              fontSize: 28,
+              fontWeight: FontWeight.bold,
+              color: color,
+            ),
+          ),
+          const SizedBox(height: 8),
+          LinearProgressIndicator(
+            value: (value / 100).clamp(0.0, 1.0),
+            backgroundColor: color.withOpacity(0.2),
+            valueColor: AlwaysStoppedAnimation<Color>(color),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildTierDistribution(PlatformMetrics metrics) {
+    final tiers = SubscriptionTier.defaultTiers;
+    
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text(
+              'Subscription Tier Distribution',
+              style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+            ),
+            const SizedBox(height: 16),
+            ...tiers.map((tier) {
+              final count = metrics.companiesByTier[tier.id] ?? 0;
+              final percentage = metrics.totalCompanies > 0
+                  ? (count / metrics.totalCompanies) * 100
+                  : 0.0;
+              
+              return Padding(
+                padding: const EdgeInsets.only(bottom: 12),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Text(
+                          tier.name,
+                          style: const TextStyle(fontWeight: FontWeight.w500),
+                        ),
+                        Text(
+                          '$count companies (${percentage.toStringAsFixed(0)}%)',
+                          style: TextStyle(color: Colors.grey[600]),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 4),
+                    LinearProgressIndicator(
+                      value: percentage / 100,
+                      backgroundColor: Colors.grey[200],
+                      valueColor: const AlwaysStoppedAnimation<Color>(Colors.deepPurple),
+                    ),
+                  ],
+                ),
+              );
+            }),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildPlatformActivity(PlatformMetrics metrics) {
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text(
+              'Platform Activity',
+              style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+            ),
+            const SizedBox(height: 16),
+            _buildActivityRow(
+              'Total Targets Created',
+              metrics.totalTargetsCreated.toString(),
+              Icons.flag,
+              Colors.blue,
+            ),
+            const Divider(),
+            _buildActivityRow(
+              'Total Bonuses Redeemed',
+              metrics.totalBonusesRedeemed.toString(),
+              Icons.card_giftcard,
+              Colors.orange,
+            ),
+            const Divider(),
+            _buildActivityRow(
+              'Total Points Awarded',
+              metrics.totalPointsAwarded.toString(),
+              Icons.stars,
+              Colors.purple,
+            ),
+            const Divider(),
+            _buildActivityRow(
+              'Active Subscriptions',
+              metrics.activeCompanies.toString(),
+              Icons.subscriptions,
+              Colors.green,
+            ),
+            const Divider(),
+            _buildActivityRow(
+              'Trial Subscriptions',
+              metrics.trialCompanies.toString(),
+              Icons.access_time,
+              Colors.amber,
+            ),
+            if (metrics.suspendedCompanies > 0) ...[
+              const Divider(),
+              _buildActivityRow(
+                'Suspended Companies',
+                metrics.suspendedCompanies.toString(),
+                Icons.block,
+                Colors.red,
+              ),
+            ],
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildActivityRow(String label, String value, IconData icon, Color color) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 8),
+      child: Row(
+        children: [
+          Container(
+            padding: const EdgeInsets.all(8),
+            decoration: BoxDecoration(
+              color: color.withOpacity(0.1),
+              borderRadius: BorderRadius.circular(8),
+            ),
+            child: Icon(icon, color: color, size: 24),
+          ),
+          const SizedBox(width: 16),
+          Expanded(
+            child: Text(
+              label,
+              style: const TextStyle(fontSize: 15),
+            ),
+          ),
+          Text(
+            value,
+            style: TextStyle(
+              fontSize: 20,
+              fontWeight: FontWeight.bold,
+              color: color,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Future<PlatformMetrics> _calculatePlatformMetrics(AppProvider appProvider) async {
+    final companies = await appProvider.getCompanies();
+    final users = await StorageService.getUsers();
+    final subscriptions = await StorageService.getSubscriptions();
+    final targets = await StorageService.getSalesTargets();
+    final transactions = await StorageService.getTransactions();
+
+    // Calculate basic counts
+    final totalCompanies = companies.length;
+    final activeSubscriptions = subscriptions.where((s) => s.status == SubscriptionStatus.active).length;
+    final trialSubscriptions = subscriptions.where((s) => s.status == SubscriptionStatus.trial).length;
+    final suspendedSubscriptions = subscriptions.where((s) => s.status == SubscriptionStatus.suspended).length;
+    
+    final totalEmployees = users.where((u) => u.role == UserRole.employee).length;
+    final totalAdmins = users.where((u) => u.role == UserRole.admin).length;
+
+    // Calculate revenue
+    final mrr = subscriptions
+        .where((s) => s.status == SubscriptionStatus.active)
+        .fold<double>(0, (sum, s) => sum + s.currentPrice);
+    
+    // For total revenue, we'll use a simplified calculation
+    final totalRevenue = subscriptions.fold<double>(
+      0,
+      (sum, s) {
+        final monthsSinceStart = DateTime.now().difference(s.startDate).inDays ~/ 30;
+        return sum + (s.currentPrice * monthsSinceStart.clamp(0, 12));
+      },
+    );
+
+    // Calculate companies by tier
+    final companiesByTier = <String, int>{};
+    for (final tier in SubscriptionTier.defaultTiers) {
+      companiesByTier[tier.id] = subscriptions
+          .where((s) => s.tierId == tier.id)
+          .length;
+    }
+
+    // Calculate revenue history (last 12 months)
+    final revenueHistory = <RevenueByMonth>[];
+    final now = DateTime.now();
+    for (int i = 11; i >= 0; i--) {
+      final targetDate = DateTime(now.year, now.month - i, 1);
+      final monthRevenue = subscriptions
+          .where((s) {
+            final isInMonth = s.startDate.isBefore(targetDate.add(const Duration(days: 31))) &&
+                             (s.endDate == null || s.endDate!.isAfter(targetDate));
+            return isInMonth && s.status == SubscriptionStatus.active;
+          })
+          .fold<double>(0, (sum, s) => sum + s.currentPrice);
+      
+      final paymentCount = subscriptions
+          .where((s) {
+            final isInMonth = s.startDate.isBefore(targetDate.add(const Duration(days: 31))) &&
+                             (s.endDate == null || s.endDate!.isAfter(targetDate));
+            return isInMonth && s.status == SubscriptionStatus.active;
+          })
+          .length;
+
+      revenueHistory.add(RevenueByMonth(
+        year: targetDate.year,
+        month: targetDate.month,
+        revenue: monthRevenue,
+        paymentCount: paymentCount,
+      ));
+    }
+
+    // Calculate new companies this month
+    final startOfMonth = DateTime(now.year, now.month, 1);
+    final newCompaniesThisMonth = companies
+        .where((c) => c.createdAt.isAfter(startOfMonth))
+        .length;
+
+    // Calculate churned companies (cancelled subscriptions this month)
+    final churnedCompaniesThisMonth = subscriptions
+        .where((s) =>
+            s.status == SubscriptionStatus.cancelled &&
+            s.endDate != null &&
+            s.endDate!.isAfter(startOfMonth))
+        .length;
+
+    // Calculate average revenue per company
+    final averageRevenuePerCompany = totalCompanies > 0
+        ? mrr / totalCompanies
+        : 0.0;
+
+    // Platform activity metrics
+    final totalTargetsCreated = targets.length;
+    final totalPointsAwarded = transactions
+        .where((t) => t.type == PointsTransactionType.earned)
+        .fold<int>(0, (sum, t) => sum + t.points);
+    final totalBonusesRedeemed = transactions
+        .where((t) => t.type == PointsTransactionType.redeemed)
+        .length;
+
+    return PlatformMetrics(
+      totalCompanies: totalCompanies,
+      activeCompanies: activeSubscriptions,
+      trialCompanies: trialSubscriptions,
+      suspendedCompanies: suspendedSubscriptions,
+      totalEmployees: totalEmployees,
+      totalAdmins: totalAdmins,
+      monthlyRecurringRevenue: mrr,
+      totalRevenue: totalRevenue,
+      companiesByTier: companiesByTier,
+      revenueHistory: revenueHistory,
+      calculatedAt: DateTime.now(),
+      newCompaniesThisMonth: newCompaniesThisMonth,
+      churnedCompaniesThisMonth: churnedCompaniesThisMonth,
+      averageRevenuePerCompany: averageRevenuePerCompany,
+      totalTargetsCreated: totalTargetsCreated,
+      totalBonusesRedeemed: totalBonusesRedeemed,
+      totalPointsAwarded: totalPointsAwarded,
     );
   }
 
