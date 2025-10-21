@@ -14,6 +14,7 @@ import '../widgets/target_card_widget.dart';
 import 'target_profile_screen.dart';
 import 'admin_dashboard.dart'; // Import for EmployeeProfileScreen and EmployeesListScreen
 import 'messaging_screen.dart';
+import 'login_screen.dart';
 
 class EmployeeDashboard extends StatefulWidget {
   const EmployeeDashboard({super.key});
@@ -969,6 +970,22 @@ class _EmployeeDashboardState extends State<EmployeeDashboard> {
   Widget build(BuildContext context) {
     return Consumer<AppProvider>(
       builder: (context, appProvider, child) {
+        if (appProvider.currentUser == null) {
+          // Redirect to login screen when user is null
+          WidgetsBinding.instance.addPostFrameCallback((_) {
+            Navigator.of(context).pushReplacement(
+              MaterialPageRoute(
+                builder: (context) => const LoginScreen(),
+              ),
+            );
+          });
+          return const Scaffold(
+            body: Center(
+              child: CircularProgressIndicator(),
+            ),
+          );
+        }
+
         final user = appProvider.currentUser!;
         // Get company-specific points
         final userPoints = user.primaryCompanyId != null

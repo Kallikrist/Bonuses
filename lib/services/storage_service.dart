@@ -544,6 +544,29 @@ class StorageService {
       await prefs.setBool(fixedKey, true);
       print('DEBUG: Migration complete - fixed $fixedCount \$1000 targets');
     }
+
+    // Always ensure super admin user exists
+    final superAdminExists = users.any((u) => u.id == 'superadmin1');
+    if (!superAdminExists) {
+      final superAdminUser = User(
+        id: 'superadmin1',
+        name: 'Platform Administrator',
+        email: 'superadmin@platform.com',
+        phoneNumber: '+1 (555) 000-0000',
+        role: UserRole.superAdmin,
+        createdAt: DateTime.now(),
+        workplaceIds: [],
+        workplaceNames: [],
+        companyIds: [],
+        companyNames: [],
+        primaryCompanyId: null,
+        companyRoles: {},
+        companyPoints: {},
+      );
+      await addUser(superAdminUser);
+      await savePassword('superadmin1', 'superadmin123');
+      print('DEBUG: Migration - Added super admin user with password');
+    }
   }
 
   // Initialize with sample data
@@ -724,6 +747,29 @@ class StorageService {
           print('DEBUG: Updated current user to the kept version');
         }
       }
+    }
+
+    // Always check for super admin user specifically
+    final superAdminExists = users.any((u) => u.id == 'superadmin1');
+    if (!superAdminExists) {
+      final superAdminUser = User(
+        id: 'superadmin1',
+        name: 'Platform Administrator',
+        email: 'superadmin@platform.com',
+        phoneNumber: '+1 (555) 000-0000',
+        role: UserRole.superAdmin,
+        createdAt: DateTime.now(),
+        workplaceIds: [],
+        workplaceNames: [],
+        companyIds: [],
+        companyNames: [],
+        primaryCompanyId: null,
+        companyRoles: {},
+        companyPoints: {},
+      );
+      await addUser(superAdminUser);
+      await savePassword('superadmin1', 'superadmin123');
+      print('DEBUG: Added super admin user with password');
     }
 
     // Add demo users if they don't exist

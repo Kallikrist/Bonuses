@@ -18,6 +18,7 @@ import '../services/storage_service.dart';
 import '../widgets/profile_header_widget.dart';
 import '../widgets/target_card_widget.dart';
 import 'import_bonuses_screen.dart';
+import 'login_screen.dart';
 import 'messaging_screen.dart';
 import 'chat_screen.dart';
 
@@ -131,6 +132,22 @@ class _AdminDashboardState extends State<AdminDashboard> {
   Widget build(BuildContext context) {
     return Consumer<AppProvider>(
       builder: (context, appProvider, child) {
+        if (appProvider.currentUser == null) {
+          // Redirect to login screen when user is null
+          WidgetsBinding.instance.addPostFrameCallback((_) {
+            Navigator.of(context).pushReplacement(
+              MaterialPageRoute(
+                builder: (context) => const LoginScreen(),
+              ),
+            );
+          });
+          return const Scaffold(
+            body: Center(
+              child: CircularProgressIndicator(),
+            ),
+          );
+        }
+
         final user = appProvider.currentUser!;
         final selectedDateTargets = appProvider.salesTargets.where((target) {
           return target.date.year == _selectedDate.year &&
@@ -5954,6 +5971,86 @@ class _EmployeeProfileScreenState extends State<EmployeeProfileScreen> {
     currentEmployee = widget.employee;
   }
 
+  Widget _buildCompanySuspensionBanner() {
+    return FutureBuilder<Company?>(
+      future: _getUserPrimaryCompany(),
+      builder: (context, snapshot) {
+        if (snapshot.connectionState == ConnectionState.waiting) {
+          return const SizedBox.shrink(); // Don't show anything while loading
+        }
+
+        if (snapshot.hasError || snapshot.data == null) {
+          return const SizedBox
+              .shrink(); // Don't show banner if company not found
+        }
+
+        final company = snapshot.data!;
+        if (company.isActive) {
+          return const SizedBox
+              .shrink(); // Don't show banner if company is active
+        }
+
+        // Show suspension banner
+        return Container(
+          width: double.infinity,
+          margin: const EdgeInsets.all(16),
+          padding: const EdgeInsets.all(16),
+          decoration: BoxDecoration(
+            color: Colors.red.shade50,
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(color: Colors.red.shade200, width: 1),
+          ),
+          child: Row(
+            children: [
+              Icon(
+                Icons.warning,
+                color: Colors.red.shade600,
+                size: 24,
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Company Suspended',
+                      style: TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.bold,
+                        color: Colors.red.shade700,
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      'Your company "${company.name}" has been suspended by the platform administrator. Some features may be limited.',
+                      style: TextStyle(
+                        fontSize: 14,
+                        color: Colors.red.shade600,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
+  Future<Company?> _getUserPrimaryCompany() async {
+    try {
+      final currentUser = widget.appProvider.currentUser;
+      if (currentUser?.primaryCompanyId == null) return null;
+
+      return await widget.appProvider
+          .getCompanyById(currentUser!.primaryCompanyId!);
+    } catch (e) {
+      print('Error getting user primary company: $e');
+      return null;
+    }
+  }
+
   // Check if current user is admin in the company context
   bool _isAdminInContext() {
     final currentUser = widget.appProvider.currentUser;
@@ -6092,6 +6189,9 @@ class _EmployeeProfileScreenState extends State<EmployeeProfileScreen> {
                 ),
               ),
             ),
+
+            // Company Suspension Status Banner
+            _buildCompanySuspensionBanner(),
 
             // Profile Content
             Padding(
@@ -6831,6 +6931,8 @@ class _EmployeeProfileScreenState extends State<EmployeeProfileScreen> {
         return 'Administrator';
       case UserRole.employee:
         return 'Employee';
+      case UserRole.superAdmin:
+        return 'Super Admin';
     }
   }
 
@@ -6840,6 +6942,8 @@ class _EmployeeProfileScreenState extends State<EmployeeProfileScreen> {
         return 'Full admin access - can manage all users, targets, bonuses, and system settings';
       case UserRole.employee:
         return 'Employee access - can view and update their own targets and redeem bonuses';
+      case UserRole.superAdmin:
+        return 'Platform owner - full access to all companies, subscriptions, and billing management';
     }
   }
 

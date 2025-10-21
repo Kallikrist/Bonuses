@@ -200,7 +200,7 @@ class _LoginScreenState extends State<LoginScreen> {
                               ),
                               const SizedBox(height: 8),
                               Text(
-                                'Admin: admin@store.com\nEmployee: john@store.com\nPassword: password123',
+                                'Admin: admin@store.com\nEmployee: john@store.com\nSuper Admin: superadmin@platform.com\nPassword: password123',
                                 style: TextStyle(color: Colors.blue[700]),
                               ),
                             ],

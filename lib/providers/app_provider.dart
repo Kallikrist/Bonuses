@@ -1280,6 +1280,63 @@ class AppProvider with ChangeNotifier {
     }
   }
 
+  // Suspend a company (set isActive to false)
+  Future<void> suspendCompany(String companyId) async {
+    try {
+      final companies = await StorageService.getCompanies();
+      final company = companies.firstWhere((c) => c.id == companyId);
+
+      final suspendedCompany = company.copyWith(isActive: false);
+      await StorageService.updateCompany(suspendedCompany);
+
+      // Update local list
+      final index = _companies.indexWhere((c) => c.id == companyId);
+      if (index != -1) {
+        _companies[index] = suspendedCompany;
+      }
+
+      notifyListeners();
+      print('DEBUG: Company $companyId suspended successfully');
+    } catch (e) {
+      print('Error suspending company: $e');
+      rethrow;
+    }
+  }
+
+  // Activate a company (set isActive to true)
+  Future<void> activateCompany(String companyId) async {
+    try {
+      final companies = await StorageService.getCompanies();
+      final company = companies.firstWhere((c) => c.id == companyId);
+
+      final activatedCompany = company.copyWith(isActive: true);
+      await StorageService.updateCompany(activatedCompany);
+
+      // Update local list
+      final index = _companies.indexWhere((c) => c.id == companyId);
+      if (index != -1) {
+        _companies[index] = activatedCompany;
+      }
+
+      notifyListeners();
+      print('DEBUG: Company $companyId activated successfully');
+    } catch (e) {
+      print('Error activating company: $e');
+      rethrow;
+    }
+  }
+
+  // Get company by ID
+  Future<Company?> getCompanyById(String companyId) async {
+    try {
+      final companies = await StorageService.getCompanies();
+      return companies.firstWhere((c) => c.id == companyId);
+    } catch (e) {
+      print('Error getting company by ID: $e');
+      return null;
+    }
+  }
+
   // Transfer company ownership to another admin (updates company.adminUserId and roles)
   Future<void> transferCompanyOwnership({
     required String companyId,
