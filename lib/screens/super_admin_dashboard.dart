@@ -3,6 +3,10 @@ import 'package:provider/provider.dart';
 import '../providers/app_provider.dart';
 import '../models/user.dart';
 import '../models/company.dart';
+import '../models/subscription_tier.dart';
+import '../models/company_subscription.dart';
+import '../services/storage_service.dart';
+import 'package:intl/intl.dart';
 
 class SuperAdminDashboard extends StatefulWidget {
   const SuperAdminDashboard({super.key});
@@ -294,14 +298,635 @@ class _SuperAdminDashboardState extends State<SuperAdminDashboard> {
   }
 
   Widget _buildSubscriptionsTab() {
-    return const Center(
-      child: Text(
-        'Subscription Management\n(Coming Soon)',
-        textAlign: TextAlign.center,
-        style: TextStyle(
-          fontSize: 18,
-          color: Colors.grey,
+    return Consumer<AppProvider>(
+      builder: (context, appProvider, child) {
+        return FutureBuilder<Map<String, dynamic>>(
+          future: _getSubscriptionsData(appProvider),
+          builder: (context, snapshot) {
+            if (snapshot.connectionState == ConnectionState.waiting) {
+              return const Center(child: CircularProgressIndicator());
+            }
+
+            if (!snapshot.hasData) {
+              return const Center(
+                child: Text('Error loading subscriptions'),
+              );
+            }
+
+            final data = snapshot.data!;
+            final subscriptions = data['subscriptions'] as List<CompanySubscription>;
+            final companies = data['companies'] as List<Company>;
+            final tiers = data['tiers'] as List<SubscriptionTier>;
+
+            return SingleChildScrollView(
+              padding: const EdgeInsets.all(16),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  // Header with stats
+                  _buildSubscriptionStats(subscriptions),
+                  const SizedBox(height: 24),
+
+                  // Available Tiers
+                  _buildAvailableTiers(tiers),
+                  const SizedBox(height: 24),
+
+                  // Subscriptions List
+                  _buildSubscriptionsList(subscriptions, companies, tiers, appProvider),
+                ],
+              ),
+            );
+          },
+        );
+      },
+    );
+  }
+
+  Widget _buildSubscriptionStats(List<CompanySubscription> subscriptions) {
+    final activeCount = subscriptions.where((s) => s.status == SubscriptionStatus.active).length;
+    final trialCount = subscriptions.where((s) => s.status == SubscriptionStatus.trial).length;
+    final pastDueCount = subscriptions.where((s) => s.status == SubscriptionStatus.pastDue).length;
+    final totalRevenue = subscriptions
+        .where((s) => s.status == SubscriptionStatus.active)
+        .fold<double>(0, (sum, s) => sum + s.currentPrice);
+
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text(
+              'Subscription Overview',
+              style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+            ),
+            const SizedBox(height: 16),
+            Row(
+              children: [
+                Expanded(
+                  child: _buildStatCard(
+                    'Active',
+                    activeCount.toString(),
+                    Icons.check_circle,
+                    Colors.green,
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: _buildStatCard(
+                    'Trial',
+                    trialCount.toString(),
+                    Icons.access_time,
+                    Colors.blue,
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: _buildStatCard(
+                    'Past Due',
+                    pastDueCount.toString(),
+                    Icons.warning,
+                    Colors.orange,
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: _buildStatCard(
+                    'MRR',
+                    '\$${totalRevenue.toStringAsFixed(0)}',
+                    Icons.attach_money,
+                    Colors.purple,
+                  ),
+                ),
+              ],
+            ),
+          ],
         ),
+      ),
+    );
+  }
+
+  Widget _buildAvailableTiers(List<SubscriptionTier> tiers) {
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                const Text(
+                  'Available Plans',
+                  style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                ),
+                TextButton.icon(
+                  onPressed: () => _showManageTiersDialog(),
+                  icon: const Icon(Icons.settings),
+                  label: const Text('Manage Plans'),
+                ),
+              ],
+            ),
+            const SizedBox(height: 12),
+            SingleChildScrollView(
+              scrollDirection: Axis.horizontal,
+              child: Row(
+                children: tiers.map((tier) => _buildTierCard(tier)).toList(),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildTierCard(SubscriptionTier tier) {
+    return Container(
+      width: 250,
+      margin: const EdgeInsets.only(right: 12),
+      child: Card(
+        elevation: 2,
+        color: tier.isActive ? null : Colors.grey[200],
+        child: Padding(
+          padding: const EdgeInsets.all(16),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Text(
+                    tier.name,
+                    style: const TextStyle(
+                      fontSize: 18,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                  if (!tier.isActive)
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                      decoration: BoxDecoration(
+                        color: Colors.grey,
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      child: const Text(
+                        'Inactive',
+                        style: TextStyle(color: Colors.white, fontSize: 10),
+                      ),
+                    ),
+                ],
+              ),
+              const SizedBox(height: 8),
+              Text(
+                tier.description,
+                style: TextStyle(color: Colors.grey[600], fontSize: 12),
+              ),
+              const SizedBox(height: 12),
+              Row(
+                crossAxisAlignment: CrossAxisAlignment.baseline,
+                textBaseline: TextBaseline.alphabetic,
+                children: [
+                  Text(
+                    '\$${tier.monthlyPrice.toStringAsFixed(0)}',
+                    style: const TextStyle(
+                      fontSize: 24,
+                      fontWeight: FontWeight.bold,
+                      color: Colors.deepPurple,
+                    ),
+                  ),
+                  const Text('/mo', style: TextStyle(color: Colors.grey)),
+                ],
+              ),
+              if (tier.yearlyPrice != null) ...[
+                const SizedBox(height: 4),
+                Text(
+                  '\$${tier.yearlyPrice!.toStringAsFixed(0)}/yr',
+                  style: TextStyle(color: Colors.grey[600], fontSize: 12),
+                ),
+              ],
+              const SizedBox(height: 12),
+              ...tier.features.take(3).map((feature) => Padding(
+                    padding: const EdgeInsets.only(bottom: 4),
+                    child: Row(
+                      children: [
+                        Icon(Icons.check, size: 16, color: Colors.green[600]),
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: Text(
+                            feature,
+                            style: const TextStyle(fontSize: 12),
+                          ),
+                        ),
+                      ],
+                    ),
+                  )),
+              if (tier.features.length > 3)
+                Padding(
+                  padding: const EdgeInsets.only(top: 4),
+                  child: Text(
+                    '+${tier.features.length - 3} more',
+                    style: TextStyle(
+                      fontSize: 11,
+                      color: Colors.grey[600],
+                      fontStyle: FontStyle.italic,
+                    ),
+                  ),
+                ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildSubscriptionsList(
+    List<CompanySubscription> subscriptions,
+    List<Company> companies,
+    List<SubscriptionTier> tiers,
+    AppProvider appProvider,
+  ) {
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                const Text(
+                  'Active Subscriptions',
+                  style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                ),
+                ElevatedButton.icon(
+                  onPressed: () => _showCreateSubscriptionDialog(companies, tiers, appProvider),
+                  icon: const Icon(Icons.add),
+                  label: const Text('New Subscription'),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: Colors.deepPurple,
+                    foregroundColor: Colors.white,
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 16),
+            if (subscriptions.isEmpty)
+              const Center(
+                child: Padding(
+                  padding: EdgeInsets.all(32),
+                  child: Text(
+                    'No subscriptions yet',
+                    style: TextStyle(color: Colors.grey),
+                  ),
+                ),
+              )
+            else
+              ListView.separated(
+                shrinkWrap: true,
+                physics: const NeverScrollableScrollPhysics(),
+                itemCount: subscriptions.length,
+                separatorBuilder: (context, index) => const Divider(),
+                itemBuilder: (context, index) {
+                  final subscription = subscriptions[index];
+                  final company = companies.firstWhere(
+                    (c) => c.id == subscription.companyId,
+                    orElse: () => Company(
+                      id: '',
+                      name: 'Unknown',
+                      adminUserId: '',
+                      createdAt: DateTime.now(),
+                    ),
+                  );
+                  final tier = tiers.firstWhere(
+                    (t) => t.id == subscription.tierId,
+                    orElse: () => SubscriptionTier.free,
+                  );
+
+                  return _buildSubscriptionListItem(
+                    subscription,
+                    company,
+                    tier,
+                    appProvider,
+                  );
+                },
+              ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildSubscriptionListItem(
+    CompanySubscription subscription,
+    Company company,
+    SubscriptionTier tier,
+    AppProvider appProvider,
+  ) {
+    final statusColor = _getStatusColor(subscription.status);
+    final statusIcon = _getStatusIcon(subscription.status);
+
+    return ListTile(
+      leading: CircleAvatar(
+        backgroundColor: statusColor.withOpacity(0.2),
+        child: Icon(statusIcon, color: statusColor),
+      ),
+      title: Text(
+        company.name,
+        style: const TextStyle(fontWeight: FontWeight.bold),
+      ),
+      subtitle: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text('Plan: ${tier.name} (${subscription.billingInterval.name})'),
+          Text('\$${subscription.currentPrice}/month'),
+          if (subscription.isTrial && subscription.daysUntilTrialEnds != null)
+            Text(
+              'Trial ends in ${subscription.daysUntilTrialEnds} days',
+              style: const TextStyle(color: Colors.orange),
+            ),
+        ],
+      ),
+      trailing: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+            decoration: BoxDecoration(
+              color: statusColor.withOpacity(0.2),
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: Text(
+              subscription.status.name.toUpperCase(),
+              style: TextStyle(
+                color: statusColor,
+                fontSize: 11,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+          ),
+          PopupMenuButton<String>(
+            onSelected: (value) => _handleSubscriptionAction(
+              value,
+              subscription,
+              company,
+              tier,
+              appProvider,
+            ),
+            itemBuilder: (context) => [
+              const PopupMenuItem(
+                value: 'view',
+                child: Row(
+                  children: [
+                    Icon(Icons.visibility, size: 18),
+                    SizedBox(width: 8),
+                    Text('View Details'),
+                  ],
+                ),
+              ),
+              const PopupMenuItem(
+                value: 'change_plan',
+                child: Row(
+                  children: [
+                    Icon(Icons.swap_horiz, size: 18),
+                    SizedBox(width: 8),
+                    Text('Change Plan'),
+                  ],
+                ),
+              ),
+              if (subscription.status != SubscriptionStatus.cancelled)
+                const PopupMenuItem(
+                  value: 'cancel',
+                  child: Row(
+                    children: [
+                      Icon(Icons.cancel, size: 18, color: Colors.red),
+                      SizedBox(width: 8),
+                      Text('Cancel Subscription'),
+                    ],
+                  ),
+                ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  Color _getStatusColor(SubscriptionStatus status) {
+    switch (status) {
+      case SubscriptionStatus.active:
+        return Colors.green;
+      case SubscriptionStatus.trial:
+        return Colors.blue;
+      case SubscriptionStatus.pastDue:
+        return Colors.orange;
+      case SubscriptionStatus.suspended:
+        return Colors.red;
+      case SubscriptionStatus.cancelled:
+      case SubscriptionStatus.expired:
+        return Colors.grey;
+    }
+  }
+
+  IconData _getStatusIcon(SubscriptionStatus status) {
+    switch (status) {
+      case SubscriptionStatus.active:
+        return Icons.check_circle;
+      case SubscriptionStatus.trial:
+        return Icons.access_time;
+      case SubscriptionStatus.pastDue:
+        return Icons.warning;
+      case SubscriptionStatus.suspended:
+        return Icons.block;
+      case SubscriptionStatus.cancelled:
+      case SubscriptionStatus.expired:
+        return Icons.cancel;
+    }
+  }
+
+  Future<Map<String, dynamic>> _getSubscriptionsData(AppProvider appProvider) async {
+    final subscriptions = await StorageService.getSubscriptions();
+    final companies = await appProvider.getCompanies();
+    final tiers = SubscriptionTier.defaultTiers;
+
+    return {
+      'subscriptions': subscriptions,
+      'companies': companies,
+      'tiers': tiers,
+    };
+  }
+
+  void _showManageTiersDialog() {
+    // TODO: Implement tier management dialog
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(
+        content: Text('Tier management coming soon'),
+      ),
+    );
+  }
+
+  void _showCreateSubscriptionDialog(
+    List<Company> companies,
+    List<SubscriptionTier> tiers,
+    AppProvider appProvider,
+  ) {
+    // TODO: Implement create subscription dialog
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(
+        content: Text('Create subscription dialog coming soon'),
+      ),
+    );
+  }
+
+  void _handleSubscriptionAction(
+    String action,
+    CompanySubscription subscription,
+    Company company,
+    SubscriptionTier tier,
+    AppProvider appProvider,
+  ) {
+    switch (action) {
+      case 'view':
+        _showSubscriptionDetails(subscription, company, tier);
+        break;
+      case 'change_plan':
+        _showChangePlanDialog(subscription, company, appProvider);
+        break;
+      case 'cancel':
+        _confirmCancelSubscription(subscription, company, appProvider);
+        break;
+    }
+  }
+
+  void _showSubscriptionDetails(
+    CompanySubscription subscription,
+    Company company,
+    SubscriptionTier tier,
+  ) {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Text('${company.name} Subscription'),
+        content: SingleChildScrollView(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              _buildDetailRow('Plan', tier.name),
+              _buildDetailRow('Status', subscription.status.name.toUpperCase()),
+              _buildDetailRow(
+                'Billing',
+                '\$${subscription.currentPrice}/${subscription.billingInterval.name}',
+              ),
+              _buildDetailRow(
+                'Start Date',
+                DateFormat('MMM d, yyyy').format(subscription.startDate),
+              ),
+              _buildDetailRow(
+                'Next Billing',
+                DateFormat('MMM d, yyyy').format(subscription.nextBillingDate),
+              ),
+              if (subscription.trialEndsAt != null)
+                _buildDetailRow(
+                  'Trial Ends',
+                  DateFormat('MMM d, yyyy').format(subscription.trialEndsAt!),
+                ),
+              _buildDetailRow('Payment Method', subscription.paymentMethod.name),
+              const Divider(),
+              const SizedBox(height: 8),
+              const Text(
+                'Plan Features:',
+                style: TextStyle(fontWeight: FontWeight.bold),
+              ),
+              const SizedBox(height: 8),
+              ...tier.features.map((feature) => Padding(
+                    padding: const EdgeInsets.only(bottom: 4),
+                    child: Row(
+                      children: [
+                        const Icon(Icons.check, size: 16, color: Colors.green),
+                        const SizedBox(width: 8),
+                        Expanded(child: Text(feature)),
+                      ],
+                    ),
+                  )),
+            ],
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Close'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildDetailRow(String label, String value) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 8),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          SizedBox(
+            width: 120,
+            child: Text(
+              '$label:',
+              style: const TextStyle(fontWeight: FontWeight.bold),
+            ),
+          ),
+          Expanded(
+            child: Text(value),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _showChangePlanDialog(
+    CompanySubscription subscription,
+    Company company,
+    AppProvider appProvider,
+  ) {
+    // TODO: Implement change plan dialog
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text('Change plan for ${company.name} - Coming soon'),
+      ),
+    );
+  }
+
+  void _confirmCancelSubscription(
+    CompanySubscription subscription,
+    Company company,
+    AppProvider appProvider,
+  ) {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Cancel Subscription?'),
+        content: Text(
+          'Are you sure you want to cancel the subscription for ${company.name}? '
+          'This action cannot be undone.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('No, Keep Active'),
+          ),
+          TextButton(
+            onPressed: () {
+              Navigator.pop(context);
+              // TODO: Implement cancel subscription
+              ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(
+                  content: Text('Subscription cancelled for ${company.name}'),
+                ),
+              );
+            },
+            style: TextButton.styleFrom(foregroundColor: Colors.red),
+            child: const Text('Yes, Cancel'),
+          ),
+        ],
       ),
     );
   }

@@ -9,6 +9,7 @@ import '../models/company.dart';
 import '../models/approval_request.dart';
 import '../models/points_rules.dart';
 import '../models/message.dart';
+import '../models/company_subscription.dart';
 
 class StorageService {
   static const String _usersKey = 'users';
@@ -348,6 +349,53 @@ class StorageService {
     final companies = await getCompanies();
     companies.removeWhere((c) => c.id == companyId);
     await saveCompanies(companies);
+  }
+
+  // Subscription Management
+  static const String _subscriptionsKey = 'subscriptions';
+
+  static Future<List<CompanySubscription>> getSubscriptions() async {
+    final prefs = await _prefs;
+    final subscriptionsJson = prefs.getStringList(_subscriptionsKey) ?? [];
+    return subscriptionsJson
+        .map((json) => CompanySubscription.fromJson(jsonDecode(json)))
+        .toList();
+  }
+
+  static Future<void> saveSubscriptions(List<CompanySubscription> subscriptions) async {
+    final prefs = await _prefs;
+    final subscriptionsJson = subscriptions.map((s) => jsonEncode(s.toJson())).toList();
+    await prefs.setStringList(_subscriptionsKey, subscriptionsJson);
+  }
+
+  static Future<void> addSubscription(CompanySubscription subscription) async {
+    final subscriptions = await getSubscriptions();
+    subscriptions.add(subscription);
+    await saveSubscriptions(subscriptions);
+  }
+
+  static Future<void> updateSubscription(CompanySubscription subscription) async {
+    final subscriptions = await getSubscriptions();
+    final index = subscriptions.indexWhere((s) => s.id == subscription.id);
+    if (index != -1) {
+      subscriptions[index] = subscription;
+      await saveSubscriptions(subscriptions);
+    }
+  }
+
+  static Future<void> deleteSubscription(String subscriptionId) async {
+    final subscriptions = await getSubscriptions();
+    subscriptions.removeWhere((s) => s.id == subscriptionId);
+    await saveSubscriptions(subscriptions);
+  }
+
+  static Future<CompanySubscription?> getSubscriptionByCompanyId(String companyId) async {
+    final subscriptions = await getSubscriptions();
+    try {
+      return subscriptions.firstWhere((s) => s.companyId == companyId);
+    } catch (e) {
+      return null;
+    }
   }
 
   // Run data migrations - called every time app initializes
@@ -953,6 +1001,43 @@ class StorageService {
         ),
       ];
       await saveBonuses(sampleBonuses);
+    }
+
+    // Initialize demo subscriptions if they don't exist
+    final subscriptions = await getSubscriptions();
+    if (subscriptions.isEmpty) {
+      // Get all companies for creating subscriptions
+      final allCompanies = await getCompanies();
+      final demoSubscriptions = <CompanySubscription>[];
+
+      for (final company in allCompanies) {
+        // Create a subscription for each company
+        final tier = company.id == demoCompanyId 
+            ? 'tier_professional' // Utilif gets professional
+            : 'tier_starter'; // Other companies get starter
+        
+        final now = DateTime.now();
+        final subscription = CompanySubscription(
+          id: 'sub_${company.id}',
+          companyId: company.id,
+          tierId: tier,
+          startDate: now.subtract(const Duration(days: 30)), // Started 30 days ago
+          status: SubscriptionStatus.active,
+          paymentMethod: PaymentMethod.creditCard,
+          billingInterval: BillingInterval.monthly,
+          nextBillingDate: now.add(const Duration(days: 30)), // Next billing in 30 days
+          currentPrice: tier == 'tier_professional' ? 99 : 29,
+          gracePeriodDays: 7,
+          createdAt: now.subtract(const Duration(days: 30)),
+          updatedAt: now,
+        );
+        demoSubscriptions.add(subscription);
+      }
+
+      if (demoSubscriptions.isNotEmpty) {
+        await saveSubscriptions(demoSubscriptions);
+        print('DEBUG: Demo Data - Added ${demoSubscriptions.length} demo subscriptions');
+      }
     }
   }
 
