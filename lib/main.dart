@@ -5,6 +5,7 @@ import 'screens/login_screen.dart';
 import 'screens/employee_dashboard.dart';
 import 'screens/admin_dashboard.dart';
 import 'screens/onboarding_screen.dart';
+import 'widgets/branded_splash_screen.dart';
 
 void main() {
   runApp(const BonusesApp());
@@ -64,6 +65,7 @@ class AppWrapper extends StatefulWidget {
 class _AppWrapperState extends State<AppWrapper> {
   bool _isCheckingOnboarding = true;
   bool _isOnboardingComplete = false;
+  String? _companyName;
 
   @override
   void initState() {
@@ -74,23 +76,66 @@ class _AppWrapperState extends State<AppWrapper> {
   Future<void> _checkOnboardingStatus() async {
     final appProvider = context.read<AppProvider>();
     final isComplete = await appProvider.isOnboardingComplete();
+
+    if (isComplete) {
+      // Initialize the app provider first
+      await appProvider.initialize();
+
+      // Get the company name after initialization
+      final companyName = await _getCompanyName(appProvider);
+
+      setState(() {
+        _companyName = companyName;
+      });
+
+      // Add a delay to show the splash screen (for demo purposes)
+      // You can remove this delay in production
+      await Future.delayed(const Duration(seconds: 8));
+    } else {
+      // Add a delay to show the splash screen even for onboarding
+      await Future.delayed(const Duration(seconds: 8));
+    }
+
     setState(() {
       _isOnboardingComplete = isComplete;
       _isCheckingOnboarding = false;
     });
+  }
 
-    if (isComplete) {
-      appProvider.initialize();
+  Future<String?> _getCompanyName(AppProvider appProvider) async {
+    try {
+      // Try to get the current user's company name from their companyNames list
+      final users = await appProvider.getUsers();
+      if (users.isNotEmpty) {
+        final user = users.first;
+        if (user.primaryCompanyId != null && user.companyNames.isNotEmpty) {
+          // Find the index of the primaryCompanyId in companyIds and get the corresponding name
+          final primaryCompanyId = user.primaryCompanyId!;
+          final companyIndex = user.companyIds.indexOf(primaryCompanyId);
+          if (companyIndex != -1 && companyIndex < user.companyNames.length) {
+            return user.companyNames[companyIndex];
+          }
+        }
+      }
+      // Fallback to first company if available
+      final companies = await appProvider.getCompanies();
+      if (companies.isNotEmpty) {
+        return companies.first.name;
+      }
+    } catch (e) {
+      print('Error getting company name: $e');
+      // If we can't get the company name, use a default
+      return 'Utilif';
     }
+    return 'Utilif';
   }
 
   @override
   Widget build(BuildContext context) {
     if (_isCheckingOnboarding) {
-      return const Scaffold(
-        body: Center(
-          child: CircularProgressIndicator(),
-        ),
+      return BrandedSplashScreen(
+        companyName: _companyName ?? 'Loading...',
+        showProgress: true,
       );
     }
 
@@ -101,10 +146,9 @@ class _AppWrapperState extends State<AppWrapper> {
     return Consumer<AppProvider>(
       builder: (context, appProvider, child) {
         if (appProvider.isLoading) {
-          return const Scaffold(
-            body: Center(
-              child: CircularProgressIndicator(),
-            ),
+          return BrandedSplashScreen(
+            companyName: _companyName ?? 'Bonuses',
+            showProgress: true,
           );
         }
 

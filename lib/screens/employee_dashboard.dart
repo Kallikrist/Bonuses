@@ -242,18 +242,15 @@ class _EmployeeDashboardState extends State<EmployeeDashboard> {
       itemCount: targets.length,
       itemBuilder: (context, index) {
         final target = targets[index];
-        return Card(
-          margin: const EdgeInsets.only(bottom: 8),
-          child: ListTile(
-            title: Text('Target: \$${target.targetAmount}'),
-            subtitle:
-                Text('Date: ${DateFormat('MMM dd, yyyy').format(target.date)}'),
-            trailing: Text(
-              target.isApproved ? 'Completed' : 'Pending',
-              style: TextStyle(
-                color: target.isApproved ? Colors.green : Colors.orange,
-                fontWeight: FontWeight.bold,
-              ),
+        return TargetCard(
+          target: target,
+          appProvider: appProvider,
+          currentUserId: appProvider.currentUser?.id,
+          isAdminView: false,
+          onTap: () => Navigator.push(
+            context,
+            MaterialPageRoute(
+              builder: (context) => TargetProfileScreen(target: target),
             ),
           ),
         );

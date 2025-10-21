@@ -3174,394 +3174,360 @@ class _AdminDashboardState extends State<AdminDashboard> {
           const SizedBox(height: 16),
 
           // Settings Section
-          Card(
-            child: Padding(
-              padding: const EdgeInsets.all(16),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Row(
-                    children: [
-                      Icon(Icons.settings, color: Colors.blue[600]),
-                      const SizedBox(width: 8),
-                      Text(
-                        'Settings',
-                        style:
-                            Theme.of(context).textTheme.titleMedium?.copyWith(
-                                  fontWeight: FontWeight.bold,
-                                ),
-                      ),
-                    ],
+          _buildExpandableSection(
+            title: 'Settings',
+            icon: Icons.settings,
+            iconColor: Colors.blue[600]!,
+            children: [
+              _buildSettingsItem(
+                Icons.business_center,
+                'Manage Companies',
+                'View and manage all companies',
+                () => Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (context) =>
+                        CompaniesListScreen(appProvider: appProvider),
                   ),
-                  const SizedBox(height: 16),
-                  _buildSettingsItem(
-                    Icons.business_center,
-                    'Manage Companies',
-                    'View and manage all companies',
-                    () => Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                        builder: (context) =>
-                            CompaniesListScreen(appProvider: appProvider),
-                      ),
-                    ),
-                  ),
-                  const SizedBox(height: 8),
-                  _buildSettingsItem(
-                    Icons.people_outline,
-                    'Manage Employees',
-                    'View all employees in a new dedicated window',
-                    () => Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                        builder: (context) => EmployeesListScreen(
-                          appProvider: appProvider,
-                          filterCompanyId: appProvider.currentUser
-                              ?.primaryCompanyId, // Filter by admin's current company
-                        ),
-                      ),
-                    ),
-                  ),
-                  _buildSettingsItem(
-                    Icons.business,
-                    'Manage Workplaces',
-                    'View all workplaces in a dedicated window',
-                    () => Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                        builder: (context) =>
-                            WorkplacesListScreen(appProvider: appProvider),
-                      ),
-                    ),
-                  ),
-                  _buildSettingsItem(
-                    Icons.upload_file,
-                    'Import Targets',
-                    'Bulk import targets from Excel or CSV file',
-                    () => Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                        builder: (context) => const ImportTargetsScreen(),
-                      ),
-                    ),
-                  ),
-                  _buildSettingsItem(
-                    Icons.view_list,
-                    'Manage Targets',
-                    'View and manage all targets in a dedicated window',
-                    () => Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                        builder: (context) =>
-                            TargetListScreen(appProvider: appProvider),
-                      ),
-                    ),
-                  ),
-                  _buildSettingsItem(
-                    Icons.rule,
-                    'Points Rules',
-                    'Configure how many points are awarded for different target achievements',
-                    () {
-                      Navigator.push(
-                        context,
-                        MaterialPageRoute(
-                          builder: (context) =>
-                              PointsRulesScreen(appProvider: appProvider),
-                        ),
-                      );
-                    },
-                  ),
-                  _buildSettingsItemWithBadge(
-                    Icons.approval,
-                    'Pending Approvals',
-                    'Review and approve sales submissions and team changes',
-                    () => _showApprovalsManagement(appProvider),
-                    appProvider.approvalRequests
-                        .where((r) => r.status == ApprovalStatus.pending)
-                        .length,
-                  ),
-                  _buildSettingsItem(
-                    Icons.science,
-                    'Load Demo Data',
-                    'Load sample users, targets, and bonuses for testing',
-                    () => _showLoadDemoDataDialog(context, appProvider),
-                  ),
-                  _buildDarkModeToggle(appProvider),
-                  _buildSettingsItem(
-                    Icons.logout,
-                    'Logout',
-                    'Sign out of your account',
-                    () => _showLogoutDialog(context, appProvider),
-                  ),
-                ],
+                ),
               ),
-            ),
+              const SizedBox(height: 8),
+              _buildSettingsItem(
+                Icons.people_outline,
+                'Manage Employees',
+                'View all employees in a new dedicated window',
+                () => Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (context) => EmployeesListScreen(
+                      appProvider: appProvider,
+                      filterCompanyId: appProvider.currentUser
+                          ?.primaryCompanyId, // Filter by admin's current company
+                    ),
+                  ),
+                ),
+              ),
+              _buildSettingsItem(
+                Icons.business,
+                'Manage Workplaces',
+                'View all workplaces in a dedicated window',
+                () => Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (context) =>
+                        WorkplacesListScreen(appProvider: appProvider),
+                  ),
+                ),
+              ),
+              _buildSettingsItem(
+                Icons.upload_file,
+                'Import Targets',
+                'Bulk import targets from Excel or CSV file',
+                () => Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (context) => const ImportTargetsScreen(),
+                  ),
+                ),
+              ),
+              _buildSettingsItem(
+                Icons.view_list,
+                'Manage Targets',
+                'View and manage all targets in a dedicated window',
+                () => Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (context) =>
+                        TargetListScreen(appProvider: appProvider),
+                  ),
+                ),
+              ),
+              _buildSettingsItem(
+                Icons.rule,
+                'Points Rules',
+                'Configure how many points are awarded for different target achievements',
+                () {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (context) =>
+                          PointsRulesScreen(appProvider: appProvider),
+                    ),
+                  );
+                },
+              ),
+              _buildSettingsItemWithBadge(
+                Icons.approval,
+                'Pending Approvals',
+                'Review and approve sales submissions and team changes',
+                () => _showApprovalsManagement(appProvider),
+                appProvider.approvalRequests
+                    .where((r) => r.status == ApprovalStatus.pending)
+                    .length,
+              ),
+              _buildSettingsItem(
+                Icons.science,
+                'Load Demo Data',
+                'Load sample users, targets, and bonuses for testing',
+                () => _showLoadDemoDataDialog(context, appProvider),
+              ),
+              _buildDarkModeToggle(appProvider),
+              _buildSettingsItem(
+                Icons.logout,
+                'Logout',
+                'Sign out of your account',
+                () => _showLogoutDialog(context, appProvider),
+              ),
+            ],
           ),
 
           const SizedBox(height: 16),
           // Customize Navigation Section (Header shortcuts)
-          Card(
-            child: Padding(
-              padding: const EdgeInsets.all(16),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Row(
-                    children: [
-                      Icon(Icons.tune, color: Colors.orange[700]),
-                      const SizedBox(width: 8),
-                      Text(
-                        'Customize Navigation',
-                        style: Theme.of(context)
-                            .textTheme
-                            .titleMedium
-                            ?.copyWith(fontWeight: FontWeight.bold),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 4),
-                  Text(
-                    'Choose which shortcuts appear in the header',
-                    style: Theme.of(context).textTheme.bodySmall,
-                  ),
-                  const SizedBox(height: 12),
-                  ...[
-                    'Calendar',
-                    'Targets',
-                    'Messages',
-                    'Import Bonuses',
-                    'Settings'
-                  ].map((label) => SwitchListTile(
-                        dense: true,
-                        title: Text(label),
-                        value: _headerShortcutPrefs[label] ?? true,
-                        onChanged: (val) async {
-                          setState(() {
-                            _headerShortcutPrefs[label] = val;
-                          });
-                          await _saveHeaderPrefs();
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            SnackBar(
-                              content: Text('Saved header shortcut: $label'),
-                              duration: const Duration(seconds: 1),
-                            ),
-                          );
-                        },
-                      )),
-                ],
+          _buildExpandableSection(
+            title: 'Customize Navigation',
+            icon: Icons.tune,
+            iconColor: Colors.orange[700]!,
+            children: [
+              Text(
+                'Choose which shortcuts appear in the header',
+                style: Theme.of(context).textTheme.bodySmall,
               ),
-            ),
+              const SizedBox(height: 12),
+              ...[
+                'Calendar',
+                'Targets',
+                'Messages',
+                'Import Bonuses',
+                'Settings'
+              ].map((label) => SwitchListTile(
+                    dense: true,
+                    title: Text(label),
+                    value: _headerShortcutPrefs[label] ?? true,
+                    onChanged: (val) async {
+                      setState(() {
+                        _headerShortcutPrefs[label] = val;
+                      });
+                      await _saveHeaderPrefs();
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(
+                          content: Text('Saved header shortcut: $label'),
+                          duration: const Duration(seconds: 1),
+                        ),
+                      );
+                    },
+                  )),
+            ],
           ),
 
           const SizedBox(height: 16),
           // Customize Bottom Bar Section
-          Card(
-            child: Padding(
-              padding: const EdgeInsets.all(16),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Row(
-                    children: [
-                      Icon(Icons.view_carousel, color: Colors.blue[700]),
-                      const SizedBox(width: 8),
-                      Text(
-                        'Customize Bottom Bar',
-                        style: Theme.of(context)
-                            .textTheme
-                            .titleMedium
-                            ?.copyWith(fontWeight: FontWeight.bold),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 4),
-                  Text(
-                    'Choose which tabs appear in the bottom navigation',
-                    style: Theme.of(context).textTheme.bodySmall,
-                  ),
-                  const SizedBox(height: 12),
-                  ...[
-                    'Dashboard',
-                    'Bonuses',
-                    'Messages',
-                    'Settings'
-                  ].map((label) => SwitchListTile(
-                        dense: true,
-                        title: Text(label),
-                        subtitle: label == 'Settings'
-                            ? const Text('Required - cannot be disabled',
-                                style: TextStyle(
-                                    fontSize: 11, fontStyle: FontStyle.italic))
-                            : null,
-                        value: _bottomBarPrefs[label] ?? true,
-                        onChanged: label == 'Settings'
-                            ? null // Disable Settings toggle to prevent lockout
-                            : (val) async {
-                                setState(() {
-                                  _bottomBarPrefs[label] = val;
-                                });
-                                await _saveBottomBarPrefs();
-                                ScaffoldMessenger.of(context).showSnackBar(
-                                  SnackBar(
-                                    content:
-                                        Text('Saved bottom bar tab: $label'),
-                                    duration: const Duration(seconds: 1),
-                                  ),
-                                );
-                              },
-                      )),
-                ],
+          _buildExpandableSection(
+            title: 'Customize Bottom Bar',
+            icon: Icons.view_carousel,
+            iconColor: Colors.blue[700]!,
+            children: [
+              Text(
+                'Choose which tabs appear in the bottom navigation',
+                style: Theme.of(context).textTheme.bodySmall,
               ),
-            ),
-          ),
-          const SizedBox(height: 24),
-
-          // Analytics Section
-          Text(
-            'Analytics',
-            style: Theme.of(context).textTheme.headlineSmall?.copyWith(
-                  fontWeight: FontWeight.bold,
-                ),
+              const SizedBox(height: 12),
+              ...[
+                'Dashboard',
+                'Bonuses',
+                'Messages',
+                'Settings'
+              ].map((label) => SwitchListTile(
+                    dense: true,
+                    title: Text(label),
+                    subtitle: label == 'Settings'
+                        ? const Text('Required - cannot be disabled',
+                            style: TextStyle(
+                                fontSize: 11, fontStyle: FontStyle.italic))
+                        : null,
+                    value: _bottomBarPrefs[label] ?? true,
+                    onChanged: label == 'Settings'
+                        ? null // Disable Settings toggle to prevent lockout
+                        : (val) async {
+                            setState(() {
+                              _bottomBarPrefs[label] = val;
+                            });
+                            await _saveBottomBarPrefs();
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              SnackBar(
+                                content: Text('Saved bottom bar tab: $label'),
+                                duration: const Duration(seconds: 1),
+                              ),
+                            );
+                          },
+                  )),
+            ],
           ),
           const SizedBox(height: 16),
 
-          // Summary Cards
-          Row(
+          // Analytics Section
+          _buildExpandableSection(
+            title: 'Analytics',
+            icon: Icons.analytics,
+            iconColor: Colors.purple[600]!,
             children: [
-              Expanded(
-                child: _buildAnalyticsCard(
-                  'Total Targets',
-                  allTargets.length.toString(),
-                  Icons.track_changes,
-                  Colors.blue,
-                  subtitle:
-                      '${allTargets.where((t) => t.isMet).length} completed',
-                ),
+              // Summary Cards
+              Row(
+                children: [
+                  Expanded(
+                    child: _buildAnalyticsCard(
+                      'Total Targets',
+                      allTargets.length.toString(),
+                      Icons.track_changes,
+                      Colors.blue,
+                      subtitle:
+                          '${allTargets.where((t) => t.isMet).length} completed',
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: _buildAnalyticsCard(
+                      'Total Transactions',
+                      allTransactions.length.toString(),
+                      Icons.swap_horiz,
+                      Colors.green,
+                      subtitle: 'Points activity',
+                    ),
+                  ),
+                ],
               ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: _buildAnalyticsCard(
-                  'Total Transactions',
-                  allTransactions.length.toString(),
-                  Icons.swap_horiz,
-                  Colors.green,
-                  subtitle: 'Points activity',
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 12),
+              const SizedBox(height: 12),
 
-          Row(
-            children: [
-              Expanded(
-                child: _buildAnalyticsCard(
-                  'Total Bonuses',
-                  allBonuses.length.toString(),
-                  Icons.card_giftcard,
-                  Colors.purple,
-                  subtitle: 'Available rewards',
-                ),
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: _buildAnalyticsCard(
-                  'Total Revenue',
-                  '\$${allTargets.fold<double>(0, (sum, target) => sum + target.actualAmount).toStringAsFixed(0)}',
-                  Icons.attach_money,
-                  Colors.orange,
-                  subtitle: 'Actual sales',
-                ),
+              Row(
+                children: [
+                  Expanded(
+                    child: _buildAnalyticsCard(
+                      'Total Bonuses',
+                      allBonuses.length.toString(),
+                      Icons.card_giftcard,
+                      Colors.purple,
+                      subtitle: 'Available rewards',
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: _buildAnalyticsCard(
+                      'Total Revenue',
+                      '\$${allTargets.fold<double>(0, (sum, target) => sum + target.actualAmount).toStringAsFixed(0)}',
+                      Icons.attach_money,
+                      Colors.orange,
+                      subtitle: 'Actual sales',
+                    ),
+                  ),
+                ],
               ),
             ],
           ),
-          const SizedBox(height: 24),
+          const SizedBox(height: 16),
 
           // Admin Team Participation Card
-          Card(
-            child: Padding(
-              padding: const EdgeInsets.all(16),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
+          _buildExpandableSection(
+            title: 'Admin Team Participation',
+            icon: Icons.group_add,
+            iconColor: Colors.green[600]!,
+            children: [
+              Row(
                 children: [
-                  Row(
-                    children: [
-                      Icon(Icons.group_add, color: Colors.green[600]),
-                      const SizedBox(width: 8),
-                      Text(
-                        'Admin Team Participation',
-                        style:
-                            Theme.of(context).textTheme.titleMedium?.copyWith(
-                                  fontWeight: FontWeight.bold,
-                                ),
-                      ),
-                    ],
+                  Expanded(
+                    child: _buildAnalyticsCard(
+                      'Team Points',
+                      adminTeamParticipationPoints.toString(),
+                      Icons.stars,
+                      Colors.green,
+                      subtitle: 'From team participation',
+                    ),
                   ),
-                  const SizedBox(height: 16),
-                  Row(
-                    children: [
-                      Expanded(
-                        child: _buildAnalyticsCard(
-                          'Team Points',
-                          adminTeamParticipationPoints.toString(),
-                          Icons.stars,
-                          Colors.green,
-                          subtitle: 'From team participation',
-                        ),
-                      ),
-                      const SizedBox(width: 12),
-                      Expanded(
-                        child: _buildAnalyticsCard(
-                          'Team Count',
-                          allTransactions
-                              .where((t) => t.description
-                                  .contains('Added as team member'))
-                              .length
-                              .toString(),
-                          Icons.group,
-                          Colors.blue,
-                          subtitle: 'Times added to teams',
-                        ),
-                      ),
-                    ],
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: _buildAnalyticsCard(
+                      'Team Count',
+                      allTransactions
+                          .where((t) =>
+                              t.description.contains('Added as team member'))
+                          .length
+                          .toString(),
+                      Icons.group,
+                      Colors.blue,
+                      subtitle: 'Times added to teams',
+                    ),
                   ),
                 ],
               ),
-            ),
+            ],
           ),
-          const SizedBox(height: 24),
+          const SizedBox(height: 16),
 
-          // Weekly Performance Chart
-          Card(
-            child: Padding(
-              padding: const EdgeInsets.all(16),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Row(
+          // Performance Analytics Section (Combined)
+          _buildExpandableSection(
+            title: 'Performance Analytics',
+            icon: Icons.analytics,
+            iconColor: Colors.blue[600]!,
+            children: [
+              // Weekly Performance Chart
+              Card(
+                child: Padding(
+                  padding: const EdgeInsets.all(16),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Icon(Icons.bar_chart, color: Colors.blue[600]),
-                      const SizedBox(width: 8),
-                      Text(
-                        'Weekly Performance',
-                        style:
-                            Theme.of(context).textTheme.titleMedium?.copyWith(
+                      Row(
+                        children: [
+                          Icon(Icons.bar_chart, color: Colors.blue[600]),
+                          const SizedBox(width: 8),
+                          Text(
+                            'Weekly Performance',
+                            style: Theme.of(context)
+                                .textTheme
+                                .titleMedium
+                                ?.copyWith(
                                   fontWeight: FontWeight.bold,
                                 ),
+                          ),
+                        ],
                       ),
+                      const SizedBox(height: 16),
+                      _buildWeeklyPerformanceChart(
+                          _getThisWeekTargets(allTargets)),
                     ],
                   ),
-                  const SizedBox(height: 16),
-                  _buildWeeklyPerformanceChart(_getThisWeekTargets(allTargets)),
-                ],
+                ),
               ),
-            ),
+              const SizedBox(height: 16),
+              // Top Performers
+              Card(
+                child: Padding(
+                  padding: const EdgeInsets.all(16),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        children: [
+                          Icon(Icons.emoji_events, color: Colors.amber[600]),
+                          const SizedBox(width: 8),
+                          Text(
+                            'Top Performers',
+                            style: Theme.of(context)
+                                .textTheme
+                                .titleMedium
+                                ?.copyWith(
+                                  fontWeight: FontWeight.bold,
+                                ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 16),
+                      _buildTopPerformersWithToggle(
+                          allTargets, allTransactions, appProvider),
+                    ],
+                  ),
+                ),
+              ),
+            ],
           ),
-          const SizedBox(height: 24),
-
-          // Top Performers Section
-          _buildTopPerformersWithToggle(
-              allTargets, allTransactions, appProvider),
         ],
       ),
     );
@@ -3673,6 +3639,22 @@ class _AdminDashboardState extends State<AdminDashboard> {
         trailing: const Icon(Icons.arrow_forward_ios, size: 16),
         onTap: onTap,
       ),
+    );
+  }
+
+  Widget _buildExpandableSection({
+    required String title,
+    required IconData icon,
+    required Color iconColor,
+    required List<Widget> children,
+    bool initiallyExpanded = false,
+  }) {
+    return _ExpandableSectionWidget(
+      title: title,
+      icon: icon,
+      iconColor: iconColor,
+      children: children,
+      initiallyExpanded: initiallyExpanded,
     );
   }
 
@@ -4343,25 +4325,44 @@ class _AdminDashboardState extends State<AdminDashboard> {
                   if (targetController.text.isNotEmpty &&
                       selectedWorkplace != null &&
                       selectedEmployee != null) {
-                    final target = SalesTarget(
-                      id: DateTime.now().millisecondsSinceEpoch.toString(),
-                      date: selectedDate,
-                      targetAmount: double.parse(targetController.text),
-                      actualAmount: 0,
-                      createdAt: DateTime.now(),
-                      createdBy: appProvider.currentUser!.id,
-                      assignedEmployeeId: selectedEmployee!.id,
-                      assignedEmployeeName: selectedEmployee!.name,
-                      assignedWorkplaceId: selectedWorkplace!.id,
-                      assignedWorkplaceName: selectedWorkplace!.name,
-                      collaborativeEmployeeIds: [],
-                      collaborativeEmployeeNames: [],
-                    );
-                    await appProvider.addSalesTarget(target);
-                    Navigator.pop(context);
+                    try {
+                      final target = SalesTarget(
+                        id: DateTime.now().millisecondsSinceEpoch.toString(),
+                        date: selectedDate,
+                        targetAmount: double.parse(targetController.text),
+                        actualAmount: 0,
+                        createdAt: DateTime.now(),
+                        createdBy: appProvider.currentUser!.id,
+                        assignedEmployeeId: selectedEmployee!.id,
+                        assignedEmployeeName: selectedEmployee!.name,
+                        assignedWorkplaceId: selectedWorkplace!.id,
+                        assignedWorkplaceName: selectedWorkplace!.name,
+                        collaborativeEmployeeIds: [],
+                        collaborativeEmployeeNames: [],
+                      );
+                      await appProvider.addSalesTarget(target);
+                      Navigator.pop(context);
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(
+                            content: Text('Target added successfully')),
+                      );
+                    } catch (e) {
+                      // Show error message for workplace conflict
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(
+                          content: Text(
+                              e.toString().replaceFirst('Exception: ', '')),
+                          backgroundColor: Colors.red,
+                          duration: const Duration(seconds: 4),
+                        ),
+                      );
+                    }
+                  } else {
                     ScaffoldMessenger.of(context).showSnackBar(
                       const SnackBar(
-                          content: Text('Target added successfully')),
+                        content: Text('Please fill in all fields'),
+                        backgroundColor: Colors.orange,
+                      ),
                     );
                   }
                 },
@@ -4449,61 +4450,20 @@ class _AdminDashboardState extends State<AdminDashboard> {
                 itemCount: targets.length,
                 itemBuilder: (context, index) {
                   final target = targets[index];
-                  return Card(
-                    margin: const EdgeInsets.only(bottom: 8),
-                    child: ListTile(
-                      leading: CircleAvatar(
-                        backgroundColor: _getTargetStatusColor(target),
-                        child: Icon(
-                          _getTargetStatusIcon(target),
-                          color: Colors.white,
-                        ),
-                      ),
-                      title: Text(
-                        'Target: \$${target.targetAmount.toStringAsFixed(0)}',
-                        style: const TextStyle(fontWeight: FontWeight.bold),
-                      ),
-                      subtitle: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                              'Employee: ${target.assignedEmployeeName ?? 'Unassigned'}'),
-                          Text(
-                              'Workplace: ${target.assignedWorkplaceName ?? 'Unassigned'}'),
-                          if (target.collaborativeEmployeeNames.isNotEmpty)
-                            Text(
-                                'Team: ${target.collaborativeEmployeeNames.join(', ')}'),
-                          Text(
-                              'Date: ${DateFormat('MMM dd, yyyy').format(target.date)}'),
-                          Text('Status: ${_getTargetStatusText(target)}'),
-                        ],
-                      ),
-                      trailing: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          // Only show "Mark as Missed" button for pending targets that are not met
-                          if (target.status == TargetStatus.pending &&
-                              !target.isMet)
-                            IconButton(
-                              icon: const Icon(Icons.cancel,
-                                  color: Colors.orange),
-                              onPressed: () => _showMarkAsMissedDialog(
-                                  context, target, appProvider),
-                              tooltip: 'Mark as Missed',
-                            ),
-                          IconButton(
-                            icon: const Icon(Icons.edit),
-                            onPressed: () => _showEditTargetDialog(
-                                context, target, appProvider),
-                            tooltip: 'Edit Target',
-                          ),
-                          IconButton(
-                            icon: const Icon(Icons.delete, color: Colors.red),
-                            onPressed: () => _showDeleteTargetDialog(
-                                context, target, appProvider),
-                            tooltip: 'Delete Target',
-                          ),
-                        ],
+                  return TargetCard(
+                    target: target,
+                    appProvider: appProvider,
+                    currentUserId: appProvider.currentUser?.id,
+                    isAdminView: true,
+                    onEdit: () =>
+                        _showEditTargetDialog(context, target, appProvider),
+                    onDelete: () =>
+                        _showDeleteTargetDialog(context, target, appProvider),
+                    onTap: () => Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (context) =>
+                            TargetProfileScreen(target: target),
                       ),
                     ),
                   );
@@ -9045,7 +9005,16 @@ class _TargetListScreenState extends State<TargetListScreen> {
               return const CircularProgressIndicator();
             }
 
-            final workplaces = snapshot.data!;
+            final allWorkplaces = snapshot.data!;
+            final currentCompanyId =
+                widget.appProvider.currentUser?.primaryCompanyId;
+
+            // Filter workplaces by current company
+            final workplaces = currentCompanyId != null
+                ? allWorkplaces
+                    .where((wp) => wp.companyId == currentCompanyId)
+                    .toList()
+                : allWorkplaces;
 
             return Column(
               mainAxisSize: MainAxisSize.min,
@@ -9247,7 +9216,16 @@ class _TargetListScreenState extends State<TargetListScreen> {
                         );
                       }
                       if (snapshot.hasData) {
-                        final workplaces = snapshot.data!;
+                        final allWorkplaces = snapshot.data!;
+                        final currentCompanyId =
+                            widget.appProvider.currentUser?.primaryCompanyId;
+
+                        // Filter workplaces by current company
+                        final workplaces = currentCompanyId != null
+                            ? allWorkplaces
+                                .where((wp) => wp.companyId == currentCompanyId)
+                                .toList()
+                            : allWorkplaces;
 
                         // Show shortcut to add workplace if no workplaces available
                         if (workplaces.isEmpty) {
@@ -10715,6 +10693,83 @@ class _WorkplacesListScreenState extends State<WorkplacesListScreen> {
           },
         );
       }),
+    );
+  }
+}
+
+class _ExpandableSectionWidget extends StatefulWidget {
+  final String title;
+  final IconData icon;
+  final Color iconColor;
+  final List<Widget> children;
+  final bool initiallyExpanded;
+
+  const _ExpandableSectionWidget({
+    required this.title,
+    required this.icon,
+    required this.iconColor,
+    required this.children,
+    this.initiallyExpanded = false,
+  });
+
+  @override
+  State<_ExpandableSectionWidget> createState() =>
+      _ExpandableSectionWidgetState();
+}
+
+class _ExpandableSectionWidgetState extends State<_ExpandableSectionWidget> {
+  late bool isExpanded;
+
+  @override
+  void initState() {
+    super.initState();
+    isExpanded = widget.initiallyExpanded;
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Card(
+      child: Column(
+        children: [
+          InkWell(
+            onTap: () => setState(() => isExpanded = !isExpanded),
+            child: Padding(
+              padding: const EdgeInsets.all(16),
+              child: Row(
+                children: [
+                  Icon(widget.icon, color: widget.iconColor),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      widget.title,
+                      style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                            fontWeight: FontWeight.bold,
+                          ),
+                    ),
+                  ),
+                  AnimatedRotation(
+                    turns: isExpanded ? 0.5 : 0,
+                    duration: const Duration(milliseconds: 200),
+                    child: const Icon(Icons.keyboard_arrow_down),
+                  ),
+                ],
+              ),
+            ),
+          ),
+          AnimatedSize(
+            duration: const Duration(milliseconds: 200),
+            child: isExpanded
+                ? Padding(
+                    padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: widget.children,
+                    ),
+                  )
+                : const SizedBox.shrink(),
+          ),
+        ],
+      ),
     );
   }
 }

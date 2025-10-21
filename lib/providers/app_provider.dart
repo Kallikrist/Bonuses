@@ -1,4 +1,5 @@
 import 'package:flutter/foundation.dart';
+import 'package:intl/intl.dart';
 import '../models/user.dart';
 import '../models/sales_target.dart';
 import '../models/points_transaction.dart';
@@ -227,6 +228,27 @@ class AppProvider with ChangeNotifier {
   }
 
   Future<void> addSalesTarget(SalesTarget target) async {
+    // Validate that no target already exists for this workplace on this date
+    final existingTarget = _salesTargets.firstWhere(
+      (existing) =>
+          existing.assignedWorkplaceId == target.assignedWorkplaceId &&
+          existing.date.year == target.date.year &&
+          existing.date.month == target.date.month &&
+          existing.date.day == target.date.day,
+      orElse: () => SalesTarget(
+        id: '',
+        date: DateTime.now(),
+        targetAmount: 0,
+        createdAt: DateTime.now(),
+        createdBy: '',
+      ),
+    );
+
+    if (existingTarget.id.isNotEmpty) {
+      throw Exception(
+          'A target already exists for ${target.assignedWorkplaceName} on ${DateFormat('MMM dd, yyyy').format(target.date)}. Only one target per workplace per date is allowed.');
+    }
+
     print(
         'DEBUG: Adding target with assignment - Employee: ${target.assignedEmployeeName}, Workplace: ${target.assignedWorkplaceName}');
     await StorageService.addSalesTarget(target);

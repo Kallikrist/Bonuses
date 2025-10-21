@@ -133,31 +133,59 @@ class _TargetProfileScreenState extends State<TargetProfileScreen> {
                 const SizedBox(height: 16),
 
                 // Performance Chart (moved above team members)
-                Text(
-                  'Performance Trend (Last 2 Years)',
-                  style: Theme.of(context).textTheme.titleMedium,
+                _ExpandableSectionWidget(
+                  title: 'Performance Trend (Last 2 Years)',
+                  icon: Icons.trending_up,
+                  iconColor: Colors.blue[600]!,
+                  initiallyExpanded: true,
+                  children: [
+                    _buildPerformanceChart(app),
+                  ],
                 ),
-                const SizedBox(height: 8),
-                _buildPerformanceChart(app),
 
-                const SizedBox(height: 24),
+                const SizedBox(height: 16),
 
                 // Team Members Section (if any)
                 if (_currentTarget.collaborativeEmployeeIds.isNotEmpty) ...[
-                  _buildTeamMembersSection(app),
+                  _ExpandableSectionWidget(
+                    title:
+                        'Team Members (${_currentTarget.collaborativeEmployeeIds.length})',
+                    icon: Icons.group,
+                    iconColor: Colors.purple,
+                    initiallyExpanded: true,
+                    children: [
+                      _buildTeamMembersContent(app),
+                    ],
+                  ),
                   const SizedBox(height: 16),
                 ],
 
                 // Points History Section (if approved)
                 if (_currentTarget.isApproved &&
                     _currentTarget.pointsAwarded > 0) ...[
-                  _buildPointsHistorySection(app),
+                  _ExpandableSectionWidget(
+                    title: 'Points History',
+                    icon: Icons.history,
+                    iconColor: Colors.green,
+                    initiallyExpanded: false,
+                    children: [
+                      _buildPointsHistoryContent(app),
+                    ],
+                  ),
                   const SizedBox(height: 16),
                 ],
 
                 // Adjustments History (Admin View)
                 if (app.currentUser?.role == UserRole.admin) ...[
-                  _buildAdjustmentsHistorySection(app),
+                  _ExpandableSectionWidget(
+                    title: 'Adjustments History',
+                    icon: Icons.tune,
+                    iconColor: Colors.orange,
+                    initiallyExpanded: false,
+                    children: [
+                      _buildAdjustmentsHistoryContent(app),
+                    ],
+                  ),
                   const SizedBox(height: 16),
                 ],
 
@@ -888,200 +916,167 @@ class _TargetProfileScreenState extends State<TargetProfileScreen> {
     );
   }
 
-  Widget _buildTeamMembersSection(AppProvider app) {
-    return Card(
-      child: Padding(
-        padding: const EdgeInsets.all(16.0),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              children: [
-                Icon(Icons.group, color: Colors.purple),
-                const SizedBox(width: 8),
-                Text(
-                  'Team Members (${_currentTarget.collaborativeEmployeeIds.length})',
-                  style: const TextStyle(
-                    fontSize: 16,
-                    fontWeight: FontWeight.bold,
+  Widget _buildTeamMembersContent(AppProvider app) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        ...List.generate(
+          _currentTarget.collaborativeEmployeeNames.length,
+          (index) {
+            final name = _currentTarget.collaborativeEmployeeNames[index];
+            return Container(
+              margin: const EdgeInsets.only(bottom: 8),
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: Colors.purple.shade50,
+                borderRadius: BorderRadius.circular(8),
+                border: Border.all(color: Colors.purple.shade200),
+              ),
+              child: Row(
+                children: [
+                  CircleAvatar(
+                    backgroundColor: Colors.purple.shade100,
+                    radius: 16,
+                    child: Text(
+                      name[0].toUpperCase(),
+                      style: TextStyle(
+                        color: Colors.purple.shade700,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
                   ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 12),
-            ...List.generate(
-              _currentTarget.collaborativeEmployeeNames.length,
-              (index) {
-                final name = _currentTarget.collaborativeEmployeeNames[index];
-                return Container(
-                  margin: const EdgeInsets.only(bottom: 8),
-                  padding: const EdgeInsets.all(12),
-                  decoration: BoxDecoration(
-                    color: Colors.purple.shade50,
-                    borderRadius: BorderRadius.circular(8),
-                    border: Border.all(color: Colors.purple.shade200),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Text(
+                      name,
+                      style: const TextStyle(
+                        fontWeight: FontWeight.w500,
+                        fontSize: 14,
+                      ),
+                    ),
                   ),
-                  child: Row(
-                    children: [
-                      CircleAvatar(
-                        backgroundColor: Colors.purple.shade100,
-                        radius: 16,
-                        child: Text(
-                          name[0].toUpperCase(),
-                          style: TextStyle(
-                            color: Colors.purple.shade700,
-                            fontWeight: FontWeight.bold,
-                          ),
+                  if (_currentTarget.isApproved &&
+                      _currentTarget.pointsAwarded > 0)
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 8,
+                        vertical: 4,
+                      ),
+                      decoration: BoxDecoration(
+                        color: Colors.purple.shade100,
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      child: Text(
+                        '+${_currentTarget.pointsAwarded} pts',
+                        style: TextStyle(
+                          color: Colors.purple.shade700,
+                          fontSize: 12,
+                          fontWeight: FontWeight.bold,
                         ),
                       ),
-                      const SizedBox(width: 12),
-                      Expanded(
-                        child: Text(
-                          name,
-                          style: const TextStyle(
-                            fontWeight: FontWeight.w500,
-                            fontSize: 14,
-                          ),
-                        ),
-                      ),
-                      if (_currentTarget.isApproved &&
-                          _currentTarget.pointsAwarded > 0)
-                        Container(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 8,
-                            vertical: 4,
-                          ),
-                          decoration: BoxDecoration(
-                            color: Colors.purple.shade100,
-                            borderRadius: BorderRadius.circular(12),
-                          ),
-                          child: Text(
-                            '+${_currentTarget.pointsAwarded} pts',
-                            style: TextStyle(
-                              color: Colors.purple.shade700,
-                              fontSize: 12,
-                              fontWeight: FontWeight.bold,
-                            ),
-                          ),
-                        ),
-                    ],
-                  ),
-                );
-              },
-            ),
-          ],
+                    ),
+                ],
+              ),
+            );
+          },
         ),
-      ),
+      ],
     );
   }
 
-  Widget _buildPointsHistorySection(AppProvider app) {
+  Widget _buildPointsHistoryContent(AppProvider app) {
     return FutureBuilder<List<PointsTransaction>>(
       future: _getTargetPointsTransactions(app),
       builder: (context, snapshot) {
         if (!snapshot.hasData || snapshot.data!.isEmpty) {
-          return const SizedBox.shrink();
+          return const Text(
+            'No points history available',
+            style: TextStyle(color: Colors.grey),
+          );
         }
 
         final transactions = snapshot.data!;
-        return Card(
-          child: Padding(
-            padding: const EdgeInsets.all(16.0),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Row(
-                  children: [
-                    Icon(Icons.history, color: Colors.green),
-                    const SizedBox(width: 8),
-                    Text(
-                      'Points History (${transactions.length} transactions)',
-                      style: const TextStyle(
-                        fontSize: 16,
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                  ],
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            ...transactions.map((tx) {
+              return Container(
+                margin: const EdgeInsets.only(bottom: 8),
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(color: Colors.grey.shade300),
                 ),
-                const SizedBox(height: 12),
-                ...transactions.map((tx) {
-                  return Container(
-                    margin: const EdgeInsets.only(bottom: 8),
-                    padding: const EdgeInsets.all(12),
-                    decoration: BoxDecoration(
-                      color: Colors.white,
-                      borderRadius: BorderRadius.circular(8),
-                      border: Border.all(color: Colors.grey.shade300),
-                    ),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
                       children: [
-                        Row(
-                          children: [
-                            Icon(
-                              tx.type == PointsTransactionType.earned
-                                  ? Icons.add_circle
-                                  : tx.type == PointsTransactionType.adjustment
-                                      ? Icons.tune
-                                      : Icons.remove_circle,
-                              color: tx.type == PointsTransactionType.earned
-                                  ? Colors.green
-                                  : tx.type == PointsTransactionType.adjustment
-                                      ? Colors.orange
-                                      : Colors.red,
-                              size: 16,
-                            ),
-                            const SizedBox(width: 8),
-                            Expanded(
-                              child: Text(
-                                tx.description,
-                                style: const TextStyle(
-                                  fontSize: 13,
-                                  fontWeight: FontWeight.w500,
-                                ),
-                              ),
-                            ),
-                            Text(
-                              '${tx.type == PointsTransactionType.redeemed || tx.points < 0 ? '-' : '+'}${tx.points.abs()} pts',
-                              style: TextStyle(
-                                fontWeight: FontWeight.bold,
-                                fontSize: 13,
-                                color: tx.type == PointsTransactionType.earned
-                                    ? Colors.green
-                                    : tx.type ==
-                                            PointsTransactionType.adjustment
-                                        ? Colors.orange
-                                        : Colors.red,
-                              ),
-                            ),
-                          ],
+                        Icon(
+                          tx.type == PointsTransactionType.earned
+                              ? Icons.add_circle
+                              : tx.type == PointsTransactionType.adjustment
+                                  ? Icons.tune
+                                  : Icons.remove_circle,
+                          color: tx.type == PointsTransactionType.earned
+                              ? Colors.green
+                              : tx.type == PointsTransactionType.adjustment
+                                  ? Colors.orange
+                                  : Colors.red,
+                          size: 16,
                         ),
-                        const SizedBox(height: 4),
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: Text(
+                            tx.description,
+                            style: const TextStyle(
+                              fontSize: 13,
+                              fontWeight: FontWeight.w500,
+                            ),
+                          ),
+                        ),
                         Text(
-                          DateFormat('MMM dd, yyyy • h:mm a').format(tx.date),
+                          '${tx.type == PointsTransactionType.redeemed || tx.points < 0 ? '-' : '+'}${tx.points.abs()} pts',
                           style: TextStyle(
-                            fontSize: 11,
-                            color: Colors.grey[600],
+                            fontWeight: FontWeight.bold,
+                            fontSize: 13,
+                            color: tx.type == PointsTransactionType.earned
+                                ? Colors.green
+                                : tx.type == PointsTransactionType.adjustment
+                                    ? Colors.orange
+                                    : Colors.red,
                           ),
                         ),
                       ],
                     ),
-                  );
-                }).toList(),
-              ],
-            ),
-          ),
+                    const SizedBox(height: 4),
+                    Text(
+                      DateFormat('MMM dd, yyyy • h:mm a').format(tx.date),
+                      style: TextStyle(
+                        fontSize: 11,
+                        color: Colors.grey[600],
+                      ),
+                    ),
+                  ],
+                ),
+              );
+            }).toList(),
+          ],
         );
       },
     );
   }
 
-  Widget _buildAdjustmentsHistorySection(AppProvider app) {
+  Widget _buildAdjustmentsHistoryContent(AppProvider app) {
     return FutureBuilder<List<PointsTransaction>>(
       future: _getAllTargetTransactions(app),
       builder: (context, snapshot) {
         if (!snapshot.hasData) {
-          return const SizedBox.shrink();
+          return const Text(
+            'Loading adjustments...',
+            style: TextStyle(color: Colors.grey),
+          );
         }
 
         final transactions = snapshot.data!;
@@ -1090,83 +1085,66 @@ class _TargetProfileScreenState extends State<TargetProfileScreen> {
             .toList();
 
         if (adjustments.isEmpty) {
-          return const SizedBox.shrink();
+          return const Text(
+            'No adjustments found',
+            style: TextStyle(color: Colors.grey),
+          );
         }
 
-        return Card(
-          child: Padding(
-            padding: const EdgeInsets.all(16.0),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Row(
-                  children: [
-                    Icon(Icons.tune, color: Colors.orange),
-                    const SizedBox(width: 8),
-                    Text(
-                      'Adjustments History (${adjustments.length})',
-                      style: const TextStyle(
-                        fontSize: 16,
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                  ],
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            ...adjustments.map((tx) {
+              return Container(
+                margin: const EdgeInsets.only(bottom: 8),
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: Colors.orange.shade50,
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(color: Colors.orange.shade200),
                 ),
-                const SizedBox(height: 12),
-                ...adjustments.map((tx) {
-                  return Container(
-                    margin: const EdgeInsets.only(bottom: 8),
-                    padding: const EdgeInsets.all(12),
-                    decoration: BoxDecoration(
-                      color: Colors.orange.shade50,
-                      borderRadius: BorderRadius.circular(8),
-                      border: Border.all(color: Colors.orange.shade200),
-                    ),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
                       children: [
-                        Row(
-                          children: [
-                            Expanded(
-                              child: Text(
-                                tx.description,
-                                style: const TextStyle(
-                                  fontSize: 13,
-                                  fontWeight: FontWeight.w500,
-                                ),
-                              ),
+                        Expanded(
+                          child: Text(
+                            tx.description,
+                            style: const TextStyle(
+                              fontSize: 13,
+                              fontWeight: FontWeight.w500,
                             ),
-                            Text(
-                              '${tx.points < 0 ? '' : '+'}${tx.points} pts',
-                              style: TextStyle(
-                                fontWeight: FontWeight.bold,
-                                fontSize: 13,
-                                color:
-                                    tx.points < 0 ? Colors.red : Colors.green,
-                              ),
-                            ),
-                          ],
+                          ),
                         ),
-                        const SizedBox(height: 4),
-                        FutureBuilder<String>(
-                          future: _getUserName(tx.userId, app),
-                          builder: (context, userSnapshot) {
-                            return Text(
-                              'User: ${userSnapshot.data ?? tx.userId} • ${DateFormat('MMM dd, h:mm a').format(tx.date)}',
-                              style: TextStyle(
-                                fontSize: 11,
-                                color: Colors.grey[600],
-                              ),
-                            );
-                          },
+                        Text(
+                          '${tx.points < 0 ? '' : '+'}${tx.points} pts',
+                          style: TextStyle(
+                            fontWeight: FontWeight.bold,
+                            fontSize: 13,
+                            color: tx.points < 0 ? Colors.red : Colors.green,
+                          ),
                         ),
                       ],
                     ),
-                  );
-                }).toList(),
-              ],
-            ),
-          ),
+                    const SizedBox(height: 4),
+                    FutureBuilder<String>(
+                      future: _getUserName(tx.userId, app),
+                      builder: (context, userSnapshot) {
+                        return Text(
+                          'User: ${userSnapshot.data ?? tx.userId} • ${DateFormat('MMM dd, h:mm a').format(tx.date)}',
+                          style: TextStyle(
+                            fontSize: 11,
+                            color: Colors.grey[600],
+                          ),
+                        );
+                      },
+                    ),
+                  ],
+                ),
+              );
+            }).toList(),
+          ],
         );
       },
     );
@@ -1206,5 +1184,82 @@ class _TargetProfileScreenState extends State<TargetProfileScreen> {
       ),
     );
     return user.name;
+  }
+}
+
+class _ExpandableSectionWidget extends StatefulWidget {
+  final String title;
+  final IconData icon;
+  final Color iconColor;
+  final List<Widget> children;
+  final bool initiallyExpanded;
+
+  const _ExpandableSectionWidget({
+    required this.title,
+    required this.icon,
+    required this.iconColor,
+    required this.children,
+    this.initiallyExpanded = false,
+  });
+
+  @override
+  State<_ExpandableSectionWidget> createState() =>
+      _ExpandableSectionWidgetState();
+}
+
+class _ExpandableSectionWidgetState extends State<_ExpandableSectionWidget> {
+  late bool isExpanded;
+
+  @override
+  void initState() {
+    super.initState();
+    isExpanded = widget.initiallyExpanded;
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Card(
+      child: Column(
+        children: [
+          InkWell(
+            onTap: () => setState(() => isExpanded = !isExpanded),
+            child: Padding(
+              padding: const EdgeInsets.all(16),
+              child: Row(
+                children: [
+                  Icon(widget.icon, color: widget.iconColor),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      widget.title,
+                      style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                            fontWeight: FontWeight.bold,
+                          ),
+                    ),
+                  ),
+                  AnimatedRotation(
+                    turns: isExpanded ? 0.5 : 0,
+                    duration: const Duration(milliseconds: 200),
+                    child: const Icon(Icons.keyboard_arrow_down),
+                  ),
+                ],
+              ),
+            ),
+          ),
+          AnimatedSize(
+            duration: const Duration(milliseconds: 200),
+            child: isExpanded
+                ? Padding(
+                    padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: widget.children,
+                    ),
+                  )
+                : const SizedBox.shrink(),
+          ),
+        ],
+      ),
+    );
   }
 }
