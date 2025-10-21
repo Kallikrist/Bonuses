@@ -7,6 +7,8 @@ class Company {
   final String adminUserId; // The admin who owns/manages this company
   final DateTime createdAt;
   final String? employeeCount; // For onboarding tracking
+  final String? subscriptionId; // Reference to active subscription
+  final bool isActive; // Whether company can use the platform
 
   Company({
     required this.id,
@@ -17,6 +19,8 @@ class Company {
     required this.adminUserId,
     required this.createdAt,
     this.employeeCount,
+    this.subscriptionId,
+    this.isActive = true,
   });
 
   Map<String, dynamic> toJson() {
@@ -29,6 +33,8 @@ class Company {
       'adminUserId': adminUserId,
       'createdAt': createdAt.toIso8601String(),
       'employeeCount': employeeCount,
+      'subscriptionId': subscriptionId,
+      'isActive': isActive,
     };
   }
 
@@ -42,6 +48,8 @@ class Company {
       adminUserId: json['adminUserId'],
       createdAt: DateTime.parse(json['createdAt']),
       employeeCount: json['employeeCount'],
+      subscriptionId: json['subscriptionId'],
+      isActive: json['isActive'] ?? true,
     );
   }
 
@@ -54,6 +62,8 @@ class Company {
     String? adminUserId,
     DateTime? createdAt,
     String? employeeCount,
+    String? subscriptionId,
+    bool? isActive,
   }) {
     return Company(
       id: id ?? this.id,
@@ -64,6 +74,8 @@ class Company {
       adminUserId: adminUserId ?? this.adminUserId,
       createdAt: createdAt ?? this.createdAt,
       employeeCount: employeeCount ?? this.employeeCount,
+      subscriptionId: subscriptionId ?? this.subscriptionId,
+      isActive: isActive ?? this.isActive,
     );
   }
 }

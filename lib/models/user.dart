@@ -1,6 +1,7 @@
 enum UserRole {
   employee,
   admin,
+  superAdmin, // Platform owner with access to all companies and billing
 }
 
 class User {
