@@ -6,6 +6,7 @@ import '../models/company_subscription.dart';
 import '../models/subscription_tier.dart';
 import '../models/payment_record.dart';
 import '../services/storage_service.dart';
+import 'payment_form_screen.dart';
 
 class AdminSubscriptionScreen extends StatefulWidget {
   final AppProvider appProvider;
@@ -671,10 +672,88 @@ class _AdminSubscriptionScreenState extends State<AdminSubscriptionScreen> {
                   DateFormat('MMMM dd, yyyy').format(subscription.trialEndsAt!),
                 ),
               const Divider(height: 24),
-              const Text(
-                'To update billing information, please contact support.',
-                style: TextStyle(fontSize: 13, color: Colors.grey),
-              ),
+              if (subscription.status == SubscriptionStatus.pastDue) ...[
+                Container(
+                  width: double.infinity,
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: Colors.orange[50],
+                    borderRadius: BorderRadius.circular(8),
+                    border: Border.all(color: Colors.orange[200]!),
+                  ),
+                  child: Column(
+                    children: [
+                      Row(
+                        children: [
+                          Icon(Icons.warning,
+                              color: Colors.orange[700], size: 20),
+                          const SizedBox(width: 8),
+                          Text(
+                            'Payment Required',
+                            style: TextStyle(
+                              fontWeight: FontWeight.bold,
+                              color: Colors.orange[700],
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 8),
+                      Text(
+                        'Your subscription payment is past due. Please update your payment method to continue using the platform.',
+                        style: TextStyle(
+                          color: Colors.orange[600],
+                          fontSize: 12,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 16),
+                SizedBox(
+                  width: double.infinity,
+                  child: ElevatedButton.icon(
+                    onPressed: () {
+                      Navigator.of(context).pop();
+                      Navigator.of(context)
+                          .push(
+                        MaterialPageRoute(
+                          builder: (context) => PaymentFormScreen(
+                            companyId: subscription.companyId,
+                            amount: subscription.currentPrice,
+                            description:
+                                'Subscription payment for ${subscription.tierId} plan',
+                          ),
+                        ),
+                      )
+                          .then((success) {
+                        if (success == true) {
+                          // Refresh the subscription data
+                          setState(() {});
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(
+                              content: Text(
+                                  'Payment processed successfully! Subscription activated.'),
+                              backgroundColor: Colors.green,
+                            ),
+                          );
+                        }
+                      });
+                    },
+                    icon: const Icon(Icons.payment),
+                    label: const Text('Pay Now'),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: Colors.orange[700],
+                      foregroundColor: Colors.white,
+                      padding: const EdgeInsets.symmetric(vertical: 12),
+                    ),
+                  ),
+                ),
+              ] else ...[
+                const Text(
+                  'To update billing information, please contact support.',
+                  style: TextStyle(fontSize: 13, color: Colors.grey),
+                ),
+              ],
             ],
           ),
         ),

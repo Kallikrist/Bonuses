@@ -14,6 +14,7 @@ import '../models/payment_record.dart';
 import '../models/notification.dart';
 import '../models/payment_card.dart';
 import '../models/financial_transaction.dart';
+import '../models/bank_account.dart';
 
 class StorageService {
   static const String _usersKey = 'users';
@@ -463,12 +464,15 @@ class StorageService {
 
   // Notifications Management
   static const String _notificationsKey = 'notifications';
-  
+
   // Payment Cards Management
   static const String _paymentCardsKey = 'payment_cards';
-  
+
   // Financial Transactions Management
   static const String _financialTransactionsKey = 'financial_transactions';
+
+  // Bank Accounts Management
+  static const String _bankAccountsKey = 'bank_accounts';
 
   static Future<List<AppNotification>> getNotifications() async {
     final prefs = await _prefs;
@@ -782,6 +786,7 @@ class StorageService {
 
   // Initialize with sample data
   static Future<void> initializeSampleData() async {
+    print('DEBUG: Demo Data - Starting initialization...');
     // Create demo company first
     const demoCompanyId = 'demo_company_utilif';
     final companies = await getCompanies();
@@ -1006,6 +1011,21 @@ class StorageService {
           companyPoints: {demoCompanyId: 200},
         ),
         User(
+          id: 'utilif_admin',
+          name: 'Utilif Administrator',
+          email: 'admin@utilif.com',
+          phoneNumber: '+354 555 1234',
+          role: UserRole.admin,
+          createdAt: DateTime.now(),
+          workplaceIds: ['wp1'],
+          workplaceNames: ['Downtown Store'],
+          companyIds: [demoCompanyId],
+          companyNames: ['Utilif'],
+          primaryCompanyId: demoCompanyId,
+          companyRoles: {demoCompanyId: 'admin'},
+          companyPoints: {demoCompanyId: 0},
+        ),
+        User(
           id: 'emp1',
           name: 'John Doe',
           email: 'john.doe@example.com',
@@ -1070,8 +1090,15 @@ class StorageService {
         // Only add if user with this ID doesn't exist
         if (!users.any((u) => u.id == user.id)) {
           await addUser(user);
+          print('DEBUG: Added user ${user.email} with ID ${user.id}');
+        } else {
+          print('DEBUG: User ${user.email} with ID ${user.id} already exists');
         }
       }
+
+      // Set passwords for demo users
+      await savePassword('utilif_admin', 'utilif123');
+      print('DEBUG: Added Utilif admin user with password utilif123');
     }
 
     // Create sample targets for the last 12 years (demo company only)
@@ -1168,6 +1195,41 @@ class StorageService {
 
     // Initialize demo subscriptions if they don't exist
     final subscriptions = await getSubscriptions();
+    print('DEBUG: Demo Data - Found ${subscriptions.length} existing subscriptions');
+    
+    // Check if we need to create/update the Utilif subscription
+    final utilifSubscription = subscriptions.where((s) => s.companyId == demoCompanyId).firstOrNull;
+    if (utilifSubscription == null || utilifSubscription.status != SubscriptionStatus.pastDue || utilifSubscription.currentPrice != 1.0) {
+      print('DEBUG: Demo Data - Need to create/update Utilif subscription');
+      
+      // Remove existing Utilif subscription if it exists
+      final filteredSubscriptions = subscriptions.where((s) => s.companyId != demoCompanyId).toList();
+      await saveSubscriptions(filteredSubscriptions);
+      
+      // Create new Utilif subscription
+      final now = DateTime.now();
+      final utilifSub = CompanySubscription(
+        id: 'sub_$demoCompanyId',
+        companyId: demoCompanyId,
+        tierId: 'tier_basic',
+        startDate: now.subtract(const Duration(days: 5)), // Started 5 days ago
+        status: SubscriptionStatus.pastDue,
+        paymentMethod: PaymentMethod.creditCard,
+        billingInterval: BillingInterval.monthly,
+        nextBillingDate: now.add(const Duration(days: 25)), // Next billing in 25 days
+        currentPrice: 1.0,
+        gracePeriodDays: 7,
+        createdAt: now.subtract(const Duration(days: 5)),
+        updatedAt: now,
+      );
+      
+      filteredSubscriptions.add(utilifSub);
+      await saveSubscriptions(filteredSubscriptions);
+      print('DEBUG: Demo Data - Created/updated Utilif subscription: status=${utilifSub.status}, price=\$${utilifSub.currentPrice}');
+    } else {
+      print('DEBUG: Demo Data - Utilif subscription already correct: status=${utilifSubscription.status}, price=\$${utilifSubscription.currentPrice}');
+    }
+    
     if (subscriptions.isEmpty) {
       // Get all companies for creating subscriptions
       final allCompanies = await getCompanies();
@@ -1180,22 +1242,32 @@ class StorageService {
             : 'tier_starter'; // Other companies get starter
 
         final now = DateTime.now();
+        // Special case for Utilif - create a $1 subscription with pending payment
+        final isUtilif = company.id == demoCompanyId;
+        print('DEBUG: Demo Data - Creating subscription for company ${company.id} (isUtilif: $isUtilif)');
         final subscription = CompanySubscription(
           id: 'sub_${company.id}',
           companyId: company.id,
-          tierId: tier,
-          startDate:
-              now.subtract(const Duration(days: 30)), // Started 30 days ago
-          status: SubscriptionStatus.active,
+          tierId: isUtilif ? 'tier_basic' : tier,
+          startDate: isUtilif
+              ? now.subtract(const Duration(days: 5)) // Started 5 days ago
+              : now.subtract(const Duration(days: 30)), // Started 30 days ago
+          status:
+              isUtilif ? SubscriptionStatus.pastDue : SubscriptionStatus.active,
           paymentMethod: PaymentMethod.creditCard,
           billingInterval: BillingInterval.monthly,
-          nextBillingDate:
-              now.add(const Duration(days: 30)), // Next billing in 30 days
-          currentPrice: tier == 'tier_professional' ? 99 : 29,
+          nextBillingDate: isUtilif
+              ? now.add(const Duration(days: 25)) // Next billing in 25 days
+              : now.add(const Duration(days: 30)), // Next billing in 30 days
+          currentPrice:
+              isUtilif ? 1.0 : (tier == 'tier_professional' ? 99 : 29),
           gracePeriodDays: 7,
-          createdAt: now.subtract(const Duration(days: 30)),
+          createdAt: isUtilif
+              ? now.subtract(const Duration(days: 5))
+              : now.subtract(const Duration(days: 30)),
           updatedAt: now,
         );
+        print('DEBUG: Demo Data - Created subscription: ${subscription.id}, status: ${subscription.status}, price: \$${subscription.currentPrice}');
         demoSubscriptions.add(subscription);
       }
 
@@ -1423,7 +1495,9 @@ class StorageService {
   static Future<List<PaymentCard>> getPaymentCards() async {
     final prefs = await _prefs;
     final cardsJson = prefs.getStringList(_paymentCardsKey) ?? [];
-    return cardsJson.map((json) => PaymentCard.fromJson(jsonDecode(json))).toList();
+    return cardsJson
+        .map((json) => PaymentCard.fromJson(jsonDecode(json)))
+        .toList();
   }
 
   static Future<void> savePaymentCards(List<PaymentCard> cards) async {
@@ -1465,23 +1539,30 @@ class StorageService {
   // Financial Transactions Management
   static Future<List<FinancialTransaction>> getFinancialTransactions() async {
     final prefs = await _prefs;
-    final transactionsJson = prefs.getStringList(_financialTransactionsKey) ?? [];
-    return transactionsJson.map((json) => FinancialTransaction.fromJson(jsonDecode(json))).toList();
+    final transactionsJson =
+        prefs.getStringList(_financialTransactionsKey) ?? [];
+    return transactionsJson
+        .map((json) => FinancialTransaction.fromJson(jsonDecode(json)))
+        .toList();
   }
 
-  static Future<void> saveFinancialTransactions(List<FinancialTransaction> transactions) async {
+  static Future<void> saveFinancialTransactions(
+      List<FinancialTransaction> transactions) async {
     final prefs = await _prefs;
-    final transactionsJson = transactions.map((tx) => jsonEncode(tx.toJson())).toList();
+    final transactionsJson =
+        transactions.map((tx) => jsonEncode(tx.toJson())).toList();
     await prefs.setStringList(_financialTransactionsKey, transactionsJson);
   }
 
-  static Future<void> addFinancialTransaction(FinancialTransaction transaction) async {
+  static Future<void> addFinancialTransaction(
+      FinancialTransaction transaction) async {
     final transactions = await getFinancialTransactions();
     transactions.add(transaction);
     await saveFinancialTransactions(transactions);
   }
 
-  static Future<void> updateFinancialTransaction(FinancialTransaction transaction) async {
+  static Future<void> updateFinancialTransaction(
+      FinancialTransaction transaction) async {
     final transactions = await getFinancialTransactions();
     final index = transactions.indexWhere((tx) => tx.id == transaction.id);
     if (index != -1) {
@@ -1496,12 +1577,94 @@ class StorageService {
     await saveFinancialTransactions(transactions);
   }
 
-  static Future<FinancialTransaction?> getFinancialTransactionById(String transactionId) async {
+  static Future<FinancialTransaction?> getFinancialTransactionById(
+      String transactionId) async {
     final transactions = await getFinancialTransactions();
     try {
       return transactions.firstWhere((tx) => tx.id == transactionId);
     } catch (e) {
       return null;
     }
+  }
+
+  // Bank Accounts Management
+  static Future<List<BankAccount>> getBankAccounts() async {
+    final prefs = await _prefs;
+    final accountsJson = prefs.getStringList(_bankAccountsKey) ?? [];
+    return accountsJson
+        .map((json) => BankAccount.fromJson(jsonDecode(json)))
+        .toList();
+  }
+
+  static Future<void> saveBankAccounts(List<BankAccount> accounts) async {
+    final prefs = await _prefs;
+    final accountsJson =
+        accounts.map((account) => jsonEncode(account.toJson())).toList();
+    await prefs.setStringList(_bankAccountsKey, accountsJson);
+  }
+
+  static Future<void> addBankAccount(BankAccount account) async {
+    final accounts = await getBankAccounts();
+    accounts.add(account);
+    await saveBankAccounts(accounts);
+  }
+
+  static Future<void> updateBankAccount(BankAccount account) async {
+    final accounts = await getBankAccounts();
+    final index = accounts.indexWhere((a) => a.id == account.id);
+    if (index != -1) {
+      accounts[index] = account;
+      await saveBankAccounts(accounts);
+    }
+  }
+
+  static Future<void> deleteBankAccount(String accountId) async {
+    final accounts = await getBankAccounts();
+    accounts.removeWhere((account) => account.id == accountId);
+    await saveBankAccounts(accounts);
+  }
+
+  static Future<BankAccount?> getBankAccountById(String accountId) async {
+    final accounts = await getBankAccounts();
+    try {
+      return accounts.firstWhere((account) => account.id == accountId);
+    } catch (e) {
+      return null;
+    }
+  }
+
+  // Force update Utilif subscription to $1 past due
+  static Future<void> forceUpdateUtilifSubscription() async {
+    const demoCompanyId = 'demo_company_utilif';
+    print('DEBUG: Force Update - Starting Utilif subscription update...');
+    
+    final subscriptions = await getSubscriptions();
+    print('DEBUG: Force Update - Found ${subscriptions.length} existing subscriptions');
+    
+    // Remove existing Utilif subscription if it exists
+    final filteredSubscriptions = subscriptions.where((s) => s.companyId != demoCompanyId).toList();
+    await saveSubscriptions(filteredSubscriptions);
+    print('DEBUG: Force Update - Removed existing Utilif subscription');
+    
+    // Create new Utilif subscription with $1 past due
+    final now = DateTime.now();
+    final utilifSub = CompanySubscription(
+      id: 'sub_$demoCompanyId',
+      companyId: demoCompanyId,
+      tierId: 'tier_basic',
+      startDate: now.subtract(const Duration(days: 5)), // Started 5 days ago
+      status: SubscriptionStatus.pastDue,
+      paymentMethod: PaymentMethod.creditCard,
+      billingInterval: BillingInterval.monthly,
+      nextBillingDate: now.add(const Duration(days: 25)), // Next billing in 25 days
+      currentPrice: 1.0,
+      gracePeriodDays: 7,
+      createdAt: now.subtract(const Duration(days: 5)),
+      updatedAt: now,
+    );
+    
+    filteredSubscriptions.add(utilifSub);
+    await saveSubscriptions(filteredSubscriptions);
+    print('DEBUG: Force Update - Created Utilif subscription: status=${utilifSub.status}, price=\$${utilifSub.currentPrice}');
   }
 }

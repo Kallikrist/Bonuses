@@ -10,8 +10,20 @@ import 'screens/super_admin_dashboard.dart';
 import 'screens/onboarding_screen.dart';
 import 'screens/company_selection_screen.dart';
 import 'widgets/branded_splash_screen.dart';
+import 'services/stripe_service.dart';
 
-void main() {
+void main() async {
+  WidgetsFlutterBinding.ensureInitialized();
+
+  // Initialize Stripe (Mock mode for demo)
+  try {
+    await StripeService.initialize();
+    print('Payment system initialized (mock mode)');
+  } catch (e) {
+    print(
+        'Payment system initialization failed (continuing with mock mode): $e');
+  }
+
   runApp(const BonusesApp());
 }
 

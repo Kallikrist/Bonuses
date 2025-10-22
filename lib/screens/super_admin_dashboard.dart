@@ -9,9 +9,11 @@ import '../models/platform_metrics.dart';
 import '../models/sales_target.dart';
 import '../models/points_transaction.dart';
 import '../models/payment_record.dart';
+import '../models/bank_account.dart';
 import '../services/storage_service.dart';
 import 'package:intl/intl.dart';
 import 'package:fl_chart/fl_chart.dart';
+import 'bank_accounts_screen.dart';
 
 class SuperAdminDashboard extends StatefulWidget {
   const SuperAdminDashboard({super.key});
@@ -2162,6 +2164,66 @@ class _SuperAdminDashboardState extends State<SuperAdminDashboard> {
                   fontWeight: FontWeight.bold,
                 ),
           ),
+          const SizedBox(height: 24),
+
+          // Bank Accounts Section
+          Card(
+            child: Padding(
+              padding: const EdgeInsets.all(16),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      Icon(
+                        Icons.account_balance,
+                        color: Colors.blue[600],
+                        size: 24,
+                      ),
+                      const SizedBox(width: 12),
+                      Text(
+                        'Bank Accounts',
+                        style:
+                            Theme.of(context).textTheme.titleMedium?.copyWith(
+                                  fontWeight: FontWeight.bold,
+                                ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 16),
+                  Text(
+                    'Manage bank accounts for receiving payments from companies.',
+                    style: TextStyle(
+                      color: Colors.grey[600],
+                      fontSize: 14,
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+                  SizedBox(
+                    width: double.infinity,
+                    child: ElevatedButton.icon(
+                      onPressed: () {
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (context) => const BankAccountsScreen(),
+                          ),
+                        );
+                      },
+                      icon: const Icon(Icons.account_balance),
+                      label: const Text('Manage Bank Accounts'),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: Colors.blue[600],
+                        foregroundColor: Colors.white,
+                        padding: const EdgeInsets.symmetric(vertical: 12),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+
           const SizedBox(height: 24),
 
           // Logout Section

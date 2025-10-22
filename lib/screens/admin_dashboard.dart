@@ -24,6 +24,7 @@ import 'chat_screen.dart';
 import 'admin_subscription_screen.dart';
 import 'payment_cards_screen.dart';
 import 'financial_transactions_screen.dart';
+import '../models/company_subscription.dart';
 
 class EmployeePerformance {
   final String employeeId;
@@ -218,6 +219,8 @@ class _AdminDashboardState extends State<AdminDashboard> {
                   _saveSelectedDate(selectedDate);
                 },
               ),
+              // Subscription Status Banner
+              _buildSubscriptionStatusBanner(appProvider),
               // Main Content
               Expanded(
                 child: _getCurrentTab(_selectedIndex, selectedDateTargets,
@@ -781,12 +784,50 @@ class _AdminDashboardState extends State<AdminDashboard> {
           ),
           const SizedBox(height: 16),
           if (selectedDateTargets.isEmpty)
-            Card(
-              child: Padding(
-                padding: const EdgeInsets.all(16),
-                child: Text(isToday
-                    ? 'No targets for today'
-                    : 'No targets for selected date'),
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.all(48),
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(12),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.grey.withOpacity(0.1),
+                    spreadRadius: 1,
+                    blurRadius: 4,
+                    offset: const Offset(0, 2),
+                  ),
+                ],
+              ),
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Icon(
+                    Icons.track_changes,
+                    size: 80,
+                    color: Colors.grey[400],
+                  ),
+                  const SizedBox(height: 24),
+                  Text(
+                    isToday
+                        ? 'No targets for today'
+                        : 'No targets for selected date',
+                    style: TextStyle(
+                      fontSize: 18,
+                      fontWeight: FontWeight.w600,
+                      color: Colors.grey[700],
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  Text(
+                    'Targets will appear here when assigned',
+                    style: TextStyle(
+                      fontSize: 16,
+                      color: Colors.grey[500],
+                    ),
+                    textAlign: TextAlign.center,
+                  ),
+                ],
               ),
             )
           else
@@ -3313,14 +3354,16 @@ class _AdminDashboardState extends State<AdminDashboard> {
                 Icons.subscriptions,
                 'Subscription Plan',
                 'View and manage your company\'s subscription plan',
-                () {
-                  Navigator.push(
+                () async {
+                  await Navigator.push(
                     context,
                     MaterialPageRoute(
                       builder: (context) =>
                           AdminSubscriptionScreen(appProvider: appProvider),
                     ),
                   );
+                  // Refresh the dashboard when returning from subscription screen
+                  setState(() {});
                 },
               ),
               _buildSettingsItem(
@@ -5071,6 +5114,117 @@ class _AdminDashboardState extends State<AdminDashboard> {
           ],
         ),
       ),
+    );
+  }
+
+  Future<List<CompanySubscription>> _getSubscriptionsWithUpdate() async {
+    // Force update the Utilif subscription to ensure it's $1 past due
+    await StorageService.forceUpdateUtilifSubscription();
+    return await StorageService.getSubscriptions();
+  }
+
+  Widget _buildSubscriptionStatusBanner(AppProvider appProvider) {
+    return FutureBuilder<List<CompanySubscription>>(
+      future: StorageService.getSubscriptions(),
+      builder: (context, snapshot) {
+        print('DEBUG: Banner - Connection state: ${snapshot.connectionState}');
+        if (snapshot.connectionState == ConnectionState.waiting) {
+          return const SizedBox.shrink();
+        }
+
+        if (!snapshot.hasData || snapshot.data!.isEmpty) {
+          print('DEBUG: Banner - No subscription data available');
+          return const SizedBox.shrink();
+        }
+
+        final subscriptions = snapshot.data!;
+        print('DEBUG: Banner - Found ${subscriptions.length} subscriptions');
+        final currentCompanyId = appProvider.currentUser?.primaryCompanyId;
+        print('DEBUG: Banner - Current company ID: $currentCompanyId');
+        if (currentCompanyId == null) {
+          print('DEBUG: Banner - No current company ID');
+          return const SizedBox.shrink();
+        }
+
+        final companySubscription = subscriptions.firstWhere(
+          (sub) => sub.companyId == currentCompanyId,
+          orElse: () => subscriptions.first,
+        );
+        print(
+            'DEBUG: Banner - Company subscription status: ${companySubscription.status}');
+        print(
+            'DEBUG: Banner - Company subscription price: \$${companySubscription.currentPrice}');
+
+        // Only show banner for past due subscriptions
+        if (companySubscription.status != SubscriptionStatus.pastDue) {
+          print('DEBUG: Banner - Subscription is not past due, hiding banner');
+          return const SizedBox.shrink();
+        }
+
+        print('DEBUG: Banner - Showing payment required banner');
+
+        return Container(
+          margin: const EdgeInsets.all(16),
+          padding: const EdgeInsets.all(16),
+          decoration: BoxDecoration(
+            color: Colors.orange[50],
+            border: Border.all(color: Colors.orange[300]!),
+            borderRadius: BorderRadius.circular(12),
+          ),
+          child: Row(
+            children: [
+              Icon(
+                Icons.warning,
+                color: Colors.orange[700],
+                size: 24,
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Payment Required',
+                      style: TextStyle(
+                        fontWeight: FontWeight.bold,
+                        color: Colors.orange[700],
+                        fontSize: 16,
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      'Your subscription payment of \$${companySubscription.currentPrice.toStringAsFixed(2)} is past due. Please update your payment method to continue using the platform.',
+                      style: TextStyle(
+                        color: Colors.orange[600],
+                        fontSize: 14,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(width: 12),
+              ElevatedButton(
+                onPressed: () async {
+                  await Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (context) =>
+                          AdminSubscriptionScreen(appProvider: appProvider),
+                    ),
+                  );
+                  // Refresh the dashboard when returning from subscription screen
+                  setState(() {});
+                },
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: Colors.orange[700],
+                  foregroundColor: Colors.white,
+                ),
+                child: const Text('Pay Now'),
+              ),
+            ],
+          ),
+        );
+      },
     );
   }
 
