@@ -108,7 +108,7 @@ void main() {
 
     test('Employee user can log in', () async {
       final success = await AuthService.login(
-        'john@store.com',
+        'employee@test.com',
         'password123',
       );
 
@@ -156,7 +156,7 @@ void main() {
 
       expect(success, true);
       expect(AuthService.currentUser!.role, UserRole.superAdmin);
-      expect(AuthService.currentUser!.primaryCompanyId, isNull);
+      expect(AuthService.currentUser!.primaryCompanyId, isEmpty);
     });
 
     test('User with at least one active company can log in', () async {
@@ -202,7 +202,7 @@ void main() {
       expect(AuthService.currentUser, isNull);
 
       // Login as employee
-      success = await AuthService.login('john@store.com', 'password123');
+      success = await AuthService.login('employee@test.com', 'password123');
       expect(success, true);
       expect(AuthService.currentUser!.role, UserRole.employee);
     });
@@ -211,6 +211,55 @@ void main() {
   group('AuthService Company Status Check Tests', () {
     setUp(() async {
       SharedPreferences.setMockInitialValues({});
+
+      // Create test data for company status tests
+      final superAdminUser = User(
+        id: 'superadmin_status_test',
+        name: 'Super Admin Status Test',
+        email: 'superadmin@platform.com',
+        phoneNumber: '+1 (555) 000-0000',
+        role: UserRole.superAdmin,
+        createdAt: DateTime.now(),
+        workplaceIds: [],
+        workplaceNames: [],
+        companyIds: [],
+        companyNames: [],
+        primaryCompanyId: '',
+        companyRoles: {},
+        companyPoints: {},
+      );
+
+      final adminUser = User(
+        id: 'admin_status_test',
+        name: 'Admin Status Test',
+        email: 'admin@store.com',
+        phoneNumber: '+1 (555) 111-1111',
+        role: UserRole.admin,
+        createdAt: DateTime.now(),
+        workplaceIds: ['workplace1'],
+        workplaceNames: ['Test Workplace'],
+        companyIds: ['test_company'],
+        companyNames: ['Test Company'],
+        primaryCompanyId: 'test_company',
+        companyRoles: {'test_company': 'admin'},
+        companyPoints: {'test_company': 0},
+      );
+
+      final testCompany = Company(
+        id: 'test_company',
+        name: 'Test Company',
+        contactEmail: 'admin@test.com',
+        adminUserId: 'admin_status_test',
+        createdAt: DateTime.now(),
+        isActive: true,
+      );
+
+      await StorageService.addUser(superAdminUser);
+      await StorageService.addUser(adminUser);
+      await StorageService.addCompany(testCompany);
+      await StorageService.savePassword(
+          'superadmin_status_test', 'superadmin123');
+      await StorageService.savePassword('admin_status_test', 'password123');
     });
 
     tearDown(() async {
@@ -218,32 +267,15 @@ void main() {
     });
 
     test('User with active company can log in', () async {
-      final users = await StorageService.getUsers();
-      final companies = await StorageService.getCompanies();
-
-      // Find a user with at least one active company
-      final testUser = users.firstWhere(
-        (u) =>
-            u.role != UserRole.superAdmin &&
-            u.companyIds
-                .any((cId) => companies.any((c) => c.id == cId && c.isActive)),
-        orElse: () => users.firstWhere((u) => u.role == UserRole.admin),
-      );
-
-      final password = await StorageService.getPassword(testUser.id);
+      // Use the admin user we know has an active company
       final success = await AuthService.login(
-        testUser.email,
-        password ?? 'password123',
+        'admin@store.com',
+        'password123',
       );
 
-      // Should succeed if user has at least one active company
-      final hasActiveCompany = companies.any(
-        (c) => testUser.companyIds.contains(c.id) && c.isActive,
-      );
-
-      if (hasActiveCompany) {
-        expect(success, true);
-      }
+      expect(success, true);
+      expect(AuthService.currentUser, isNotNull);
+      expect(AuthService.currentUser!.role, UserRole.admin);
     });
 
     test('Super admin email bypass works', () async {
@@ -261,36 +293,66 @@ void main() {
   group('AuthService Password Management', () {
     setUp(() async {
       SharedPreferences.setMockInitialValues({});
+
+      // Create a test user for password tests
+      final testUser = User(
+        id: 'password_test_user',
+        name: 'Password Test User',
+        email: 'password@test.com',
+        phoneNumber: '+1 (555) 333-3333',
+        role: UserRole.admin,
+        createdAt: DateTime.now(),
+        workplaceIds: ['workplace1'],
+        workplaceNames: ['Test Workplace'],
+        companyIds: ['test_company'],
+        companyNames: ['Test Company'],
+        primaryCompanyId: 'test_company',
+        companyRoles: {'test_company': 'admin'},
+        companyPoints: {'test_company': 0},
+      );
+
+      final testCompany = Company(
+        id: 'test_company',
+        name: 'Test Company',
+        contactEmail: 'admin@test.com',
+        adminUserId: 'password_test_user',
+        createdAt: DateTime.now(),
+        isActive: true,
+      );
+
+      await StorageService.addUser(testUser);
+      await StorageService.addCompany(testCompany);
     });
 
     test('Default password works for new users', () async {
-      final users = await StorageService.getUsers();
-      final testUser = users.first;
-
-      // Try logging in with default password
+      // Try logging in with default password (no stored password)
       final success = await AuthService.login(
-        testUser.email,
+        'password@test.com',
         'password123',
       );
 
-      // Should work if no custom password is set
-      expect(success, isA<bool>());
+      expect(success, true);
     });
 
     test('Stored password takes precedence over default', () async {
-      final users = await StorageService.getUsers();
-      final testUser = users.first;
+      // Set a custom password
+      await StorageService.savePassword('password_test_user', 'custom123');
 
-      final storedPassword = await StorageService.getPassword(testUser.id);
-      if (storedPassword != null) {
-        // Login with stored password should work
-        final success = await AuthService.login(
-          testUser.email,
-          storedPassword,
-        );
+      // Login with stored password should work
+      final success = await AuthService.login(
+        'password@test.com',
+        'custom123',
+      );
 
-        expect(success, true);
-      }
+      expect(success, true);
+
+      // Login with default password should fail
+      final defaultSuccess = await AuthService.login(
+        'password@test.com',
+        'password123',
+      );
+
+      expect(defaultSuccess, false);
     });
   });
 }
