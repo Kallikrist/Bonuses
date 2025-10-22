@@ -22,6 +22,8 @@ import 'login_screen.dart';
 import 'messaging_screen.dart';
 import 'chat_screen.dart';
 import 'admin_subscription_screen.dart';
+import 'payment_cards_screen.dart';
+import 'financial_transactions_screen.dart';
 
 class EmployeePerformance {
   final String employeeId;
@@ -3317,6 +3319,32 @@ class _AdminDashboardState extends State<AdminDashboard> {
                     MaterialPageRoute(
                       builder: (context) =>
                           AdminSubscriptionScreen(appProvider: appProvider),
+                    ),
+                  );
+                },
+              ),
+              _buildSettingsItem(
+                Icons.credit_card,
+                'Payment Cards',
+                'Manage payment cards for subscriptions and payments',
+                () {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (context) => const PaymentCardsScreen(),
+                    ),
+                  );
+                },
+              ),
+              _buildSettingsItem(
+                Icons.receipt_long,
+                'Financial Transactions',
+                'View and manage all financial transactions',
+                () {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (context) => const FinancialTransactionsScreen(),
                     ),
                   );
                 },

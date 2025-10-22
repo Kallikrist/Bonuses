@@ -12,6 +12,8 @@ import '../models/message.dart';
 import '../models/company_subscription.dart';
 import '../models/payment_record.dart';
 import '../models/notification.dart';
+import '../models/payment_card.dart';
+import '../models/financial_transaction.dart';
 
 class StorageService {
   static const String _usersKey = 'users';
@@ -461,6 +463,12 @@ class StorageService {
 
   // Notifications Management
   static const String _notificationsKey = 'notifications';
+  
+  // Payment Cards Management
+  static const String _paymentCardsKey = 'payment_cards';
+  
+  // Financial Transactions Management
+  static const String _financialTransactionsKey = 'financial_transactions';
 
   static Future<List<AppNotification>> getNotifications() async {
     final prefs = await _prefs;
@@ -1409,5 +1417,91 @@ class StorageService {
   static Future<void> clearSelectedDate(String userId) async {
     final prefs = await _prefs;
     await prefs.remove('$_selectedDatePrefix$userId');
+  }
+
+  // Payment Cards Management
+  static Future<List<PaymentCard>> getPaymentCards() async {
+    final prefs = await _prefs;
+    final cardsJson = prefs.getStringList(_paymentCardsKey) ?? [];
+    return cardsJson.map((json) => PaymentCard.fromJson(jsonDecode(json))).toList();
+  }
+
+  static Future<void> savePaymentCards(List<PaymentCard> cards) async {
+    final prefs = await _prefs;
+    final cardsJson = cards.map((card) => jsonEncode(card.toJson())).toList();
+    await prefs.setStringList(_paymentCardsKey, cardsJson);
+  }
+
+  static Future<void> addPaymentCard(PaymentCard card) async {
+    final cards = await getPaymentCards();
+    cards.add(card);
+    await savePaymentCards(cards);
+  }
+
+  static Future<void> updatePaymentCard(PaymentCard card) async {
+    final cards = await getPaymentCards();
+    final index = cards.indexWhere((c) => c.id == card.id);
+    if (index != -1) {
+      cards[index] = card;
+      await savePaymentCards(cards);
+    }
+  }
+
+  static Future<void> deletePaymentCard(String cardId) async {
+    final cards = await getPaymentCards();
+    cards.removeWhere((card) => card.id == cardId);
+    await savePaymentCards(cards);
+  }
+
+  static Future<PaymentCard?> getPaymentCardById(String cardId) async {
+    final cards = await getPaymentCards();
+    try {
+      return cards.firstWhere((card) => card.id == cardId);
+    } catch (e) {
+      return null;
+    }
+  }
+
+  // Financial Transactions Management
+  static Future<List<FinancialTransaction>> getFinancialTransactions() async {
+    final prefs = await _prefs;
+    final transactionsJson = prefs.getStringList(_financialTransactionsKey) ?? [];
+    return transactionsJson.map((json) => FinancialTransaction.fromJson(jsonDecode(json))).toList();
+  }
+
+  static Future<void> saveFinancialTransactions(List<FinancialTransaction> transactions) async {
+    final prefs = await _prefs;
+    final transactionsJson = transactions.map((tx) => jsonEncode(tx.toJson())).toList();
+    await prefs.setStringList(_financialTransactionsKey, transactionsJson);
+  }
+
+  static Future<void> addFinancialTransaction(FinancialTransaction transaction) async {
+    final transactions = await getFinancialTransactions();
+    transactions.add(transaction);
+    await saveFinancialTransactions(transactions);
+  }
+
+  static Future<void> updateFinancialTransaction(FinancialTransaction transaction) async {
+    final transactions = await getFinancialTransactions();
+    final index = transactions.indexWhere((tx) => tx.id == transaction.id);
+    if (index != -1) {
+      transactions[index] = transaction;
+      await saveFinancialTransactions(transactions);
+    }
+  }
+
+  static Future<void> deleteFinancialTransaction(String transactionId) async {
+    final transactions = await getFinancialTransactions();
+    transactions.removeWhere((tx) => tx.id == transactionId);
+    await saveFinancialTransactions(transactions);
+  }
+
+  static Future<FinancialTransaction?> getFinancialTransactionById(String transactionId) async {
+    final transactions = await getFinancialTransactions();
+    try {
+      return transactions.firstWhere((tx) => tx.id == transactionId);
+    } catch (e) {
+      return null;
+    }
   }
 }
