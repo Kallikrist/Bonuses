@@ -249,8 +249,12 @@ class _AdminDashboardState extends State<AdminDashboard> {
                     padding:
                         const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
                     child: Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceAround,
-                      children: navItems,
+                      mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                      children: navItems
+                          .map((item) => Expanded(
+                                child: item,
+                              ))
+                          .toList(),
                     ),
                   ),
                 ),
