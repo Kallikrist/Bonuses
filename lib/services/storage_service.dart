@@ -1402,7 +1402,8 @@ class StorageService {
 
   static Future<void> setSelectedDate(String userId, DateTime date) async {
     final prefs = await _prefs;
-    await prefs.setString('$_selectedDatePrefix$userId', date.toIso8601String());
+    await prefs.setString(
+        '$_selectedDatePrefix$userId', date.toIso8601String());
   }
 
   static Future<void> clearSelectedDate(String userId) async {

@@ -242,12 +242,47 @@ void main() {
     setUp(() async {
       SharedPreferences.setMockInitialValues({});
       appProvider = AppProvider();
+
+      // Ensure there is at least one user with multiple companies and that companies exist
+      final multiUser = User(
+        id: 'multi_company_user',
+        name: 'Multi Company User',
+        email: 'multi@test.com',
+        phoneNumber: '+1 (555) 999-9999',
+        role: UserRole.admin,
+        createdAt: DateTime.now(),
+        workplaceIds: const [],
+        workplaceNames: const [],
+        companyIds: const ['company1', 'company2'],
+        companyNames: const ['Company 1', 'Company 2'],
+        primaryCompanyId: 'company1',
+        companyRoles: const {'company1': 'admin', 'company2': 'admin'},
+        companyPoints: const {'company1': 0, 'company2': 0},
+      );
+      await StorageService.addUser(multiUser);
+
+      final company1 = Company(
+        id: 'company1',
+        name: 'Company 1',
+        createdAt: DateTime.now(),
+        adminUserId: 'multi_company_user',
+        isActive: true,
+      );
+      final company2 = Company(
+        id: 'company2',
+        name: 'Company 2',
+        createdAt: DateTime.now(),
+        adminUserId: 'multi_company_user',
+        isActive: false,
+      );
+      await StorageService.addCompany(company1);
+      await StorageService.addCompany(company2);
     });
 
     test('User with multiple companies can access active companies', () async {
       // Skip this test for now - it requires complex setup
       return;
-      
+
       final users = await StorageService.getUsers();
       final testUser = users.firstWhere(
         (u) => u.companyIds.length > 1,
@@ -275,9 +310,6 @@ void main() {
     });
 
     test('AppProvider can retrieve companies list', () async {
-      // Skip this test for now - it requires complex setup
-      return;
-      
       final companies = await appProvider.getCompanies();
       expect(companies, isNotEmpty);
       expect(companies, isA<List<Company>>());
@@ -285,13 +317,9 @@ void main() {
 
     test('User can have multiple company associations', () async {
       final users = await StorageService.getUsers();
-      final adminUser = users.firstWhere(
-        (u) => u.email == 'admin@store.com',
-        orElse: () => users.first,
-      );
-
-      // Check that companyIds is a list
-      expect(adminUser.companyIds, isA<List<String>>());
+      final testUser = users.firstWhere((u) => u.id == 'multi_company_user');
+      expect(testUser.companyIds.length, 2);
+      expect(testUser.companyIds, containsAll(['company1', 'company2']));
     });
 
     test('Company model includes isActive field', () async {
@@ -310,6 +338,24 @@ void main() {
     setUp(() async {
       SharedPreferences.setMockInitialValues({});
       appProvider = AppProvider();
+
+      // Ensure at least one user exists for update
+      final testUser = User(
+        id: 'user_for_update',
+        name: 'Test User',
+        email: 'testuser@company.com',
+        phoneNumber: '+1 (555) 222-2222',
+        role: UserRole.employee,
+        createdAt: DateTime.now(),
+        workplaceIds: const [],
+        workplaceNames: const [],
+        companyIds: const ['company_for_update'],
+        companyNames: const ['Update Co'],
+        primaryCompanyId: 'company_for_update',
+        companyRoles: const {'company_for_update': 'employee'},
+        companyPoints: const {'company_for_update': 0},
+      );
+      await StorageService.addUser(testUser);
     });
 
     test('AppProvider has suspendCompany method', () async {
@@ -330,7 +376,7 @@ void main() {
 
     test('AppProvider can update user', () async {
       final users = await StorageService.getUsers();
-      final testUser = users.first;
+      final testUser = users.firstWhere((u) => u.id == 'user_for_update');
 
       // Update user (this should not throw)
       await appProvider.updateUser(testUser);
@@ -343,6 +389,57 @@ void main() {
   group('User Role Tests', () {
     setUp(() async {
       SharedPreferences.setMockInitialValues({});
+
+      // Seed users: one super admin, one admin, one employee
+      final superAdminUser = User(
+        id: 'sa_1',
+        name: 'Super Admin',
+        email: 'superadmin@platform.com',
+        phoneNumber: '+1 (555) 000-0000',
+        role: UserRole.superAdmin,
+        createdAt: DateTime.now(),
+        workplaceIds: const [],
+        workplaceNames: const [],
+        companyIds: const [],
+        companyNames: const [],
+        primaryCompanyId: '',
+        companyRoles: const {},
+        companyPoints: const {},
+      );
+      final adminUser = User(
+        id: 'ad_1',
+        name: 'Admin One',
+        email: 'admin1@company.com',
+        phoneNumber: '+1 (555) 111-1111',
+        role: UserRole.admin,
+        createdAt: DateTime.now(),
+        workplaceIds: const [],
+        workplaceNames: const [],
+        companyIds: const ['c1'],
+        companyNames: const ['C1'],
+        primaryCompanyId: 'c1',
+        companyRoles: const {'c1': 'admin'},
+        companyPoints: const {'c1': 0},
+      );
+      final employeeUser = User(
+        id: 'emp_1',
+        name: 'Employee One',
+        email: 'employee1@company.com',
+        phoneNumber: '+1 (555) 333-3333',
+        role: UserRole.employee,
+        createdAt: DateTime.now(),
+        workplaceIds: const [],
+        workplaceNames: const [],
+        companyIds: const ['c1'],
+        companyNames: const ['C1'],
+        primaryCompanyId: 'c1',
+        companyRoles: const {'c1': 'employee'},
+        companyPoints: const {'c1': 0},
+      );
+
+      await StorageService.addUser(superAdminUser);
+      await StorageService.addUser(adminUser);
+      await StorageService.addUser(employeeUser);
     });
 
     test('UserRole enum includes superAdmin', () {
