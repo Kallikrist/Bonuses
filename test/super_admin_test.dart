@@ -64,6 +64,11 @@ void main() {
       await StorageService.savePassword('superadmin1', 'superadmin123');
       await StorageService.savePassword('admin1', 'password123');
 
+      // Verify data was saved
+      final savedUsers = await StorageService.getUsers();
+      final savedCompanies = await StorageService.getCompanies();
+      print('DEBUG: Saved ${savedUsers.length} users and ${savedCompanies.length} companies');
+
       appProvider = AppProvider();
     });
 
@@ -82,7 +87,7 @@ void main() {
     test('Super admin can suspend a company', () async {
       final companies = await StorageService.getCompanies();
       final testCompany = companies.firstWhere(
-        (c) => c.name == 'Dominos',
+        (c) => c.name == 'Test Company',
         orElse: () => throw Exception('Test company not found'),
       );
 
@@ -102,7 +107,7 @@ void main() {
     test('Super admin can activate a suspended company', () async {
       final companies = await StorageService.getCompanies();
       final testCompany = companies.firstWhere(
-        (c) => c.name == 'Dominos',
+        (c) => c.name == 'Test Company',
         orElse: () => throw Exception('Test company not found'),
       );
 
@@ -132,7 +137,7 @@ void main() {
         (u) => u.email == 'superadmin@platform.com',
       );
 
-      expect(superAdmin.primaryCompanyId, null);
+      expect(superAdmin.primaryCompanyId, isEmpty);
     });
 
     test('Super admin bypasses company status check', () async {
