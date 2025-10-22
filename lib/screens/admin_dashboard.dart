@@ -2024,6 +2024,32 @@ class _AdminDashboardState extends State<AdminDashboard> {
     );
   }
 
+  void _resetSubscriptionForTesting(BuildContext context) async {
+    try {
+      await StorageService.resetUtilifSubscriptionForTesting();
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content:
+                Text('Subscription reset to past due for testing Apple Pay!'),
+            backgroundColor: Colors.blue,
+          ),
+        );
+        // Refresh the dashboard to show the payment banner
+        setState(() {});
+      }
+    } catch (e) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Failed to reset subscription: $e'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    }
+  }
+
   void _showLogoutDialog(BuildContext context, AppProvider appProvider) {
     showDialog(
       context: context,
@@ -3401,18 +3427,34 @@ class _AdminDashboardState extends State<AdminDashboard> {
                     .where((r) => r.status == ApprovalStatus.pending)
                     .length,
               ),
-              _buildSettingsItem(
-                Icons.science,
-                'Load Demo Data',
-                'Load sample users, targets, and bonuses for testing',
-                () => _showLoadDemoDataDialog(context, appProvider),
-              ),
               _buildDarkModeToggle(appProvider),
               _buildSettingsItem(
                 Icons.logout,
                 'Logout',
                 'Sign out of your account',
                 () => _showLogoutDialog(context, appProvider),
+              ),
+            ],
+          ),
+
+          const SizedBox(height: 16),
+          // Demo Settings Section
+          _buildExpandableSection(
+            title: 'Demo Settings',
+            icon: Icons.bug_report,
+            iconColor: Colors.purple[600]!,
+            children: [
+              _buildSettingsItem(
+                Icons.science,
+                'Load Demo Data',
+                'Load sample users, targets, and bonuses for testing',
+                () => _showLoadDemoDataDialog(context, appProvider),
+              ),
+              _buildSettingsItem(
+                Icons.payment,
+                'Reset Subscription for Testing',
+                'Reset Utilif subscription to past due for testing Apple Pay',
+                () => _resetSubscriptionForTesting(context),
               ),
             ],
           ),
@@ -5220,6 +5262,26 @@ class _AdminDashboardState extends State<AdminDashboard> {
                   foregroundColor: Colors.white,
                 ),
                 child: const Text('Pay Now'),
+              ),
+              const SizedBox(width: 8),
+              // Debug button to reset subscription for testing Apple Pay
+              ElevatedButton(
+                onPressed: () async {
+                  await StorageService.resetUtilifSubscriptionForTesting();
+                  setState(() {});
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(
+                      content:
+                          Text('Subscription reset to past due for testing'),
+                      backgroundColor: Colors.blue,
+                    ),
+                  );
+                },
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: Colors.blue[600],
+                  foregroundColor: Colors.white,
+                ),
+                child: const Text('Reset for Testing'),
               ),
             ],
           ),

@@ -1195,17 +1195,22 @@ class StorageService {
 
     // Initialize demo subscriptions if they don't exist
     final subscriptions = await getSubscriptions();
-    print('DEBUG: Demo Data - Found ${subscriptions.length} existing subscriptions');
-    
+    print(
+        'DEBUG: Demo Data - Found ${subscriptions.length} existing subscriptions');
+
     // Check if we need to create/update the Utilif subscription
-    final utilifSubscription = subscriptions.where((s) => s.companyId == demoCompanyId).firstOrNull;
-    if (utilifSubscription == null || utilifSubscription.status != SubscriptionStatus.pastDue || utilifSubscription.currentPrice != 1.0) {
+    final utilifSubscription =
+        subscriptions.where((s) => s.companyId == demoCompanyId).firstOrNull;
+    if (utilifSubscription == null ||
+        utilifSubscription.status != SubscriptionStatus.pastDue ||
+        utilifSubscription.currentPrice != 1.0) {
       print('DEBUG: Demo Data - Need to create/update Utilif subscription');
-      
+
       // Remove existing Utilif subscription if it exists
-      final filteredSubscriptions = subscriptions.where((s) => s.companyId != demoCompanyId).toList();
+      final filteredSubscriptions =
+          subscriptions.where((s) => s.companyId != demoCompanyId).toList();
       await saveSubscriptions(filteredSubscriptions);
-      
+
       // Create new Utilif subscription
       final now = DateTime.now();
       final utilifSub = CompanySubscription(
@@ -1216,20 +1221,23 @@ class StorageService {
         status: SubscriptionStatus.pastDue,
         paymentMethod: PaymentMethod.creditCard,
         billingInterval: BillingInterval.monthly,
-        nextBillingDate: now.add(const Duration(days: 25)), // Next billing in 25 days
+        nextBillingDate:
+            now.add(const Duration(days: 25)), // Next billing in 25 days
         currentPrice: 1.0,
         gracePeriodDays: 7,
         createdAt: now.subtract(const Duration(days: 5)),
         updatedAt: now,
       );
-      
+
       filteredSubscriptions.add(utilifSub);
       await saveSubscriptions(filteredSubscriptions);
-      print('DEBUG: Demo Data - Created/updated Utilif subscription: status=${utilifSub.status}, price=\$${utilifSub.currentPrice}');
+      print(
+          'DEBUG: Demo Data - Created/updated Utilif subscription: status=${utilifSub.status}, price=\$${utilifSub.currentPrice}');
     } else {
-      print('DEBUG: Demo Data - Utilif subscription already correct: status=${utilifSubscription.status}, price=\$${utilifSubscription.currentPrice}');
+      print(
+          'DEBUG: Demo Data - Utilif subscription already correct: status=${utilifSubscription.status}, price=\$${utilifSubscription.currentPrice}');
     }
-    
+
     if (subscriptions.isEmpty) {
       // Get all companies for creating subscriptions
       final allCompanies = await getCompanies();
@@ -1244,7 +1252,8 @@ class StorageService {
         final now = DateTime.now();
         // Special case for Utilif - create a $1 subscription with pending payment
         final isUtilif = company.id == demoCompanyId;
-        print('DEBUG: Demo Data - Creating subscription for company ${company.id} (isUtilif: $isUtilif)');
+        print(
+            'DEBUG: Demo Data - Creating subscription for company ${company.id} (isUtilif: $isUtilif)');
         final subscription = CompanySubscription(
           id: 'sub_${company.id}',
           companyId: company.id,
@@ -1267,7 +1276,8 @@ class StorageService {
               : now.subtract(const Duration(days: 30)),
           updatedAt: now,
         );
-        print('DEBUG: Demo Data - Created subscription: ${subscription.id}, status: ${subscription.status}, price: \$${subscription.currentPrice}');
+        print(
+            'DEBUG: Demo Data - Created subscription: ${subscription.id}, status: ${subscription.status}, price: \$${subscription.currentPrice}');
         demoSubscriptions.add(subscription);
       }
 
@@ -1637,15 +1647,17 @@ class StorageService {
   static Future<void> forceUpdateUtilifSubscription() async {
     const demoCompanyId = 'demo_company_utilif';
     print('DEBUG: Force Update - Starting Utilif subscription update...');
-    
+
     final subscriptions = await getSubscriptions();
-    print('DEBUG: Force Update - Found ${subscriptions.length} existing subscriptions');
-    
+    print(
+        'DEBUG: Force Update - Found ${subscriptions.length} existing subscriptions');
+
     // Remove existing Utilif subscription if it exists
-    final filteredSubscriptions = subscriptions.where((s) => s.companyId != demoCompanyId).toList();
+    final filteredSubscriptions =
+        subscriptions.where((s) => s.companyId != demoCompanyId).toList();
     await saveSubscriptions(filteredSubscriptions);
     print('DEBUG: Force Update - Removed existing Utilif subscription');
-    
+
     // Create new Utilif subscription with $1 past due
     final now = DateTime.now();
     final utilifSub = CompanySubscription(
@@ -1656,15 +1668,42 @@ class StorageService {
       status: SubscriptionStatus.pastDue,
       paymentMethod: PaymentMethod.creditCard,
       billingInterval: BillingInterval.monthly,
-      nextBillingDate: now.add(const Duration(days: 25)), // Next billing in 25 days
+      nextBillingDate:
+          now.add(const Duration(days: 25)), // Next billing in 25 days
       currentPrice: 1.0,
       gracePeriodDays: 7,
       createdAt: now.subtract(const Duration(days: 5)),
       updatedAt: now,
     );
-    
+
     filteredSubscriptions.add(utilifSub);
     await saveSubscriptions(filteredSubscriptions);
-    print('DEBUG: Force Update - Created Utilif subscription: status=${utilifSub.status}, price=\$${utilifSub.currentPrice}');
+    print(
+        'DEBUG: Force Update - Created Utilif subscription: status=${utilifSub.status}, price=\$${utilifSub.currentPrice}');
+  }
+
+  // Reset Utilif subscription to past due for testing Apple Pay
+  static Future<void> resetUtilifSubscriptionForTesting() async {
+    try {
+      final subscriptions = await getSubscriptions();
+      final utilifSubscription = subscriptions
+          .where((s) => s.companyId == 'demo_company_utilif')
+          .firstOrNull;
+
+      if (utilifSubscription != null) {
+        final updatedSubscription = utilifSubscription.copyWith(
+          status: SubscriptionStatus.pastDue,
+          currentPrice: 1.0,
+          updatedAt: DateTime.now(),
+        );
+        await updateSubscription(updatedSubscription);
+        print(
+            'DEBUG: Reset - Updated Utilif subscription to past due for testing');
+      } else {
+        print('DEBUG: Reset - Utilif subscription not found');
+      }
+    } catch (e) {
+      print('DEBUG: Reset - Error: $e');
+    }
   }
 }

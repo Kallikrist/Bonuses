@@ -6,6 +6,7 @@ enum CardType {
   dinersClub,
   jcb,
   unionPay,
+  applePay,
   unknown,
 }
 
@@ -95,8 +96,8 @@ class PaymentCard {
         orElse: () => CardStatus.active,
       ),
       createdAt: DateTime.parse(json['createdAt'] as String),
-      lastUsedAt: json['lastUsedAt'] != null 
-          ? DateTime.parse(json['lastUsedAt'] as String) 
+      lastUsedAt: json['lastUsedAt'] != null
+          ? DateTime.parse(json['lastUsedAt'] as String)
           : null,
       isDefault: json['isDefault'] as bool? ?? false,
       stripeCardId: json['stripeCardId'] as String?,
@@ -146,8 +147,8 @@ class PaymentCard {
   /// Check if card is expired
   bool get isExpired {
     final now = DateTime.now();
-    return expiryYear < now.year || 
-           (expiryYear == now.year && expiryMonth < now.month);
+    return expiryYear < now.year ||
+        (expiryYear == now.year && expiryMonth < now.month);
   }
 
   /// Check if card is valid for use
@@ -157,7 +158,8 @@ class PaymentCard {
   String get maskedNumber => '**** **** **** $lastFourDigits';
 
   /// Get expiry date as string
-  String get expiryDate => '${expiryMonth.toString().padLeft(2, '0')}/$expiryYear';
+  String get expiryDate =>
+      '${expiryMonth.toString().padLeft(2, '0')}/$expiryYear';
 
   /// Get card icon based on type
   String get cardIcon {

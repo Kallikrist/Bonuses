@@ -1,5 +1,6 @@
 enum TransactionType {
   subscription, // Subscription payment
+  payment, // General payment
   bonus, // Bonus redemption
   refund, // Refund transaction
   adjustment, // Manual adjustment
@@ -126,8 +127,8 @@ class FinancialTransaction {
       currency: json['currency'] as String? ?? 'USD',
       description: json['description'] as String,
       createdAt: DateTime.parse(json['createdAt'] as String),
-      completedAt: json['completedAt'] != null 
-          ? DateTime.parse(json['completedAt'] as String) 
+      completedAt: json['completedAt'] != null
+          ? DateTime.parse(json['completedAt'] as String)
           : null,
       paymentCardId: json['paymentCardId'] as String?,
       subscriptionId: json['subscriptionId'] as String?,
@@ -136,11 +137,11 @@ class FinancialTransaction {
       transactionId: json['transactionId'] as String?,
       paymentGateway: json['paymentGateway'] as String?,
       failureReason: json['failureReason'] as String?,
-      refundedAmount: json['refundedAmount'] != null 
-          ? (json['refundedAmount'] as num).toDouble() 
+      refundedAmount: json['refundedAmount'] != null
+          ? (json['refundedAmount'] as num).toDouble()
           : null,
-      refundedAt: json['refundedAt'] != null 
-          ? DateTime.parse(json['refundedAt'] as String) 
+      refundedAt: json['refundedAt'] != null
+          ? DateTime.parse(json['refundedAt'] as String)
           : null,
       receiptUrl: json['receiptUrl'] as String?,
       metadata: json['metadata'] as Map<String, dynamic>?,
@@ -198,17 +199,20 @@ class FinancialTransaction {
   }
 
   /// Check if transaction was successful
-  bool get isSuccessful => status == TransactionStatus.completed || 
-                          status == TransactionStatus.refunded || 
-                          status == TransactionStatus.partiallyRefunded;
+  bool get isSuccessful =>
+      status == TransactionStatus.completed ||
+      status == TransactionStatus.refunded ||
+      status == TransactionStatus.partiallyRefunded;
 
   /// Check if transaction failed
-  bool get isFailed => status == TransactionStatus.failed || 
-                       status == TransactionStatus.cancelled;
+  bool get isFailed =>
+      status == TransactionStatus.failed ||
+      status == TransactionStatus.cancelled;
 
   /// Check if transaction was refunded
-  bool get isRefunded => status == TransactionStatus.refunded || 
-                         status == TransactionStatus.partiallyRefunded;
+  bool get isRefunded =>
+      status == TransactionStatus.refunded ||
+      status == TransactionStatus.partiallyRefunded;
 
   /// Get effective amount (after refunds)
   double get effectiveAmount {

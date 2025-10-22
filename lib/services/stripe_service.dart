@@ -1,6 +1,7 @@
 import 'package:flutter_stripe/flutter_stripe.dart';
 import 'package:http/http.dart' as http;
 import 'dart:convert';
+import 'dart:io';
 
 class StripeService {
   // Stripe configuration
@@ -18,6 +19,82 @@ class StripeService {
     } catch (e) {
       print('Stripe initialization failed (using mock mode): $e');
       // Continue with mock mode for demo
+    }
+  }
+
+  // Check if Apple Pay is available
+  static Future<bool> isApplePayAvailable() async {
+    try {
+      if (Platform.isIOS || Platform.isMacOS) {
+        // Mock implementation for demo - in real app, use Stripe.instance.isApplePaySupported()
+        return true; // Always return true for demo
+      }
+      return false;
+    } catch (e) {
+      print('Apple Pay availability check failed: $e');
+      return false;
+    }
+  }
+
+  // Create Apple Pay payment intent
+  static Future<Map<String, dynamic>> createApplePayPaymentIntent({
+    required double amount,
+    required String currency,
+    required String description,
+  }) async {
+    try {
+      // Mock implementation for demo
+      await Future.delayed(const Duration(seconds: 1));
+
+      return {
+        'success': true,
+        'client_secret': 'pi_mock_${DateTime.now().millisecondsSinceEpoch}',
+        'amount': (amount * 100).round(), // Convert to cents
+        'currency': currency,
+        'description': description,
+      };
+    } catch (e) {
+      return {
+        'success': false,
+        'error': 'Failed to create Apple Pay payment intent: $e',
+      };
+    }
+  }
+
+  // Process Apple Pay payment
+  static Future<Map<String, dynamic>> processApplePayPayment({
+    required String paymentIntentId,
+    required double amount,
+    required String currency,
+    required String description,
+  }) async {
+    try {
+      // Simulate Apple Pay processing
+      await Future.delayed(const Duration(seconds: 2));
+
+      // Mock successful Apple Pay payment
+      return {
+        'success': true,
+        'payment_intent': {
+          'id': paymentIntentId,
+          'status': 'succeeded',
+          'amount': (amount * 100).round(),
+          'currency': currency,
+        },
+        'payment_method': {
+          'id': 'pm_apple_pay_${DateTime.now().millisecondsSinceEpoch}',
+          'type': 'apple_pay',
+          'apple_pay': {
+            'brand': 'apple_pay',
+            'last4': '****',
+          },
+        },
+      };
+    } catch (e) {
+      return {
+        'success': false,
+        'error': 'Apple Pay payment failed: $e',
+      };
     }
   }
 

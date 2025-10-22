@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'dart:io';
 import '../services/stripe_service.dart';
 import '../services/storage_service.dart';
 import '../models/financial_transaction.dart';
@@ -31,11 +32,14 @@ class _PaymentFormScreenState extends State<PaymentFormScreen> {
 
   bool _isLoading = false;
   String? _errorMessage;
+  bool _isApplePayAvailable = false;
+  bool _isApplePayLoading = false;
 
   @override
   void initState() {
     super.initState();
     _initializeStripe();
+    _checkApplePayAvailability();
   }
 
   Future<void> _initializeStripe() async {
@@ -45,6 +49,19 @@ class _PaymentFormScreenState extends State<PaymentFormScreen> {
     } catch (e) {
       print('Payment system initialization failed: $e');
       // Continue with mock mode - no error shown to user
+    }
+  }
+
+  Future<void> _checkApplePayAvailability() async {
+    if (Platform.isIOS || Platform.isMacOS) {
+      try {
+        final isAvailable = await StripeService.isApplePayAvailable();
+        setState(() {
+          _isApplePayAvailable = isAvailable;
+        });
+      } catch (e) {
+        print('Apple Pay availability check failed: $e');
+      }
     }
   }
 
@@ -175,6 +192,125 @@ class _PaymentFormScreenState extends State<PaymentFormScreen> {
     } finally {
       setState(() {
         _isLoading = false;
+      });
+    }
+  }
+
+  Future<void> _processApplePayPayment() async {
+    setState(() {
+      _isApplePayLoading = true;
+      _errorMessage = null;
+    });
+
+    try {
+      // Create Apple Pay payment intent
+      final paymentIntent = await StripeService.createApplePayPaymentIntent(
+        amount: widget.amount,
+        currency: 'USD',
+        description: widget.description,
+      );
+
+      if (!paymentIntent['success']) {
+        setState(() {
+          _errorMessage = paymentIntent['error'];
+        });
+        return;
+      }
+
+      // Process Apple Pay payment
+      final result = await StripeService.processApplePayPayment(
+        paymentIntentId: paymentIntent['client_secret'],
+        amount: widget.amount,
+        currency: 'USD',
+        description: widget.description,
+      );
+
+      if (result['success']) {
+        // Save Apple Pay as payment method
+        final paymentCard = PaymentCard(
+          id: DateTime.now().millisecondsSinceEpoch.toString(),
+          companyId: widget.companyId,
+          userId: 'current_user',
+          lastFourDigits: '****',
+          brand: 'apple_pay',
+          cardType: CardType.applePay,
+          expiryMonth: 0,
+          expiryYear: 0,
+          cardholderName: 'Apple Pay',
+          status: CardStatus.active,
+          createdAt: DateTime.now(),
+          isDefault: true,
+        );
+
+        await StorageService.addPaymentCard(paymentCard);
+
+        // Create financial transaction
+        final transaction = FinancialTransaction(
+          id: DateTime.now().millisecondsSinceEpoch.toString(),
+          companyId: widget.companyId,
+          userId: 'current_user',
+          type: TransactionType.payment,
+          status: TransactionStatus.completed,
+          category: TransactionCategory.subscription,
+          amount: widget.amount,
+          currency: 'USD',
+          description: widget.description,
+          createdAt: DateTime.now(),
+          completedAt: DateTime.now(),
+          paymentCardId: paymentCard.id,
+          receiptUrl:
+              'apple_pay_receipt_${DateTime.now().millisecondsSinceEpoch}',
+        );
+
+        await StorageService.addFinancialTransaction(transaction);
+
+        // Update subscription status to active
+        final subscriptions = await StorageService.getSubscriptions();
+        print('DEBUG: Payment - Found ${subscriptions.length} subscriptions');
+        print('DEBUG: Payment - Looking for companyId: ${widget.companyId}');
+
+        final companySubscription = subscriptions.firstWhere(
+          (sub) => sub.companyId == widget.companyId,
+          orElse: () => subscriptions.first,
+        );
+
+        print('DEBUG: Payment - Found subscription: ${companySubscription.id}');
+        print('DEBUG: Payment - Current status: ${companySubscription.status}');
+
+        final updatedSubscription = companySubscription.copyWith(
+          status: SubscriptionStatus.active,
+          updatedAt: DateTime.now(),
+        );
+
+        await StorageService.updateSubscription(updatedSubscription);
+        print(
+            'DEBUG: Payment - Updated subscription status to: ${updatedSubscription.status}');
+
+        // Show success message
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content:
+                  Text('Apple Pay payment successful! Subscription activated.'),
+              backgroundColor: Colors.green,
+            ),
+          );
+          // Add a small delay to ensure the subscription is saved
+          await Future.delayed(const Duration(milliseconds: 500));
+          Navigator.of(context).pop(true);
+        }
+      } else {
+        setState(() {
+          _errorMessage = result['error'];
+        });
+      }
+    } catch (e) {
+      setState(() {
+        _errorMessage = 'Apple Pay payment failed: $e';
+      });
+    } finally {
+      setState(() {
+        _isApplePayLoading = false;
       });
     }
   }
@@ -401,6 +537,53 @@ class _PaymentFormScreenState extends State<PaymentFormScreen> {
                 ),
 
               const SizedBox(height: 24),
+
+              // Apple Pay button (iOS only)
+              if (_isApplePayAvailable) ...[
+                SizedBox(
+                  width: double.infinity,
+                  height: 50,
+                  child: ElevatedButton(
+                    onPressed:
+                        _isApplePayLoading ? null : _processApplePayPayment,
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: Colors.black,
+                      foregroundColor: Colors.white,
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                    ),
+                    child: _isApplePayLoading
+                        ? const SizedBox(
+                            width: 20,
+                            height: 20,
+                            child: CircularProgressIndicator(
+                              color: Colors.white,
+                              strokeWidth: 2,
+                            ),
+                          )
+                        : Row(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              Icon(
+                                Icons.apple,
+                                color: Colors.white,
+                                size: 20,
+                              ),
+                              const SizedBox(width: 8),
+                              Text(
+                                'Pay with Apple Pay',
+                                style: const TextStyle(
+                                  fontSize: 16,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
+                            ],
+                          ),
+                  ),
+                ),
+                const SizedBox(height: 16),
+              ],
 
               // Pay button
               SizedBox(
