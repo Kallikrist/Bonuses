@@ -156,8 +156,16 @@ void main() {
         expect(companies.length, 3);
         expect(users.where((u) => u.role == UserRole.employee).length, 2);
         expect(users.where((u) => u.role == UserRole.admin).length, 1);
-        expect(subscriptions.where((s) => s.status == SubscriptionStatus.active).length, 2);
-        expect(subscriptions.where((s) => s.status == SubscriptionStatus.trial).length, 1);
+        expect(
+            subscriptions
+                .where((s) => s.status == SubscriptionStatus.active)
+                .length,
+            2);
+        expect(
+            subscriptions
+                .where((s) => s.status == SubscriptionStatus.trial)
+                .length,
+            1);
 
         // Calculate MRR
         final mrr = subscriptions
@@ -490,7 +498,8 @@ void main() {
         final companiesByTier = <String, int>{};
         for (final tier in SubscriptionTier.defaultTiers) {
           final subs = await StorageService.getSubscriptions();
-          companiesByTier[tier.id] = subs.where((s) => s.tierId == tier.id).length;
+          companiesByTier[tier.id] =
+              subs.where((s) => s.tierId == tier.id).length;
         }
 
         expect(companiesByTier['tier_starter'], 2);
@@ -644,8 +653,10 @@ void main() {
             'tier_enterprise': 15,
           },
           revenueHistory: [
-            RevenueByMonth(year: 2024, month: 1, revenue: 4000, paymentCount: 80),
-            RevenueByMonth(year: 2024, month: 2, revenue: 4500, paymentCount: 85),
+            RevenueByMonth(
+                year: 2024, month: 1, revenue: 4000, paymentCount: 80),
+            RevenueByMonth(
+                year: 2024, month: 2, revenue: 4500, paymentCount: 85),
           ],
           calculatedAt: DateTime.now(),
           newCompaniesThisMonth: 10,
@@ -661,8 +672,10 @@ void main() {
 
         expect(deserialized.totalCompanies, metrics.totalCompanies);
         expect(deserialized.activeCompanies, metrics.activeCompanies);
-        expect(deserialized.monthlyRecurringRevenue, metrics.monthlyRecurringRevenue);
-        expect(deserialized.revenueHistory.length, metrics.revenueHistory.length);
+        expect(deserialized.monthlyRecurringRevenue,
+            metrics.monthlyRecurringRevenue);
+        expect(
+            deserialized.revenueHistory.length, metrics.revenueHistory.length);
         expect(deserialized.companiesByTier['tier_starter'], 40);
       });
     });
@@ -772,9 +785,8 @@ void main() {
         await StorageService.addCompany(newCompany);
 
         final companies = await StorageService.getCompanies();
-        final newCompaniesThisMonth = companies
-            .where((c) => c.createdAt.isAfter(startOfMonth))
-            .length;
+        final newCompaniesThisMonth =
+            companies.where((c) => c.createdAt.isAfter(startOfMonth)).length;
 
         expect(newCompaniesThisMonth, 1);
       });
@@ -878,10 +890,15 @@ void main() {
         }
 
         final allSubs = await StorageService.getSubscriptions();
-        final activeCount = allSubs.where((s) => s.status == SubscriptionStatus.active).length;
-        final trialCount = allSubs.where((s) => s.status == SubscriptionStatus.trial).length;
-        final pastDueCount = allSubs.where((s) => s.status == SubscriptionStatus.pastDue).length;
-        final suspendedCount = allSubs.where((s) => s.status == SubscriptionStatus.suspended).length;
+        final activeCount =
+            allSubs.where((s) => s.status == SubscriptionStatus.active).length;
+        final trialCount =
+            allSubs.where((s) => s.status == SubscriptionStatus.trial).length;
+        final pastDueCount =
+            allSubs.where((s) => s.status == SubscriptionStatus.pastDue).length;
+        final suspendedCount = allSubs
+            .where((s) => s.status == SubscriptionStatus.suspended)
+            .length;
 
         expect(activeCount, 2);
         expect(trialCount, 1);
@@ -891,4 +908,3 @@ void main() {
     });
   });
 }
-

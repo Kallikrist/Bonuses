@@ -11,6 +11,7 @@ import '../models/points_rules.dart';
 import '../models/message.dart';
 import '../models/company_subscription.dart';
 import '../models/payment_record.dart';
+import '../models/notification.dart';
 
 class StorageService {
   static const String _usersKey = 'users';
@@ -446,14 +447,110 @@ class StorageService {
     await savePaymentRecords(records);
   }
 
-  static Future<List<PaymentRecord>> getPaymentsByCompanyId(String companyId) async {
+  static Future<List<PaymentRecord>> getPaymentsByCompanyId(
+      String companyId) async {
     final records = await getPaymentRecords();
     return records.where((r) => r.companyId == companyId).toList();
   }
 
-  static Future<List<PaymentRecord>> getPaymentsBySubscriptionId(String subscriptionId) async {
+  static Future<List<PaymentRecord>> getPaymentsBySubscriptionId(
+      String subscriptionId) async {
     final records = await getPaymentRecords();
     return records.where((r) => r.subscriptionId == subscriptionId).toList();
+  }
+
+  // Notifications Management
+  static const String _notificationsKey = 'notifications';
+
+  static Future<List<AppNotification>> getNotifications() async {
+    final prefs = await _prefs;
+    final notificationsJson = prefs.getStringList(_notificationsKey) ?? [];
+    return notificationsJson
+        .map((json) => AppNotification.fromJson(jsonDecode(json)))
+        .toList();
+  }
+
+  static Future<void> saveNotifications(
+      List<AppNotification> notifications) async {
+    final prefs = await _prefs;
+    final notificationsJson =
+        notifications.map((n) => jsonEncode(n.toJson())).toList();
+    await prefs.setStringList(_notificationsKey, notificationsJson);
+  }
+
+  static Future<void> addNotification(AppNotification notification) async {
+    final notifications = await getNotifications();
+    notifications.add(notification);
+    await saveNotifications(notifications);
+  }
+
+  static Future<void> updateNotification(AppNotification notification) async {
+    final notifications = await getNotifications();
+    final index = notifications.indexWhere((n) => n.id == notification.id);
+    if (index != -1) {
+      notifications[index] = notification;
+      await saveNotifications(notifications);
+    }
+  }
+
+  static Future<void> deleteNotification(String notificationId) async {
+    final notifications = await getNotifications();
+    notifications.removeWhere((n) => n.id == notificationId);
+    await saveNotifications(notifications);
+  }
+
+  static Future<List<AppNotification>> getNotificationsByUserId(
+      String userId) async {
+    final notifications = await getNotifications();
+    return notifications.where((n) => n.userId == userId).toList()
+      ..sort((a, b) => b.createdAt.compareTo(a.createdAt)); // Most recent first
+  }
+
+  static Future<List<AppNotification>> getUnreadNotificationsByUserId(
+      String userId) async {
+    final notifications = await getNotificationsByUserId(userId);
+    return notifications.where((n) => !n.isRead).toList();
+  }
+
+  static Future<int> getUnreadNotificationCount(String userId) async {
+    final unread = await getUnreadNotificationsByUserId(userId);
+    return unread.length;
+  }
+
+  static Future<void> markNotificationAsRead(String notificationId) async {
+    final notifications = await getNotifications();
+    final index = notifications.indexWhere((n) => n.id == notificationId);
+    if (index != -1) {
+      notifications[index] = notifications[index].copyWith(isRead: true);
+      await saveNotifications(notifications);
+    }
+  }
+
+  static Future<void> markAllNotificationsAsRead(String userId) async {
+    final notifications = await getNotifications();
+    bool hasChanges = false;
+    for (int i = 0; i < notifications.length; i++) {
+      if (notifications[i].userId == userId && !notifications[i].isRead) {
+        notifications[i] = notifications[i].copyWith(isRead: true);
+        hasChanges = true;
+      }
+    }
+    if (hasChanges) {
+      await saveNotifications(notifications);
+    }
+  }
+
+  static Future<void> deleteAllNotificationsForUser(String userId) async {
+    final notifications = await getNotifications();
+    notifications.removeWhere((n) => n.userId == userId);
+    await saveNotifications(notifications);
+  }
+
+  static Future<void> deleteOldNotifications({int daysToKeep = 30}) async {
+    final notifications = await getNotifications();
+    final cutoffDate = DateTime.now().subtract(Duration(days: daysToKeep));
+    notifications.removeWhere((n) => n.createdAt.isBefore(cutoffDate));
+    await saveNotifications(notifications);
   }
 
   // Run data migrations - called every time app initializes
@@ -1098,7 +1195,7 @@ class StorageService {
         await saveSubscriptions(demoSubscriptions);
         print(
             'DEBUG: Demo Data - Added ${demoSubscriptions.length} demo subscriptions');
-        
+
         // Create demo payment records for active subscriptions
         final demoPayments = <PaymentRecord>[];
         final paymentNow = DateTime.now();
@@ -1106,7 +1203,8 @@ class StorageService {
           if (subscription.status == SubscriptionStatus.active) {
             // Create 3 monthly payments for each active subscription
             for (int i = 0; i < 3; i++) {
-              final paymentDate = paymentNow.subtract(Duration(days: 30 * (3 - i)));
+              final paymentDate =
+                  paymentNow.subtract(Duration(days: 30 * (3 - i)));
               final payment = PaymentRecord(
                 id: 'payment_${subscription.companyId}_$i',
                 companyId: subscription.companyId,
@@ -1116,17 +1214,19 @@ class StorageService {
                 status: PaymentStatus.completed,
                 date: paymentDate,
                 invoiceId: 'INV-${subscription.companyId}-$i',
-                transactionId: 'TXN-${DateTime.now().millisecondsSinceEpoch}-$i',
+                transactionId:
+                    'TXN-${DateTime.now().millisecondsSinceEpoch}-$i',
                 paymentGateway: 'stripe',
               );
               demoPayments.add(payment);
             }
           }
         }
-        
+
         if (demoPayments.isNotEmpty) {
           await savePaymentRecords(demoPayments);
-          print('DEBUG: Demo Data - Added ${demoPayments.length} demo payment records');
+          print(
+              'DEBUG: Demo Data - Added ${demoPayments.length} demo payment records');
         }
       }
     }
@@ -1282,5 +1382,31 @@ class StorageService {
   static Future<void> setDarkMode(bool isDark) async {
     final prefs = await _prefs;
     await prefs.setBool(_darkModeKey, isDark);
+  }
+
+  // Selected date persistence (per user)
+  static const String _selectedDatePrefix = 'selected_date_';
+
+  static Future<DateTime?> getSelectedDate(String userId) async {
+    final prefs = await _prefs;
+    final dateString = prefs.getString('$_selectedDatePrefix$userId');
+    if (dateString != null) {
+      try {
+        return DateTime.parse(dateString);
+      } catch (e) {
+        return null;
+      }
+    }
+    return null;
+  }
+
+  static Future<void> setSelectedDate(String userId, DateTime date) async {
+    final prefs = await _prefs;
+    await prefs.setString('$_selectedDatePrefix$userId', date.toIso8601String());
+  }
+
+  static Future<void> clearSelectedDate(String userId) async {
+    final prefs = await _prefs;
+    await prefs.remove('$_selectedDatePrefix$userId');
   }
 }

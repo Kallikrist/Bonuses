@@ -9,7 +9,7 @@ void main() {
   group('Payment Tracking Tests', () {
     setUp(() async {
       SharedPreferences.setMockInitialValues({});
-      
+
       // Create test company and subscription
       final company = Company(
         id: 'test_company',
@@ -126,7 +126,8 @@ void main() {
         await StorageService.addPaymentRecord(payment1);
         await StorageService.addPaymentRecord(payment2);
 
-        final companyPayments = await StorageService.getPaymentsByCompanyId('test_company');
+        final companyPayments =
+            await StorageService.getPaymentsByCompanyId('test_company');
         expect(companyPayments.length, 1);
         expect(companyPayments.first.companyId, 'test_company');
       });
@@ -152,7 +153,9 @@ void main() {
         await StorageService.addPaymentRecord(payment1);
         await StorageService.addPaymentRecord(payment2);
 
-        final subscriptionPayments = await StorageService.getPaymentsBySubscriptionId('test_subscription');
+        final subscriptionPayments =
+            await StorageService.getPaymentsBySubscriptionId(
+                'test_subscription');
         expect(subscriptionPayments.length, 1);
         expect(subscriptionPayments.first.subscriptionId, 'test_subscription');
       });
@@ -474,7 +477,9 @@ void main() {
         final allPayments = await StorageService.getPaymentRecords();
         expect(allPayments.length, 3);
 
-        final subscriptionPayments = await StorageService.getPaymentsBySubscriptionId('test_subscription');
+        final subscriptionPayments =
+            await StorageService.getPaymentsBySubscriptionId(
+                'test_subscription');
         expect(subscriptionPayments.length, 3);
       });
 
@@ -526,8 +531,10 @@ void main() {
         await StorageService.addPaymentRecord(payment1);
         await StorageService.addPaymentRecord(payment2);
 
-        final company1Payments = await StorageService.getPaymentsByCompanyId('test_company');
-        final company2Payments = await StorageService.getPaymentsByCompanyId('company_2');
+        final company1Payments =
+            await StorageService.getPaymentsByCompanyId('test_company');
+        final company2Payments =
+            await StorageService.getPaymentsByCompanyId('company_2');
 
         expect(company1Payments.length, 1);
         expect(company2Payments.length, 1);
@@ -692,4 +699,3 @@ void main() {
     });
   });
 }
-

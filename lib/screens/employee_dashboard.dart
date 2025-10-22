@@ -53,6 +53,28 @@ class _EmployeeDashboardState extends State<EmployeeDashboard> {
     super.initState();
     _loadHeaderPrefs();
     _loadBottomBarPrefs();
+    _loadSelectedDate();
+  }
+
+  Future<void> _loadSelectedDate() async {
+    final currentUser =
+        Provider.of<AppProvider>(context, listen: false).currentUser;
+    if (currentUser != null) {
+      final savedDate = await StorageService.getSelectedDate(currentUser.id);
+      if (savedDate != null && mounted) {
+        setState(() {
+          _selectedDate = savedDate;
+        });
+      }
+    }
+  }
+
+  Future<void> _saveSelectedDate(DateTime date) async {
+    final currentUser =
+        Provider.of<AppProvider>(context, listen: false).currentUser;
+    if (currentUser != null) {
+      await StorageService.setSelectedDate(currentUser.id, date);
+    }
   }
 
   Future<void> _loadHeaderPrefs() async {
@@ -1191,10 +1213,12 @@ class _EmployeeDashboardState extends State<EmployeeDashboard> {
                     children: [
                       ElevatedButton.icon(
                         onPressed: () {
+                          final newDate =
+                              _selectedDate.subtract(const Duration(days: 1));
                           setState(() {
-                            _selectedDate =
-                                _selectedDate.subtract(const Duration(days: 1));
+                            _selectedDate = newDate;
                           });
+                          _saveSelectedDate(newDate);
                         },
                         icon: const Icon(Icons.chevron_left, size: 16),
                         label: const Text('Previous'),
@@ -1207,9 +1231,11 @@ class _EmployeeDashboardState extends State<EmployeeDashboard> {
                       ),
                       ElevatedButton(
                         onPressed: () {
+                          final newDate = DateTime.now();
                           setState(() {
-                            _selectedDate = DateTime.now();
+                            _selectedDate = newDate;
                           });
+                          _saveSelectedDate(newDate);
                         },
                         style: ElevatedButton.styleFrom(
                           backgroundColor: isToday
@@ -1224,10 +1250,12 @@ class _EmployeeDashboardState extends State<EmployeeDashboard> {
                       ),
                       ElevatedButton.icon(
                         onPressed: () {
+                          final newDate =
+                              _selectedDate.add(const Duration(days: 1));
                           setState(() {
-                            _selectedDate =
-                                _selectedDate.add(const Duration(days: 1));
+                            _selectedDate = newDate;
                           });
+                          _saveSelectedDate(newDate);
                         },
                         icon: const Icon(Icons.chevron_right, size: 16),
                         label: const Text('Next'),

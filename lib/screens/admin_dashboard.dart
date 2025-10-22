@@ -21,6 +21,7 @@ import 'import_bonuses_screen.dart';
 import 'login_screen.dart';
 import 'messaging_screen.dart';
 import 'chat_screen.dart';
+import 'admin_subscription_screen.dart';
 
 class EmployeePerformance {
   final String employeeId;
@@ -76,6 +77,28 @@ class _AdminDashboardState extends State<AdminDashboard> {
     super.initState();
     _loadHeaderPrefs();
     _loadBottomBarPrefs();
+    _loadSelectedDate();
+  }
+
+  Future<void> _loadSelectedDate() async {
+    final currentUser =
+        Provider.of<AppProvider>(context, listen: false).currentUser;
+    if (currentUser != null) {
+      final savedDate = await StorageService.getSelectedDate(currentUser.id);
+      if (savedDate != null && mounted) {
+        setState(() {
+          _selectedDate = savedDate;
+        });
+      }
+    }
+  }
+
+  Future<void> _saveSelectedDate(DateTime date) async {
+    final currentUser =
+        Provider.of<AppProvider>(context, listen: false).currentUser;
+    if (currentUser != null) {
+      await StorageService.setSelectedDate(currentUser.id, date);
+    }
   }
 
   Future<void> _loadHeaderPrefs() async {
@@ -190,6 +213,7 @@ class _AdminDashboardState extends State<AdminDashboard> {
                   setState(() {
                     _selectedDate = selectedDate;
                   });
+                  _saveSelectedDate(selectedDate);
                 },
               ),
               // Main Content
@@ -671,10 +695,12 @@ class _AdminDashboardState extends State<AdminDashboard> {
                     children: [
                       IconButton(
                         onPressed: () {
+                          final newDate =
+                              _selectedDate.subtract(const Duration(days: 1));
                           setState(() {
-                            _selectedDate =
-                                _selectedDate.subtract(const Duration(days: 1));
+                            _selectedDate = newDate;
                           });
+                          _saveSelectedDate(newDate);
                         },
                         icon: const Icon(Icons.chevron_left),
                         tooltip: 'Previous Day',
@@ -686,9 +712,11 @@ class _AdminDashboardState extends State<AdminDashboard> {
                       const SizedBox(width: 8),
                       ElevatedButton(
                         onPressed: () {
+                          final newDate = DateTime.now();
                           setState(() {
-                            _selectedDate = DateTime.now();
+                            _selectedDate = newDate;
                           });
+                          _saveSelectedDate(newDate);
                         },
                         style: ElevatedButton.styleFrom(
                           backgroundColor: isToday
@@ -704,10 +732,12 @@ class _AdminDashboardState extends State<AdminDashboard> {
                       const SizedBox(width: 8),
                       IconButton(
                         onPressed: () {
+                          final newDate =
+                              _selectedDate.add(const Duration(days: 1));
                           setState(() {
-                            _selectedDate =
-                                _selectedDate.add(const Duration(days: 1));
+                            _selectedDate = newDate;
                           });
+                          _saveSelectedDate(newDate);
                         },
                         icon: const Icon(Icons.chevron_right),
                         tooltip: 'Next Day',
@@ -3269,6 +3299,20 @@ class _AdminDashboardState extends State<AdminDashboard> {
                     MaterialPageRoute(
                       builder: (context) =>
                           PointsRulesScreen(appProvider: appProvider),
+                    ),
+                  );
+                },
+              ),
+              _buildSettingsItem(
+                Icons.subscriptions,
+                'Subscription Plan',
+                'View and manage your company\'s subscription plan',
+                () {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (context) =>
+                          AdminSubscriptionScreen(appProvider: appProvider),
                     ),
                   );
                 },

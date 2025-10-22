@@ -10,7 +10,7 @@ void main() {
   group('Subscription Management Tests', () {
     setUp(() async {
       SharedPreferences.setMockInitialValues({});
-      
+
       // Create test company
       final testCompany = Company(
         id: 'test_company',
@@ -70,14 +70,16 @@ void main() {
 
         await StorageService.addSubscription(subscription);
 
-        final retrieved = await StorageService.getSubscriptionByCompanyId('test_company');
+        final retrieved =
+            await StorageService.getSubscriptionByCompanyId('test_company');
         expect(retrieved, isNotNull);
         expect(retrieved!.id, 'sub_1');
         expect(retrieved.companyId, 'test_company');
       });
 
       test('Returns null for non-existent company subscription', () async {
-        final retrieved = await StorageService.getSubscriptionByCompanyId('non_existent');
+        final retrieved =
+            await StorageService.getSubscriptionByCompanyId('non_existent');
         expect(retrieved, isNull);
       });
 
@@ -252,7 +254,8 @@ void main() {
 
         final daysLeft = subscription.daysUntilTrialEnds;
         expect(daysLeft, isNotNull);
-        expect(daysLeft! >= 9 && daysLeft <= 10, true); // Allow for timing differences
+        expect(daysLeft! >= 9 && daysLeft <= 10,
+            true); // Allow for timing differences
       });
 
       test('Billing interval affects pricing correctly', () {
@@ -337,12 +340,14 @@ void main() {
         final starter = SubscriptionTier.starter;
         final yearlyPrice = starter.yearlyPrice!;
         final monthlyEquivalent = starter.monthlyPrice * 12;
-        expect(yearlyPrice < monthlyEquivalent, true); // Yearly should be discounted
+        expect(yearlyPrice < monthlyEquivalent,
+            true); // Yearly should be discounted
       });
     });
 
     group('Multiple Subscriptions', () {
-      test('Can manage multiple subscriptions for different companies', () async {
+      test('Can manage multiple subscriptions for different companies',
+          () async {
         final company1 = Company(
           id: 'company_1',
           name: 'Company 1',
@@ -400,8 +405,10 @@ void main() {
         final subscriptions = await StorageService.getSubscriptions();
         expect(subscriptions.length, 2);
 
-        final company1Sub = await StorageService.getSubscriptionByCompanyId('company_1');
-        final company2Sub = await StorageService.getSubscriptionByCompanyId('company_2');
+        final company1Sub =
+            await StorageService.getSubscriptionByCompanyId('company_1');
+        final company2Sub =
+            await StorageService.getSubscriptionByCompanyId('company_2');
 
         expect(company1Sub?.tierId, 'tier_starter');
         expect(company2Sub?.tierId, 'tier_professional');
@@ -438,7 +445,8 @@ void main() {
 
         await StorageService.updateSubscription(updatedSub);
 
-        final retrieved = await StorageService.getSubscriptionByCompanyId('test_company');
+        final retrieved =
+            await StorageService.getSubscriptionByCompanyId('test_company');
         expect(retrieved?.status, SubscriptionStatus.active);
         expect(retrieved?.isTrial, false);
         expect(retrieved?.isActive, true);
@@ -475,7 +483,8 @@ void main() {
 
         await StorageService.updateSubscription(activeSub);
 
-        final retrieved = await StorageService.getSubscriptionByCompanyId('test_company');
+        final retrieved =
+            await StorageService.getSubscriptionByCompanyId('test_company');
         expect(retrieved?.status, SubscriptionStatus.active);
         expect(retrieved?.paymentMethod, PaymentMethod.creditCard);
       });
@@ -505,7 +514,8 @@ void main() {
 
         await StorageService.updateSubscription(pastDueSub);
 
-        final retrieved = await StorageService.getSubscriptionByCompanyId('test_company');
+        final retrieved =
+            await StorageService.getSubscriptionByCompanyId('test_company');
         expect(retrieved?.status, SubscriptionStatus.pastDue);
         expect(retrieved?.needsAttention, true);
         expect(retrieved?.isActive, false);
@@ -536,7 +546,8 @@ void main() {
 
         await StorageService.updateSubscription(suspendedSub);
 
-        final retrieved = await StorageService.getSubscriptionByCompanyId('test_company');
+        final retrieved =
+            await StorageService.getSubscriptionByCompanyId('test_company');
         expect(retrieved?.status, SubscriptionStatus.suspended);
         expect(retrieved?.needsAttention, true);
       });
@@ -567,7 +578,8 @@ void main() {
 
         await StorageService.updateSubscription(cancelledSub);
 
-        final retrieved = await StorageService.getSubscriptionByCompanyId('test_company');
+        final retrieved =
+            await StorageService.getSubscriptionByCompanyId('test_company');
         expect(retrieved?.status, SubscriptionStatus.cancelled);
         expect(retrieved?.endDate, isNotNull);
       });
@@ -600,7 +612,8 @@ void main() {
         await StorageService.updateCompany(updatedCompany);
 
         final updatedCompanies = await StorageService.getCompanies();
-        final retrievedCompany = updatedCompanies.firstWhere((c) => c.id == 'test_company');
+        final retrievedCompany =
+            updatedCompanies.firstWhere((c) => c.id == 'test_company');
         expect(retrievedCompany.subscriptionId, 'sub_1');
       });
 
@@ -623,7 +636,8 @@ void main() {
 
         await StorageService.addSubscription(subscription);
 
-        final retrieved = await StorageService.getSubscriptionByCompanyId('test_company');
+        final retrieved =
+            await StorageService.getSubscriptionByCompanyId('test_company');
         expect(retrieved, isNotNull);
         expect(retrieved!.companyId, 'test_company');
         expect(retrieved.tierId, 'tier_professional');
@@ -707,4 +721,3 @@ void main() {
     });
   });
 }
-

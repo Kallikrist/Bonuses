@@ -815,12 +815,14 @@ class _SuperAdminDashboardState extends State<SuperAdminDashboard> {
                             ? const Chip(
                                 label: Text('Active'),
                                 backgroundColor: Colors.green,
-                                labelStyle: TextStyle(color: Colors.white, fontSize: 11),
+                                labelStyle: TextStyle(
+                                    color: Colors.white, fontSize: 11),
                               )
                             : const Chip(
                                 label: Text('Inactive'),
                                 backgroundColor: Colors.grey,
-                                labelStyle: TextStyle(color: Colors.white, fontSize: 11),
+                                labelStyle: TextStyle(
+                                    color: Colors.white, fontSize: 11),
                               ),
                       ),
                     )),
@@ -842,13 +844,439 @@ class _SuperAdminDashboardState extends State<SuperAdminDashboard> {
     List<Company> companies,
     List<SubscriptionTier> tiers,
     AppProvider appProvider,
-  ) {
-    // TODO: Implement create subscription dialog
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(
-        content: Text('Create subscription dialog coming soon'),
+  ) async {
+    // Filter companies that don't have active subscriptions
+    final subscriptions = await StorageService.getSubscriptions();
+    final companiesWithoutSub = companies.where((company) {
+      return !subscriptions.any((sub) =>
+          sub.companyId == company.id &&
+          (sub.status == SubscriptionStatus.active ||
+              sub.status == SubscriptionStatus.trial));
+    }).toList();
+
+    if (!mounted) return;
+
+    String? selectedCompanyId;
+    String? selectedTierId = tiers.first.id;
+    BillingInterval selectedInterval = BillingInterval.monthly;
+    PaymentMethod selectedPaymentMethod = PaymentMethod.creditCard;
+    SubscriptionStatus selectedStatus = SubscriptionStatus.trial;
+    int trialDays = 14;
+
+    showDialog(
+      context: context,
+      builder: (context) => StatefulBuilder(
+        builder: (context, setState) {
+          final selectedTier = tiers.firstWhere(
+            (t) => t.id == selectedTierId,
+            orElse: () => tiers.first,
+          );
+
+          final price = selectedInterval == BillingInterval.monthly
+              ? selectedTier.monthlyPrice
+              : (selectedTier.yearlyPrice ?? selectedTier.monthlyPrice * 12);
+
+          return AlertDialog(
+            title: const Text('Create New Subscription'),
+            content: SizedBox(
+              width: 500,
+              child: SingleChildScrollView(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    // Company Selection
+                    const Text(
+                      'Select Company',
+                      style:
+                          TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
+                    ),
+                    const SizedBox(height: 8),
+                    if (companiesWithoutSub.isEmpty)
+                      Container(
+                        padding: const EdgeInsets.all(12),
+                        decoration: BoxDecoration(
+                          color: Colors.orange[50],
+                          border: Border.all(color: Colors.orange),
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                        child: Row(
+                          children: [
+                            Icon(Icons.info_outline, color: Colors.orange[700]),
+                            const SizedBox(width: 12),
+                            const Expanded(
+                              child: Text(
+                                'All companies already have active subscriptions',
+                                style: TextStyle(fontSize: 13),
+                              ),
+                            ),
+                          ],
+                        ),
+                      )
+                    else
+                      DropdownButtonFormField<String>(
+                        value: selectedCompanyId,
+                        decoration: const InputDecoration(
+                          border: OutlineInputBorder(),
+                          hintText: 'Choose a company',
+                        ),
+                        items: companiesWithoutSub.map((company) {
+                          return DropdownMenuItem(
+                            value: company.id,
+                            child: Text(company.name),
+                          );
+                        }).toList(),
+                        onChanged: (value) {
+                          setState(() => selectedCompanyId = value);
+                        },
+                      ),
+                    const SizedBox(height: 20),
+
+                    // Subscription Tier
+                    const Text(
+                      'Subscription Tier',
+                      style:
+                          TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
+                    ),
+                    const SizedBox(height: 8),
+                    DropdownButtonFormField<String>(
+                      value: selectedTierId,
+                      decoration: const InputDecoration(
+                        border: OutlineInputBorder(),
+                      ),
+                      items: tiers.where((t) => t.isActive).map((tier) {
+                        return DropdownMenuItem(
+                          value: tier.id,
+                          child: Row(
+                            children: [
+                              Text(tier.name),
+                              const SizedBox(width: 8),
+                              Text(
+                                '- \$${tier.monthlyPrice.toStringAsFixed(0)}/mo',
+                                style: const TextStyle(
+                                    color: Colors.grey, fontSize: 12),
+                              ),
+                            ],
+                          ),
+                        );
+                      }).toList(),
+                      onChanged: (value) {
+                        setState(() => selectedTierId = value);
+                      },
+                    ),
+                    const SizedBox(height: 20),
+
+                    // Billing Interval
+                    const Text(
+                      'Billing Interval',
+                      style:
+                          TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
+                    ),
+                    const SizedBox(height: 8),
+                    SegmentedButton<BillingInterval>(
+                      segments: const [
+                        ButtonSegment(
+                          value: BillingInterval.monthly,
+                          label: Text('Monthly'),
+                          icon: Icon(Icons.calendar_month),
+                        ),
+                        ButtonSegment(
+                          value: BillingInterval.yearly,
+                          label: Text('Yearly'),
+                          icon: Icon(Icons.calendar_today),
+                        ),
+                      ],
+                      selected: {selectedInterval},
+                      onSelectionChanged: (Set<BillingInterval> newSelection) {
+                        setState(() {
+                          selectedInterval = newSelection.first;
+                        });
+                      },
+                    ),
+                    const SizedBox(height: 20),
+
+                    // Status
+                    const Text(
+                      'Initial Status',
+                      style:
+                          TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
+                    ),
+                    const SizedBox(height: 8),
+                    DropdownButtonFormField<SubscriptionStatus>(
+                      value: selectedStatus,
+                      decoration: const InputDecoration(
+                        border: OutlineInputBorder(),
+                      ),
+                      items: const [
+                        DropdownMenuItem(
+                          value: SubscriptionStatus.trial,
+                          child: Row(
+                            children: [
+                              Icon(Icons.access_time,
+                                  size: 16, color: Colors.amber),
+                              SizedBox(width: 8),
+                              Text('Trial'),
+                            ],
+                          ),
+                        ),
+                        DropdownMenuItem(
+                          value: SubscriptionStatus.active,
+                          child: Row(
+                            children: [
+                              Icon(Icons.check_circle,
+                                  size: 16, color: Colors.green),
+                              SizedBox(width: 8),
+                              Text('Active'),
+                            ],
+                          ),
+                        ),
+                      ],
+                      onChanged: (value) {
+                        setState(() => selectedStatus = value!);
+                      },
+                    ),
+                    const SizedBox(height: 20),
+
+                    // Trial Days (only show if status is trial)
+                    if (selectedStatus == SubscriptionStatus.trial) ...[
+                      const Text(
+                        'Trial Duration (days)',
+                        style: TextStyle(
+                            fontWeight: FontWeight.bold, fontSize: 14),
+                      ),
+                      const SizedBox(height: 8),
+                      TextFormField(
+                        initialValue: trialDays.toString(),
+                        decoration: const InputDecoration(
+                          border: OutlineInputBorder(),
+                          suffixText: 'days',
+                        ),
+                        keyboardType: TextInputType.number,
+                        onChanged: (value) {
+                          final parsed = int.tryParse(value);
+                          if (parsed != null && parsed > 0) {
+                            trialDays = parsed;
+                          }
+                        },
+                      ),
+                      const SizedBox(height: 20),
+                    ],
+
+                    // Payment Method
+                    const Text(
+                      'Payment Method',
+                      style:
+                          TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
+                    ),
+                    const SizedBox(height: 8),
+                    DropdownButtonFormField<PaymentMethod>(
+                      value: selectedPaymentMethod,
+                      decoration: const InputDecoration(
+                        border: OutlineInputBorder(),
+                      ),
+                      items: const [
+                        DropdownMenuItem(
+                          value: PaymentMethod.creditCard,
+                          child: Row(
+                            children: [
+                              Icon(Icons.credit_card, size: 16),
+                              SizedBox(width: 8),
+                              Text('Credit Card'),
+                            ],
+                          ),
+                        ),
+                        DropdownMenuItem(
+                          value: PaymentMethod.debitCard,
+                          child: Row(
+                            children: [
+                              Icon(Icons.credit_card, size: 16),
+                              SizedBox(width: 8),
+                              Text('Debit Card'),
+                            ],
+                          ),
+                        ),
+                        DropdownMenuItem(
+                          value: PaymentMethod.bankTransfer,
+                          child: Row(
+                            children: [
+                              Icon(Icons.account_balance, size: 16),
+                              SizedBox(width: 8),
+                              Text('Bank Transfer'),
+                            ],
+                          ),
+                        ),
+                        DropdownMenuItem(
+                          value: PaymentMethod.paypal,
+                          child: Row(
+                            children: [
+                              Icon(Icons.payment, size: 16),
+                              SizedBox(width: 8),
+                              Text('PayPal'),
+                            ],
+                          ),
+                        ),
+                      ],
+                      onChanged: (value) {
+                        setState(() => selectedPaymentMethod = value!);
+                      },
+                    ),
+                    const SizedBox(height: 20),
+
+                    // Summary
+                    Container(
+                      padding: const EdgeInsets.all(16),
+                      decoration: BoxDecoration(
+                        color: Colors.blue[50],
+                        borderRadius: BorderRadius.circular(8),
+                        border: Border.all(color: Colors.blue[200]!),
+                      ),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          const Text(
+                            'Summary',
+                            style: TextStyle(
+                              fontWeight: FontWeight.bold,
+                              fontSize: 14,
+                            ),
+                          ),
+                          const SizedBox(height: 12),
+                          _buildSummaryRow(
+                              'Tier:', selectedTier.name, Colors.blue),
+                          _buildSummaryRow(
+                            'Price:',
+                            '\$${price.toStringAsFixed(2)}/${selectedInterval == BillingInterval.monthly ? "mo" : "yr"}',
+                            Colors.green,
+                          ),
+                          if (selectedStatus == SubscriptionStatus.trial)
+                            _buildSummaryRow(
+                              'Trial:',
+                              '$trialDays days free',
+                              Colors.amber,
+                            ),
+                          _buildSummaryRow(
+                            'Next Billing:',
+                            _formatNextBillingDate(
+                                selectedStatus, trialDays, selectedInterval),
+                            Colors.grey[700]!,
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(context),
+                child: const Text('Cancel'),
+              ),
+              ElevatedButton(
+                onPressed: selectedCompanyId == null
+                    ? null
+                    : () async {
+                        try {
+                          final now = DateTime.now();
+                          final startDate = now;
+                          final nextBillingDate =
+                              selectedStatus == SubscriptionStatus.trial
+                                  ? now.add(Duration(days: trialDays))
+                                  : selectedInterval == BillingInterval.monthly
+                                      ? now.add(const Duration(days: 30))
+                                      : now.add(const Duration(days: 365));
+
+                          final newSubscription = CompanySubscription(
+                            id: 'sub_${DateTime.now().millisecondsSinceEpoch}',
+                            companyId: selectedCompanyId!,
+                            tierId: selectedTierId!,
+                            startDate: startDate,
+                            status: selectedStatus,
+                            paymentMethod: selectedPaymentMethod,
+                            billingInterval: selectedInterval,
+                            nextBillingDate: nextBillingDate,
+                            currentPrice: price,
+                            gracePeriodDays: 7,
+                            createdAt: now,
+                            updatedAt: now,
+                            trialEndsAt:
+                                selectedStatus == SubscriptionStatus.trial
+                                    ? now.add(Duration(days: trialDays))
+                                    : null,
+                          );
+
+                          await StorageService.addSubscription(newSubscription);
+
+                          if (context.mounted) {
+                            Navigator.pop(context);
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              SnackBar(
+                                content: Text(
+                                  'Subscription created successfully for ${companiesWithoutSub.firstWhere((c) => c.id == selectedCompanyId).name}',
+                                ),
+                                backgroundColor: Colors.green,
+                              ),
+                            );
+                            // Refresh the view
+                            setState(() {});
+                          }
+                        } catch (e) {
+                          if (context.mounted) {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              SnackBar(
+                                content:
+                                    Text('Error creating subscription: $e'),
+                                backgroundColor: Colors.red,
+                              ),
+                            );
+                          }
+                        }
+                      },
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: Colors.deepPurple,
+                  foregroundColor: Colors.white,
+                ),
+                child: const Text('Create Subscription'),
+              ),
+            ],
+          );
+        },
       ),
     );
+  }
+
+  Widget _buildSummaryRow(String label, String value, Color valueColor) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 6),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          Text(
+            label,
+            style: const TextStyle(fontSize: 13, color: Colors.black87),
+          ),
+          Text(
+            value,
+            style: TextStyle(
+              fontSize: 13,
+              fontWeight: FontWeight.bold,
+              color: valueColor,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  String _formatNextBillingDate(
+      SubscriptionStatus status, int trialDays, BillingInterval interval) {
+    final now = DateTime.now();
+    final date = status == SubscriptionStatus.trial
+        ? now.add(Duration(days: trialDays))
+        : interval == BillingInterval.monthly
+            ? now.add(const Duration(days: 30))
+            : now.add(const Duration(days: 365));
+    return DateFormat('MMM dd, yyyy').format(date);
   }
 
   void _handleSubscriptionAction(
@@ -931,9 +1359,11 @@ class _SuperAdminDashboardState extends State<SuperAdminDashboard> {
               ),
               const SizedBox(height: 8),
               FutureBuilder<List<PaymentRecord>>(
-                future: StorageService.getPaymentsBySubscriptionId(subscription.id),
+                future:
+                    StorageService.getPaymentsBySubscriptionId(subscription.id),
                 builder: (context, paymentSnapshot) {
-                  if (paymentSnapshot.connectionState == ConnectionState.waiting) {
+                  if (paymentSnapshot.connectionState ==
+                      ConnectionState.waiting) {
                     return const Center(
                       child: Padding(
                         padding: EdgeInsets.all(16),
@@ -943,7 +1373,7 @@ class _SuperAdminDashboardState extends State<SuperAdminDashboard> {
                   }
 
                   final payments = paymentSnapshot.data ?? [];
-                  
+
                   if (payments.isEmpty) {
                     return const Padding(
                       padding: EdgeInsets.all(16),
@@ -975,7 +1405,8 @@ class _SuperAdminDashboardState extends State<SuperAdminDashboard> {
                               ),
                               title: Text(
                                 '\$${payment.amount.toStringAsFixed(2)}',
-                                style: const TextStyle(fontWeight: FontWeight.bold),
+                                style: const TextStyle(
+                                    fontWeight: FontWeight.bold),
                               ),
                               subtitle: Text(
                                 DateFormat('MMM d, yyyy').format(payment.date),
@@ -1203,7 +1634,8 @@ class _SuperAdminDashboardState extends State<SuperAdminDashboard> {
     );
   }
 
-  Widget _buildMetricCard(String title, String value, IconData icon, Color color) {
+  Widget _buildMetricCard(
+      String title, String value, IconData icon, Color color) {
     return Container(
       width: 180,
       padding: const EdgeInsets.all(16),
@@ -1284,7 +1716,8 @@ class _SuperAdminDashboardState extends State<SuperAdminDashboard> {
                               reservedSize: 30,
                               getTitlesWidget: (value, meta) {
                                 final index = value.toInt();
-                                if (index < 0 || index >= metrics.revenueHistory.length) {
+                                if (index < 0 ||
+                                    index >= metrics.revenueHistory.length) {
                                   return const Text('');
                                 }
                                 return Padding(
@@ -1450,7 +1883,7 @@ class _SuperAdminDashboardState extends State<SuperAdminDashboard> {
 
   Widget _buildTierDistribution(PlatformMetrics metrics) {
     final tiers = SubscriptionTier.defaultTiers;
-    
+
     return Card(
       child: Padding(
         padding: const EdgeInsets.all(16),
@@ -1467,7 +1900,7 @@ class _SuperAdminDashboardState extends State<SuperAdminDashboard> {
               final percentage = metrics.totalCompanies > 0
                   ? (count / metrics.totalCompanies) * 100
                   : 0.0;
-              
+
               return Padding(
                 padding: const EdgeInsets.only(bottom: 12),
                 child: Column(
@@ -1490,7 +1923,8 @@ class _SuperAdminDashboardState extends State<SuperAdminDashboard> {
                     LinearProgressIndicator(
                       value: percentage / 100,
                       backgroundColor: Colors.grey[200],
-                      valueColor: const AlwaysStoppedAnimation<Color>(Colors.deepPurple),
+                      valueColor: const AlwaysStoppedAnimation<Color>(
+                          Colors.deepPurple),
                     ),
                   ],
                 ),
@@ -1563,7 +1997,8 @@ class _SuperAdminDashboardState extends State<SuperAdminDashboard> {
     );
   }
 
-  Widget _buildActivityRow(String label, String value, IconData icon, Color color) {
+  Widget _buildActivityRow(
+      String label, String value, IconData icon, Color color) {
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 8),
       child: Row(
@@ -1596,7 +2031,8 @@ class _SuperAdminDashboardState extends State<SuperAdminDashboard> {
     );
   }
 
-  Future<PlatformMetrics> _calculatePlatformMetrics(AppProvider appProvider) async {
+  Future<PlatformMetrics> _calculatePlatformMetrics(
+      AppProvider appProvider) async {
     final companies = await appProvider.getCompanies();
     final users = await StorageService.getUsers();
     final subscriptions = await StorageService.getSubscriptions();
@@ -1605,23 +2041,30 @@ class _SuperAdminDashboardState extends State<SuperAdminDashboard> {
 
     // Calculate basic counts
     final totalCompanies = companies.length;
-    final activeSubscriptions = subscriptions.where((s) => s.status == SubscriptionStatus.active).length;
-    final trialSubscriptions = subscriptions.where((s) => s.status == SubscriptionStatus.trial).length;
-    final suspendedSubscriptions = subscriptions.where((s) => s.status == SubscriptionStatus.suspended).length;
-    
-    final totalEmployees = users.where((u) => u.role == UserRole.employee).length;
+    final activeSubscriptions = subscriptions
+        .where((s) => s.status == SubscriptionStatus.active)
+        .length;
+    final trialSubscriptions =
+        subscriptions.where((s) => s.status == SubscriptionStatus.trial).length;
+    final suspendedSubscriptions = subscriptions
+        .where((s) => s.status == SubscriptionStatus.suspended)
+        .length;
+
+    final totalEmployees =
+        users.where((u) => u.role == UserRole.employee).length;
     final totalAdmins = users.where((u) => u.role == UserRole.admin).length;
 
     // Calculate revenue
     final mrr = subscriptions
         .where((s) => s.status == SubscriptionStatus.active)
         .fold<double>(0, (sum, s) => sum + s.currentPrice);
-    
+
     // For total revenue, we'll use a simplified calculation
     final totalRevenue = subscriptions.fold<double>(
       0,
       (sum, s) {
-        final monthsSinceStart = DateTime.now().difference(s.startDate).inDays ~/ 30;
+        final monthsSinceStart =
+            DateTime.now().difference(s.startDate).inDays ~/ 30;
         return sum + (s.currentPrice * monthsSinceStart.clamp(0, 12));
       },
     );
@@ -1629,9 +2072,8 @@ class _SuperAdminDashboardState extends State<SuperAdminDashboard> {
     // Calculate companies by tier
     final companiesByTier = <String, int>{};
     for (final tier in SubscriptionTier.defaultTiers) {
-      companiesByTier[tier.id] = subscriptions
-          .where((s) => s.tierId == tier.id)
-          .length;
+      companiesByTier[tier.id] =
+          subscriptions.where((s) => s.tierId == tier.id).length;
     }
 
     // Calculate revenue history (last 12 months)
@@ -1639,21 +2081,19 @@ class _SuperAdminDashboardState extends State<SuperAdminDashboard> {
     final now = DateTime.now();
     for (int i = 11; i >= 0; i--) {
       final targetDate = DateTime(now.year, now.month - i, 1);
-      final monthRevenue = subscriptions
-          .where((s) {
-            final isInMonth = s.startDate.isBefore(targetDate.add(const Duration(days: 31))) &&
-                             (s.endDate == null || s.endDate!.isAfter(targetDate));
-            return isInMonth && s.status == SubscriptionStatus.active;
-          })
-          .fold<double>(0, (sum, s) => sum + s.currentPrice);
-      
-      final paymentCount = subscriptions
-          .where((s) {
-            final isInMonth = s.startDate.isBefore(targetDate.add(const Duration(days: 31))) &&
-                             (s.endDate == null || s.endDate!.isAfter(targetDate));
-            return isInMonth && s.status == SubscriptionStatus.active;
-          })
-          .length;
+      final monthRevenue = subscriptions.where((s) {
+        final isInMonth =
+            s.startDate.isBefore(targetDate.add(const Duration(days: 31))) &&
+                (s.endDate == null || s.endDate!.isAfter(targetDate));
+        return isInMonth && s.status == SubscriptionStatus.active;
+      }).fold<double>(0, (sum, s) => sum + s.currentPrice);
+
+      final paymentCount = subscriptions.where((s) {
+        final isInMonth =
+            s.startDate.isBefore(targetDate.add(const Duration(days: 31))) &&
+                (s.endDate == null || s.endDate!.isAfter(targetDate));
+        return isInMonth && s.status == SubscriptionStatus.active;
+      }).length;
 
       revenueHistory.add(RevenueByMonth(
         year: targetDate.year,
@@ -1665,9 +2105,8 @@ class _SuperAdminDashboardState extends State<SuperAdminDashboard> {
 
     // Calculate new companies this month
     final startOfMonth = DateTime(now.year, now.month, 1);
-    final newCompaniesThisMonth = companies
-        .where((c) => c.createdAt.isAfter(startOfMonth))
-        .length;
+    final newCompaniesThisMonth =
+        companies.where((c) => c.createdAt.isAfter(startOfMonth)).length;
 
     // Calculate churned companies (cancelled subscriptions this month)
     final churnedCompaniesThisMonth = subscriptions
@@ -1678,9 +2117,8 @@ class _SuperAdminDashboardState extends State<SuperAdminDashboard> {
         .length;
 
     // Calculate average revenue per company
-    final averageRevenuePerCompany = totalCompanies > 0
-        ? mrr / totalCompanies
-        : 0.0;
+    final averageRevenuePerCompany =
+        totalCompanies > 0 ? mrr / totalCompanies : 0.0;
 
     // Platform activity metrics
     final totalTargetsCreated = targets.length;
