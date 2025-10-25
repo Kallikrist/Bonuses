@@ -2,6 +2,10 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../providers/app_provider.dart';
 import 'onboarding_screen.dart';
+import '../services/supabase_service.dart';
+import '../services/storage_service.dart';
+import '../models/user.dart';
+import '../models/company.dart';
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
@@ -200,11 +204,41 @@ class _LoginScreenState extends State<LoginScreen> {
                               ),
                               const SizedBox(height: 8),
                               Text(
-                                'Admin: admin@store.com\nEmployee: john@store.com\nSuper Admin: superadmin@platform.com\nPassword: password123',
+                                'Admin Store: admin@store.com / password123\nAdmin Utilif: admin@utilif.com / utilif123\nEmployee: john.doe@example.com / password123\nSuper Admin: superadmin@platform.com / password123',
                                 style: TextStyle(color: Colors.blue[700]),
                               ),
                             ],
                           ),
+                        ),
+                        const SizedBox(height: 16),
+                        // Reset Demo Data Button
+                        ElevatedButton(
+                          onPressed: _resetDemoData,
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: Colors.orange,
+                            foregroundColor: Colors.white,
+                          ),
+                          child: const Text('🔄 Reset Demo Data'),
+                        ),
+                        const SizedBox(height: 16),
+                        // Test Supabase Integration Button
+                        ElevatedButton(
+                          onPressed: _testSupabaseIntegration,
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: Colors.purple,
+                            foregroundColor: Colors.white,
+                          ),
+                          child: const Text('🧪 Test Supabase Integration'),
+                        ),
+                        const SizedBox(height: 8),
+                        // Debug Users Button
+                        ElevatedButton(
+                          onPressed: _debugUsers,
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: Colors.blue,
+                            foregroundColor: Colors.white,
+                          ),
+                          child: const Text('👥 Debug Users'),
                         ),
                       ],
                     ),
@@ -216,5 +250,152 @@ class _LoginScreenState extends State<LoginScreen> {
         ),
       ),
     );
+  }
+
+  Future<void> _resetDemoData() async {
+    try {
+      showDialog(
+        context: context,
+        barrierDismissible: false,
+        builder: (context) => const AlertDialog(
+          content: Row(
+            children: [
+              CircularProgressIndicator(),
+              SizedBox(width: 16),
+              Text('Resetting demo data...'),
+            ],
+          ),
+        ),
+      );
+
+      // Clear all data and reinitialize
+      await StorageService.clearAllData();
+      await StorageService.initializeSampleData();
+
+      Navigator.of(context).pop(); // Close loading dialog
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('✅ Demo data reset successfully! Try logging in now.'),
+          backgroundColor: Colors.green,
+        ),
+      );
+    } catch (e) {
+      Navigator.of(context).pop(); // Close loading dialog
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('❌ Failed to reset demo data: $e'),
+          backgroundColor: Colors.red,
+        ),
+      );
+    }
+  }
+
+  Future<void> _debugUsers() async {
+    try {
+      final users = await StorageService.getUsers();
+      String debugInfo = 'Current Users (${users.length}):\n\n';
+
+      for (final user in users) {
+        final password = await StorageService.getPassword(user.id);
+        debugInfo += '${user.email}:\n';
+        debugInfo += '  ID: ${user.id}\n';
+        debugInfo += '  Name: ${user.name}\n';
+        debugInfo += '  Role: ${user.role}\n';
+        debugInfo += '  Password: $password\n';
+        debugInfo += '  Companies: ${user.companyNames.join(", ")}\n\n';
+      }
+
+      showDialog(
+        context: context,
+        builder: (context) => AlertDialog(
+          title: const Text('Current Users'),
+          content: SingleChildScrollView(
+            child: Text(debugInfo),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(),
+              child: const Text('OK'),
+            ),
+          ],
+        ),
+      );
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('❌ Debug failed: $e'),
+          backgroundColor: Colors.red,
+        ),
+      );
+    }
+  }
+
+  Future<void> _testSupabaseIntegration() async {
+    try {
+      showDialog(
+        context: context,
+        barrierDismissible: false,
+        builder: (context) => const AlertDialog(
+          content: Row(
+            children: [
+              CircularProgressIndicator(),
+              SizedBox(width: 16),
+              Text('Testing Supabase integration...'),
+            ],
+          ),
+        ),
+      );
+
+      // Test user creation
+      final timestamp = DateTime.now().millisecondsSinceEpoch;
+      final testUser = User(
+        id: 'test_user_$timestamp',
+        email: 'test_$timestamp@example.com',
+        name: 'Test User $timestamp',
+        role: UserRole.admin,
+        companyIds: ['test_company_$timestamp'],
+        companyNames: ['Test Company $timestamp'],
+        companyPoints: {},
+        companyRoles: {},
+        createdAt: DateTime.now(),
+      );
+
+      await SupabaseService.createUser(testUser);
+      print('✅ Test user created in Supabase: ${testUser.email}');
+
+      // Test company creation
+      final testCompany = Company(
+        id: 'test_company_$timestamp',
+        name: 'Test Company $timestamp',
+        address: '123 Test St',
+        adminUserId: testUser.id,
+        contactEmail: 'admin_$timestamp@test.com',
+        contactPhone: '123-456-7890',
+        createdAt: DateTime.now(),
+      );
+
+      await SupabaseService.createCompany(testCompany);
+      print('✅ Test company created in Supabase: ${testCompany.name}');
+
+      Navigator.of(context).pop(); // Close loading dialog
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('✅ Supabase test passed! Check logs for details.'),
+          backgroundColor: Colors.green,
+        ),
+      );
+    } catch (e) {
+      Navigator.of(context).pop(); // Close loading dialog
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('❌ Supabase test failed: $e'),
+          backgroundColor: Colors.red,
+        ),
+      );
+    }
   }
 }

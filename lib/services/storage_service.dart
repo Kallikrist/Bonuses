@@ -1,6 +1,7 @@
 import 'dart:convert';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../models/user.dart';
+import 'supabase_service.dart';
 import '../models/sales_target.dart';
 import '../models/points_transaction.dart';
 import '../models/bonus.dart';
@@ -83,9 +84,17 @@ class StorageService {
   }
 
   static Future<void> addUser(User user) async {
-    final users = await getUsers();
-    users.add(user);
-    await saveUsers(users);
+    // Try Supabase first, fallback to local storage
+    try {
+      await SupabaseService.createUser(user);
+      print('✅ User created in Supabase database: ${user.email}');
+    } catch (e) {
+      print('⚠️ Supabase user creation failed, using local storage: $e');
+      final users = await getUsers();
+      users.add(user);
+      await saveUsers(users);
+      print('✅ User created in local storage: ${user.email}');
+    }
   }
 
   static Future<void> updateUser(User user) async {
@@ -336,9 +345,17 @@ class StorageService {
   }
 
   static Future<void> addCompany(Company company) async {
-    final companies = await getCompanies();
-    companies.add(company);
-    await saveCompanies(companies);
+    // Try Supabase first, fallback to local storage
+    try {
+      await SupabaseService.createCompany(company);
+      print('✅ Company created in Supabase database: ${company.name}');
+    } catch (e) {
+      print('⚠️ Supabase company creation failed, using local storage: $e');
+      final companies = await getCompanies();
+      companies.add(company);
+      await saveCompanies(companies);
+      print('✅ Company created in local storage: ${company.name}');
+    }
   }
 
   static Future<void> updateCompany(Company company) async {
@@ -779,7 +796,7 @@ class StorageService {
         companyPoints: {},
       );
       await addUser(superAdminUser);
-      await savePassword('superadmin1', 'superadmin123');
+      await savePassword('superadmin1', 'password123');
       print('DEBUG: Migration - Added super admin user with password');
     }
   }
@@ -789,6 +806,7 @@ class StorageService {
     print('DEBUG: Demo Data - Starting initialization...');
     // Create demo company first
     const demoCompanyId = 'demo_company_utilif';
+    const testCompanyId = 'test_company_1';
     final companies = await getCompanies();
     if (!companies.any((c) => c.id == demoCompanyId)) {
       final demoCompany = Company(
@@ -802,6 +820,22 @@ class StorageService {
         employeeCount: '11-30',
       );
       await addCompany(demoCompany);
+    }
+
+    // Create test company for kallikrist@test.is
+    if (!companies.any((c) => c.id == testCompanyId)) {
+      final testCompany = Company(
+        id: testCompanyId,
+        name: 'TestCompany1',
+        address: 'Test Address, Test City',
+        contactEmail: 'admin@testcompany1.com',
+        contactPhone: '+1 (555) 999-9999',
+        adminUserId: 'test_admin_1',
+        createdAt: DateTime.now(),
+        employeeCount: '1-10',
+      );
+      await addCompany(testCompany);
+      print('DEBUG: Demo Data - Created test company: ${testCompany.name}');
     }
 
     // Initialize workplaces with company ID
@@ -984,7 +1018,7 @@ class StorageService {
         companyPoints: {},
       );
       await addUser(superAdminUser);
-      await savePassword('superadmin1', 'superadmin123');
+      await savePassword('superadmin1', 'password123');
       print('DEBUG: Added super admin user with password');
     }
 
@@ -1085,6 +1119,21 @@ class StorageService {
           companyRoles: {demoCompanyId: 'employee'},
           companyPoints: {demoCompanyId: 150},
         ),
+        User(
+          id: 'test_user_1',
+          name: 'Kalli Krist',
+          email: 'kallikrist@test.is',
+          phoneNumber: '+354 123 4567',
+          role: UserRole.employee,
+          createdAt: DateTime.now(),
+          workplaceIds: ['wp1'],
+          workplaceNames: ['Downtown Store'],
+          companyIds: [testCompanyId],
+          companyNames: ['TestCompany1'],
+          primaryCompanyId: testCompanyId,
+          companyRoles: {testCompanyId: 'employee'},
+          companyPoints: {testCompanyId: 0},
+        ),
       ];
       for (final user in sampleUsers) {
         // Only add if user with this ID doesn't exist
@@ -1097,8 +1146,18 @@ class StorageService {
       }
 
       // Set passwords for demo users
+      await savePassword('admin1', 'password123');
       await savePassword('utilif_admin', 'utilif123');
-      print('DEBUG: Added Utilif admin user with password utilif123');
+      await savePassword('emp1', 'password123');
+      await savePassword('emp2', 'password123');
+      await savePassword('emp3', 'password123');
+      await savePassword('emp4', 'password123');
+      await savePassword('test_user_1', 'demo123');
+      print('DEBUG: Added passwords for all demo users');
+
+      // Debug: Verify admin1 password was saved
+      final admin1Password = await getPassword('admin1');
+      print('DEBUG: Verified admin1 password: $admin1Password');
     }
 
     // Create sample targets for the last 12 years (demo company only)

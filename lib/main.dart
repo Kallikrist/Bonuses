@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/foundation.dart';
 import 'package:provider/provider.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 import 'providers/app_provider.dart';
 import 'models/user.dart';
 import 'models/company.dart';
@@ -11,9 +13,30 @@ import 'screens/onboarding_screen.dart';
 import 'screens/company_selection_screen.dart';
 import 'widgets/branded_splash_screen.dart';
 import 'services/stripe_service.dart';
+import 'services/supabase_service.dart';
+import 'services/supabase_migration_service.dart';
+import 'test_supabase_connection.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
+
+  // Initialize Supabase (PostgreSQL database with real-time features)
+  print('🔄 Initializing Supabase...');
+  try {
+    await SupabaseService.initialize();
+    print('✅ Supabase initialized successfully!');
+
+    // Test connection
+    final isConnected = await SupabaseMigrationService.testConnection();
+    if (isConnected) {
+      print('✅ Supabase connection verified');
+    } else {
+      print('⚠️ Supabase connection failed - using local storage fallback');
+    }
+  } catch (e) {
+    print('❌ Supabase initialization failed: $e');
+    print('ℹ️ App will use local storage as fallback');
+  }
 
   // Initialize Stripe (Mock mode for demo)
   try {
@@ -63,6 +86,9 @@ class BonusesApp extends StatelessWidget {
             themeMode:
                 appProvider.isDarkMode ? ThemeMode.dark : ThemeMode.light,
             home: const AppWrapper(),
+            routes: {
+              '/supabase-test': (context) => const TestSupabaseScreen(),
+            },
             debugShowCheckedModeBanner: false,
           );
         },
@@ -79,43 +105,29 @@ class AppWrapper extends StatefulWidget {
 }
 
 class _AppWrapperState extends State<AppWrapper> {
-  bool _isCheckingOnboarding = true;
-  bool _isOnboardingComplete = false;
   String? _companyName;
 
   @override
   void initState() {
     super.initState();
-    _checkOnboardingStatus();
+    _initializeApp();
   }
 
-  Future<void> _checkOnboardingStatus() async {
+  Future<void> _initializeApp() async {
     final appProvider = context.read<AppProvider>();
-    final isComplete = await appProvider.isOnboardingComplete();
 
-    if (isComplete) {
-      // Initialize the app provider first
-      await appProvider.initialize();
+    // Initialize the app provider
+    await appProvider.initialize();
 
-      // Get the company name after initialization
-      final companyName = await _getCompanyName(appProvider);
-
-      setState(() {
-        _companyName = companyName;
-      });
-
-      // Add a delay to show the splash screen (for demo purposes)
-      // You can remove this delay in production
-      await Future.delayed(const Duration(seconds: 8));
-    } else {
-      // Add a delay to show the splash screen even for onboarding
-      await Future.delayed(const Duration(seconds: 8));
-    }
+    // Get the company name after initialization
+    final companyName = await _getCompanyName(appProvider);
 
     setState(() {
-      _isOnboardingComplete = isComplete;
-      _isCheckingOnboarding = false;
+      _companyName = companyName;
     });
+
+    // Add a short delay to show the splash screen
+    await Future.delayed(const Duration(seconds: 2));
   }
 
   Future<String?> _getCompanyName(AppProvider appProvider) async {
@@ -169,17 +181,6 @@ class _AppWrapperState extends State<AppWrapper> {
 
   @override
   Widget build(BuildContext context) {
-    if (_isCheckingOnboarding) {
-      return BrandedSplashScreen(
-        companyName: _companyName ?? 'Loading...',
-        showProgress: true,
-      );
-    }
-
-    if (!_isOnboardingComplete) {
-      return const OnboardingScreen();
-    }
-
     return Consumer<AppProvider>(
       builder: (context, appProvider, child) {
         if (appProvider.isLoading) {

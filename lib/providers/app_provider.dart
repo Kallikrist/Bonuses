@@ -10,6 +10,7 @@ import '../models/approval_request.dart';
 import '../models/message.dart';
 import '../services/storage_service.dart';
 import '../services/auth_service.dart';
+// Firebase auth service removed - using Supabase now
 import '../models/points_rules.dart';
 
 class AppProvider with ChangeNotifier {
@@ -84,15 +85,26 @@ class AppProvider with ChangeNotifier {
       // Load dark mode preference
       _isDarkMode = await StorageService.getDarkMode();
 
-      // Only initialize sample data if onboarding is NOT complete
-      final onboardingComplete = await StorageService.isOnboardingComplete();
-      if (!onboardingComplete) {
-        // Only clear data if no users exist (first time running)
-        final existingUsers = await StorageService.getUsers();
-        if (existingUsers.isEmpty) {
-          await StorageService.clearAllData();
-        }
+      // Always ensure demo data exists for testing
+      final existingUsers = await StorageService.getUsers();
+      print('DEBUG: Found ${existingUsers.length} existing users');
+
+      // Check if demo users exist
+      final demoEmails = [
+        'admin@store.com',
+        'admin@utilif.com',
+        'john.doe@example.com',
+        'superadmin@platform.com'
+      ];
+      final hasDemoUsers = demoEmails
+          .every((email) => existingUsers.any((user) => user.email == email));
+
+      if (!hasDemoUsers) {
+        print('DEBUG: Demo users missing, initializing demo data...');
         await StorageService.initializeSampleData();
+        print('DEBUG: Demo data initialized successfully');
+      } else {
+        print('DEBUG: All demo users exist');
       }
       await _loadData();
     } finally {
@@ -578,6 +590,10 @@ class AppProvider with ChangeNotifier {
   // User management methods
   Future<void> addUser(User user) async {
     await StorageService.addUser(user);
+
+    // User created in local storage only (Firebase disabled for simplicity)
+    print('✅ User created in local storage: ${user.email}');
+
     notifyListeners();
   }
 

@@ -15,6 +15,7 @@ import '../models/company.dart';
 import '../models/approval_request.dart';
 import '../models/points_rules.dart';
 import '../services/storage_service.dart';
+import '../services/supabase_migration_service.dart';
 import '../widgets/profile_header_widget.dart';
 import '../widgets/target_card_widget.dart';
 import 'import_bonuses_screen.dart';
@@ -2050,6 +2051,106 @@ class _AdminDashboardState extends State<AdminDashboard> {
     }
   }
 
+  void _migrateToSupabase(BuildContext context) async {
+    try {
+      // Show loading dialog
+      showDialog(
+        context: context,
+        barrierDismissible: false,
+        builder: (context) => const AlertDialog(
+          content: Row(
+            children: [
+              CircularProgressIndicator(),
+              SizedBox(width: 16),
+              Text('Migrating data to Supabase...'),
+            ],
+          ),
+        ),
+      );
+
+      // Perform migration
+      await SupabaseMigrationService.migrateAllDataToSupabase();
+
+      // Close loading dialog
+      if (context.mounted) {
+        Navigator.of(context).pop();
+
+        // Show success message
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('✅ Data successfully migrated to Supabase!'),
+            backgroundColor: Colors.green,
+            duration: Duration(seconds: 5),
+          ),
+        );
+      }
+    } catch (e) {
+      // Close loading dialog
+      if (context.mounted) {
+        Navigator.of(context).pop();
+
+        // Show error message
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('❌ Migration failed: $e'),
+            backgroundColor: Colors.red,
+            duration: Duration(seconds: 5),
+          ),
+        );
+      }
+    }
+  }
+
+  void _createFirebaseUsers(BuildContext context) async {
+    try {
+      // Show loading dialog
+      showDialog(
+        context: context,
+        barrierDismissible: false,
+        builder: (context) => const AlertDialog(
+          content: Row(
+            children: [
+              CircularProgressIndicator(),
+              SizedBox(width: 16),
+              Text('Creating Firebase users...'),
+            ],
+          ),
+        ),
+      );
+
+      // Create Firebase users
+      await SupabaseMigrationService.createDemoDataInSupabase();
+
+      // Close loading dialog
+      if (context.mounted) {
+        Navigator.of(context).pop();
+
+        // Show success message
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('✅ Firebase users created successfully!'),
+            backgroundColor: Colors.green,
+            duration: Duration(seconds: 5),
+          ),
+        );
+      }
+    } catch (e) {
+      // Close loading dialog
+      if (context.mounted) {
+        Navigator.of(context).pop();
+
+        // Show error message
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('❌ Failed to create Firebase users: $e'),
+            backgroundColor: Colors.red,
+            duration: Duration(seconds: 5),
+          ),
+        );
+      }
+    }
+  }
+
   void _showLogoutDialog(BuildContext context, AppProvider appProvider) {
     showDialog(
       context: context,
@@ -3456,6 +3557,18 @@ class _AdminDashboardState extends State<AdminDashboard> {
                 'Reset Utilif subscription to past due for testing Apple Pay',
                 () => _resetSubscriptionForTesting(context),
               ),
+              _buildSettingsItem(
+                Icons.cloud_upload,
+                'Migrate to Supabase',
+                'Move all data from local storage to Supabase cloud database',
+                () => _migrateToSupabase(context),
+              ),
+              _buildSettingsItem(
+                Icons.person_add,
+                'Create Firebase Users',
+                'Create Firebase Auth users for demo accounts',
+                () => _createFirebaseUsers(context),
+              ),
             ],
           ),
 
@@ -4343,11 +4456,16 @@ class _AdminDashboardState extends State<AdminDashboard> {
                       primaryCompanyId: currentCompanyId,
                     );
                     await appProvider.addUser(user);
+
+                    // Save password for the new user
+                    await StorageService.savePassword(user.id, 'password123');
+                    print('DEBUG: Saved password for new user ${user.email}');
+
                     Navigator.pop(context);
                     ScaffoldMessenger.of(context).showSnackBar(
                       SnackBar(
                         content: Text(
-                            'Employee added successfully to ${currentCompany.name}'),
+                            'Employee added successfully to ${currentCompany.name}. Default password: password123'),
                       ),
                     );
                   }
@@ -5206,45 +5324,32 @@ class _AdminDashboardState extends State<AdminDashboard> {
         print('DEBUG: Banner - Showing payment required banner');
 
         return Container(
-          margin: const EdgeInsets.all(16),
-          padding: const EdgeInsets.all(16),
+          margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
           decoration: BoxDecoration(
             color: Colors.orange[50],
             border: Border.all(color: Colors.orange[300]!),
-            borderRadius: BorderRadius.circular(12),
+            borderRadius: BorderRadius.circular(8),
           ),
           child: Row(
             children: [
               Icon(
                 Icons.warning,
                 color: Colors.orange[700],
-                size: 24,
+                size: 20,
               ),
-              const SizedBox(width: 12),
+              const SizedBox(width: 8),
               Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      'Payment Required',
-                      style: TextStyle(
-                        fontWeight: FontWeight.bold,
-                        color: Colors.orange[700],
-                        fontSize: 16,
-                      ),
-                    ),
-                    const SizedBox(height: 4),
-                    Text(
-                      'Your subscription payment of \$${companySubscription.currentPrice.toStringAsFixed(2)} is past due. Please update your payment method to continue using the platform.',
-                      style: TextStyle(
-                        color: Colors.orange[600],
-                        fontSize: 14,
-                      ),
-                    ),
-                  ],
+                child: Text(
+                  'Payment Required: \$${companySubscription.currentPrice.toStringAsFixed(2)} past due',
+                  style: TextStyle(
+                    color: Colors.orange[700],
+                    fontSize: 14,
+                    fontWeight: FontWeight.w500,
+                  ),
                 ),
               ),
-              const SizedBox(width: 12),
+              const SizedBox(width: 8),
               ElevatedButton(
                 onPressed: () async {
                   await Navigator.push(
@@ -5260,10 +5365,13 @@ class _AdminDashboardState extends State<AdminDashboard> {
                 style: ElevatedButton.styleFrom(
                   backgroundColor: Colors.orange[700],
                   foregroundColor: Colors.white,
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                  minimumSize: const Size(0, 32),
                 ),
-                child: const Text('Pay Now'),
+                child: const Text('Pay Now', style: TextStyle(fontSize: 12)),
               ),
-              const SizedBox(width: 8),
+              const SizedBox(width: 4),
               // Debug button to reset subscription for testing Apple Pay
               ElevatedButton(
                 onPressed: () async {
@@ -5280,8 +5388,11 @@ class _AdminDashboardState extends State<AdminDashboard> {
                 style: ElevatedButton.styleFrom(
                   backgroundColor: Colors.blue[600],
                   foregroundColor: Colors.white,
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+                  minimumSize: const Size(0, 32),
                 ),
-                child: const Text('Reset for Testing'),
+                child: const Text('Reset', style: TextStyle(fontSize: 12)),
               ),
             ],
           ),
@@ -10289,13 +10400,21 @@ class _EmployeesListScreenState extends State<EmployeesListScreen> {
                           primaryCompanyId: currentCompanyId,
                         );
                         await widget.appProvider.addUser(user);
+
+                        // Save password for the new user
+                        await StorageService.savePassword(
+                            user.id, 'password123');
+                        print(
+                            'DEBUG: Saved password for new user ${user.email}');
+
                         Navigator.pop(context);
                         ScaffoldMessenger.of(context).showSnackBar(
                           SnackBar(
                             content: Text('Employee added successfully' +
                                 (selectedCompany != null
                                     ? ' to ${selectedCompany.name}'
-                                    : '')),
+                                    : '') +
+                                '. Default password: password123'),
                           ),
                         );
                       }

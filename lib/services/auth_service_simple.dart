@@ -19,8 +19,6 @@ class AuthService {
 
       // Check password
       final storedPassword = await StorageService.getPassword(user.id);
-      print(
-          'DEBUG: Login attempt - Email: $email, User ID: ${user.id}, Stored password: $storedPassword, Provided password: $password');
       if (storedPassword != password) {
         print('DEBUG: Invalid password for $email');
         return false;

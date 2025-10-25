@@ -43,3 +43,76 @@ app.*.map.json
 /android/app/debug
 /android/app/profile
 /android/app/release
+
+# Environment variables and secrets
+.env
+.env.local
+.env.production
+.env.staging
+*.env
+config.json
+secrets.json
+
+# API Keys and sensitive configuration
+lib/config/
+lib/secrets/
+**/firebase_options.dart
+**/supabase_config.dart
+**/stripe_config.dart
+
+# Firebase configuration files
+google-services.json
+GoogleService-Info.plist
+firebase_options.dart
+
+# Supabase configuration
+supabase_config.dart
+lib/services/supabase_service.dart
+
+# Stripe configuration
+stripe_config.dart
+lib/services/stripe_service.dart
+lib/services/payment_service.dart
+
+# Debug and test files with sensitive data
+lib/test_*.dart
+lib/debug_*.dart
+lib/*_test.dart
+test_*.dart
+debug_*.dart
+
+# Temporary files with sensitive data
+temp_*.dart
+backup_*.dart
+*_backup.dart
+
+# Logs that might contain sensitive data
+*.log
+logs/
+debug.log
+error.log
+
+# IDE and editor files
+.vscode/settings.json
+.idea/workspace.xml
+.idea/tasks.xml
+.idea/dictionaries/
+.idea/shelf/
+
+# macOS
+.DS_Store
+.AppleDouble
+.LSOverride
+
+# Windows
+Thumbs.db
+ehthumbs.db
+Desktop.ini
+
+# Linux
+*~
+
+# Backup files
+*.bak
+*.swp
+*.tmp
