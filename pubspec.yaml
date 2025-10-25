@@ -61,12 +61,7 @@ dependencies:
   # Supabase - PostgreSQL database with real-time features
   supabase_flutter: ^2.0.0
   
-  # Firebase - disabled for simplicity, using Supabase instead
-  # firebase_core: ^2.24.2
-  # firebase_auth: ^4.15.3
-  # cloud_firestore: ^4.13.6
-  # firebase_storage: ^11.5.6
-  # firebase_messaging: ^14.7.10
+  # Using Supabase instead of Firebase for database and authentication
 
 dev_dependencies:
   flutter_test:
