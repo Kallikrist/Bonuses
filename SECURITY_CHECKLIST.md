@@ -6,12 +6,9 @@
 
 1. **API Keys and Secrets:**
    - ✅ `lib/services/supabase_service.dart` - Contains Supabase API key
-   - ✅ `lib/firebase_options.dart` - Contains Firebase API keys
    - ✅ Any files with hardcoded passwords or tokens
 
 2. **Configuration Files:**
-   - ✅ `google-services.json` (Android Firebase config)
-   - ✅ `GoogleService-Info.plist` (iOS Firebase config)
    - ✅ `.env` files (environment variables)
    - ✅ `config.json` or `secrets.json`
 
@@ -57,7 +54,7 @@
    
    # Ensure sensitive files are ignored
    git check-ignore lib/services/supabase_service.dart
-   git check-ignore lib/firebase_options.dart
+   git check-ignore lib/services/supabase_service.dart
    ```
 
 2. **Set up environment variables:**
@@ -71,7 +68,6 @@
 
 3. **Update services to use AppConfig:**
    - Replace hardcoded values in `supabase_service.dart`
-   - Replace hardcoded values in `firebase_options.dart`
    - Use `AppConfig.supabaseUrl` instead of hardcoded URLs
 
 ### 🔍 VERIFICATION COMMANDS:
@@ -83,10 +79,9 @@ grep -r "eyJhbGci" lib/ --exclude-dir=config
 grep -r "sk_" lib/ --exclude-dir=config
 
 # Check what files are being tracked by git
-git ls-files | grep -E "(firebase_options|supabase_service|\.env)"
+git ls-files | grep -E "(supabase_service|\.env)"
 
 # Verify .gitignore is working
-git check-ignore lib/firebase_options.dart
 git check-ignore lib/services/supabase_service.dart
 ```
 
