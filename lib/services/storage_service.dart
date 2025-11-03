@@ -84,17 +84,19 @@ class StorageService {
   }
 
   static Future<void> addUser(User user) async {
-    // Try Supabase first, fallback to local storage
+    // Try Supabase first, then also save to local storage
     try {
       await SupabaseService.createUser(user);
       print('✅ User created in Supabase database: ${user.email}');
     } catch (e) {
-      print('⚠️ Supabase user creation failed, using local storage: $e');
-      final users = await getUsers();
-      users.add(user);
-      await saveUsers(users);
-      print('✅ User created in local storage: ${user.email}');
+      print('⚠️ Supabase user creation failed: $e');
     }
+
+    // Always save to local storage as well for immediate access
+    final users = await getUsers();
+    users.add(user);
+    await saveUsers(users);
+    print('✅ User created in local storage: ${user.email}');
   }
 
   static Future<void> updateUser(User user) async {
@@ -171,11 +173,21 @@ class StorageService {
   }
 
   // Sales targets management
-  static Future<List<SalesTarget>> getSalesTargets() async {
+  // Get all targets including deleted ones (for internal operations)
+  static Future<List<SalesTarget>> _getAllSalesTargets() async {
     final prefs = await _prefs;
     final targetsJson = prefs.getStringList(_salesTargetsKey) ?? [];
     return targetsJson
         .map((json) => SalesTarget.fromJson(jsonDecode(json)))
+        .toList();
+  }
+
+  // Get only active (non-deleted) targets (for UI display)
+  static Future<List<SalesTarget>> getSalesTargets() async {
+    final allTargets = await _getAllSalesTargets();
+    return allTargets
+        .where(
+            (target) => target.deletedAt == null) // Filter out deleted targets
         .toList();
   }
 
@@ -189,11 +201,26 @@ class StorageService {
   static Future<void> addSalesTarget(SalesTarget target) async {
     print(
         'DEBUG: StorageService - Adding target with assignment - Employee: ${target.assignedEmployeeName}, Workplace: ${target.assignedWorkplaceName}');
+    print('DEBUG: StorageService - sales target payload (snake_case): ');
+    try {
+      print(target.toJson());
+    } catch (_) {}
+
+    // Try Supabase first, then also save to local storage
+    try {
+      await SupabaseService.createSalesTarget(target);
+      print('✅ Sales target created in Supabase database: ${target.id}');
+    } catch (e) {
+      print('⚠️ Supabase sales target creation failed: $e');
+    }
+
+    // Always save to local storage as well for immediate access
     final targets = await getSalesTargets();
     targets.add(target);
     await saveSalesTargets(targets);
     print(
         'DEBUG: StorageService - Target saved. Total targets: ${targets.length}');
+    print('✅ Sales target created in local storage: ${target.id}');
   }
 
   static Future<void> updateSalesTarget(SalesTarget target) async {
@@ -202,7 +229,16 @@ class StorageService {
         'DEBUG: StorageService - Collaborative IDs: ${target.collaborativeEmployeeIds}');
     print(
         'DEBUG: StorageService - Collaborative Names: ${target.collaborativeEmployeeNames}');
-    final targets = await getSalesTargets();
+
+    // Try to update in Supabase first
+    try {
+      await SupabaseService.updateSalesTarget(target);
+      print('✅ Sales target updated in Supabase: ${target.id}');
+    } catch (e) {
+      print('⚠️ Supabase sales target update failed: $e');
+    }
+    // Use _getAllSalesTargets to include deleted targets in case we're un-deleting
+    final targets = await _getAllSalesTargets();
     final index = targets.indexWhere((t) => t.id == target.id);
     if (index != -1) {
       targets[index] = target;
@@ -213,10 +249,27 @@ class StorageService {
     }
   }
 
-  static Future<void> deleteSalesTarget(String targetId) async {
-    final targets = await getSalesTargets();
-    targets.removeWhere((t) => t.id == targetId);
-    await saveSalesTargets(targets);
+  static Future<void> deleteSalesTarget(
+      String targetId, String deletedBy) async {
+    // Try Supabase soft delete first
+    try {
+      await SupabaseService.deleteSalesTarget(targetId, deletedBy);
+      print('✅ Sales target soft deleted in Supabase: $targetId');
+    } catch (e) {
+      print('⚠️ Supabase sales target delete failed: $e');
+    }
+    // Also update local storage with soft delete
+    // Use _getAllSalesTargets to access all targets including already deleted ones
+    final targets = await _getAllSalesTargets();
+    final index = targets.indexWhere((t) => t.id == targetId);
+    if (index != -1) {
+      targets[index] = targets[index].copyWith(
+        deletedAt: DateTime.now(),
+        deletedBy: deletedBy,
+      );
+      await saveSalesTargets(targets);
+      print('✅ Sales target soft deleted in local storage: $targetId');
+    }
   }
 
   static Future<void> clearAllData() async {
@@ -251,9 +304,20 @@ class StorageService {
 
   static Future<void> addPointsTransaction(
       PointsTransaction transaction) async {
+    // Try Supabase first, then also save to local storage
+    try {
+      await SupabaseService.createPointsTransaction(transaction);
+      print(
+          '✅ Points transaction created in Supabase database: ${transaction.id}');
+    } catch (e) {
+      print('⚠️ Supabase points transaction creation failed: $e');
+    }
+
+    // Always save to local storage as well for immediate access
     final transactions = await getPointsTransactions();
     transactions.add(transaction);
     await savePointsTransactions(transactions);
+    print('✅ Points transaction created in local storage: ${transaction.id}');
   }
 
   // Bonuses management
@@ -271,9 +335,19 @@ class StorageService {
   }
 
   static Future<void> addBonus(Bonus bonus) async {
+    // Try Supabase first, then also save to local storage
+    try {
+      await SupabaseService.createBonus(bonus);
+      print('✅ Bonus created in Supabase database: ${bonus.name}');
+    } catch (e) {
+      print('⚠️ Supabase bonus creation failed: $e');
+    }
+
+    // Always save to local storage as well for immediate access
     final bonuses = await getBonuses();
     bonuses.add(bonus);
     await saveBonuses(bonuses);
+    print('✅ Bonus created in local storage: ${bonus.name}');
   }
 
   static Future<void> updateBonus(Bonus bonus) async {
@@ -308,9 +382,19 @@ class StorageService {
   }
 
   static Future<void> addWorkplace(Workplace workplace) async {
+    // Try Supabase first, then also save to local storage
+    try {
+      await SupabaseService.createWorkplace(workplace);
+      print('✅ Workplace created in Supabase database: ${workplace.name}');
+    } catch (e) {
+      print('⚠️ Supabase workplace creation failed: $e');
+    }
+
+    // Always save to local storage as well for immediate access
     final workplaces = await getWorkplaces();
     workplaces.add(workplace);
     await saveWorkplaces(workplaces);
+    print('✅ Workplace created in local storage: ${workplace.name}');
   }
 
   static Future<void> updateWorkplace(Workplace workplace) async {
@@ -345,17 +429,19 @@ class StorageService {
   }
 
   static Future<void> addCompany(Company company) async {
-    // Try Supabase first, fallback to local storage
+    // Try Supabase first, then also save to local storage
     try {
       await SupabaseService.createCompany(company);
       print('✅ Company created in Supabase database: ${company.name}');
     } catch (e) {
-      print('⚠️ Supabase company creation failed, using local storage: $e');
-      final companies = await getCompanies();
-      companies.add(company);
-      await saveCompanies(companies);
-      print('✅ Company created in local storage: ${company.name}');
+      print('⚠️ Supabase company creation failed: $e');
     }
+
+    // Always save to local storage as well for immediate access
+    final companies = await getCompanies();
+    companies.add(company);
+    await saveCompanies(companies);
+    print('✅ Company created in local storage: ${company.name}');
   }
 
   static Future<void> updateCompany(Company company) async {
@@ -1558,6 +1644,19 @@ class StorageService {
   static Future<void> clearSelectedDate(String userId) async {
     final prefs = await _prefs;
     await prefs.remove('$_selectedDatePrefix$userId');
+  }
+
+  // Selected Tab Persistence
+  static const String _selectedTabPrefix = 'selected_tab_';
+
+  static Future<int?> getSelectedTab(String userId) async {
+    final prefs = await _prefs;
+    return prefs.getInt('$_selectedTabPrefix$userId');
+  }
+
+  static Future<void> setSelectedTab(String userId, int index) async {
+    final prefs = await _prefs;
+    await prefs.setInt('$_selectedTabPrefix$userId', index);
   }
 
   // Payment Cards Management

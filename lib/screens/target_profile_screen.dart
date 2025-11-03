@@ -833,85 +833,90 @@ class _TargetProfileScreenState extends State<TargetProfileScreen> {
         borderRadius: BorderRadius.circular(8),
         border: Border.all(color: Colors.grey.shade200),
       ),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-        crossAxisAlignment: CrossAxisAlignment.end,
-        children: [
-          for (int i = 0; i < filteredTargets.length; i++)
-            Column(
-              mainAxisAlignment: MainAxisAlignment.end,
-              children: [
-                // Bars group (Target + Actual), aligned to bottom
-                Row(
-                  crossAxisAlignment: CrossAxisAlignment.end,
-                  children: [
-                    // Target (blue) with value label
-                    Column(
-                      mainAxisAlignment: MainAxisAlignment.end,
-                      children: [
-                        Text(
-                          filteredTargets[i].targetAmount.toStringAsFixed(0),
-                          style: TextStyle(
-                            fontSize: 10,
-                            color: Colors.blue[700],
-                            fontWeight: FontWeight.w600,
+      child: SingleChildScrollView(
+        scrollDirection: Axis.horizontal,
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+          crossAxisAlignment: CrossAxisAlignment.end,
+          children: [
+            for (int i = 0; i < filteredTargets.length; i++)
+              Column(
+                mainAxisAlignment: MainAxisAlignment.end,
+                children: [
+                  // Bars group (Target + Actual), aligned to bottom
+                  Row(
+                    crossAxisAlignment: CrossAxisAlignment.end,
+                    children: [
+                      // Target (blue) with value label
+                      Column(
+                        mainAxisAlignment: MainAxisAlignment.end,
+                        children: [
+                          Text(
+                            filteredTargets[i].targetAmount.toStringAsFixed(0),
+                            style: TextStyle(
+                              fontSize: 10,
+                              color: Colors.blue[700],
+                              fontWeight: FontWeight.w600,
+                            ),
                           ),
-                        ),
-                        const SizedBox(height: 4),
-                        Container(
-                          width: 16,
-                          height:
-                              (filteredTargets[i].targetAmount / maxValue * 150)
-                                  .clamp(8, 150),
-                          decoration: BoxDecoration(
-                            color: Colors.blue.withOpacity(0.8),
-                            borderRadius: BorderRadius.circular(4),
+                          const SizedBox(height: 4),
+                          Container(
+                            width: 16,
+                            height: (filteredTargets[i].targetAmount /
+                                    maxValue *
+                                    150)
+                                .clamp(8, 150),
+                            decoration: BoxDecoration(
+                              color: Colors.blue.withOpacity(0.8),
+                              borderRadius: BorderRadius.circular(4),
+                            ),
                           ),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(width: 6),
-                    // Actual (met=green / missed=red) with value label
-                    Column(
-                      mainAxisAlignment: MainAxisAlignment.end,
-                      children: [
-                        Text(
-                          filteredTargets[i].actualAmount.toStringAsFixed(0),
-                          style: TextStyle(
-                            fontSize: 10,
-                            color: filteredTargets[i].actualAmount >=
-                                    filteredTargets[i].targetAmount
-                                ? Colors.green[700]
-                                : Colors.red[700],
-                            fontWeight: FontWeight.w600,
+                        ],
+                      ),
+                      const SizedBox(width: 6),
+                      // Actual (met=green / missed=red) with value label
+                      Column(
+                        mainAxisAlignment: MainAxisAlignment.end,
+                        children: [
+                          Text(
+                            filteredTargets[i].actualAmount.toStringAsFixed(0),
+                            style: TextStyle(
+                              fontSize: 10,
+                              color: filteredTargets[i].actualAmount >=
+                                      filteredTargets[i].targetAmount
+                                  ? Colors.green[700]
+                                  : Colors.red[700],
+                              fontWeight: FontWeight.w600,
+                            ),
                           ),
-                        ),
-                        const SizedBox(height: 4),
-                        Container(
-                          width: 16,
-                          height:
-                              (filteredTargets[i].actualAmount / maxValue * 150)
-                                  .clamp(8, 150),
-                          decoration: BoxDecoration(
-                            color: filteredTargets[i].actualAmount >=
-                                    filteredTargets[i].targetAmount
-                                ? Colors.green
-                                : Colors.red,
-                            borderRadius: BorderRadius.circular(4),
+                          const SizedBox(height: 4),
+                          Container(
+                            width: 16,
+                            height: (filteredTargets[i].actualAmount /
+                                    maxValue *
+                                    150)
+                                .clamp(8, 150),
+                            decoration: BoxDecoration(
+                              color: filteredTargets[i].actualAmount >=
+                                      filteredTargets[i].targetAmount
+                                  ? Colors.green
+                                  : Colors.red,
+                              borderRadius: BorderRadius.circular(4),
+                            ),
                           ),
-                        ),
-                      ],
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 8),
-                Text(
-                  labels[i],
-                  style: TextStyle(fontSize: 12, color: Colors.grey[600]),
-                ),
-              ],
-            ),
-        ],
+                        ],
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 8),
+                  Text(
+                    labels[i],
+                    style: TextStyle(fontSize: 12, color: Colors.grey[600]),
+                  ),
+                ],
+              ),
+          ],
+        ),
       ),
     );
   }

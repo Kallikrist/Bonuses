@@ -55,6 +55,7 @@ class AdminDashboard extends StatefulWidget {
 }
 
 class _AdminDashboardState extends State<AdminDashboard> {
+  int? _cachedSelectedIndex; // Cache the saved tab index
   int _selectedIndex = 0;
   String _selectedTimePeriod = 'all';
   DateTime _selectedDate = DateTime.now();
@@ -82,6 +83,40 @@ class _AdminDashboardState extends State<AdminDashboard> {
     _loadHeaderPrefs();
     _loadBottomBarPrefs();
     _loadSelectedDate();
+    _loadSelectedTab();
+    // Initialize cache with current index to prevent null on first rebuild
+    _cachedSelectedIndex = _selectedIndex;
+  }
+
+  Future<void> _loadSelectedTab() async {
+    final currentUser =
+        Provider.of<AppProvider>(context, listen: false).currentUser;
+    if (currentUser != null) {
+      final savedIndex = await StorageService.getSelectedTab(currentUser.id);
+      print(
+          'DEBUG: Loading saved tab index: $savedIndex (current: $_selectedIndex)');
+      if (savedIndex != null && mounted) {
+        setState(() {
+          _selectedIndex = savedIndex;
+          _cachedSelectedIndex = savedIndex; // Cache the value
+          print('DEBUG: Restored tab index to: $_selectedIndex');
+        });
+      } else if (savedIndex == null && _cachedSelectedIndex == null) {
+        // First time load - cache the default (0)
+        _cachedSelectedIndex = 0;
+      }
+    }
+  }
+
+  Future<void> _saveSelectedTab(int index) async {
+    print('DEBUG: Saving tab index: $index');
+    final currentUser =
+        Provider.of<AppProvider>(context, listen: false).currentUser;
+    if (currentUser != null) {
+      await StorageService.setSelectedTab(currentUser.id, index);
+      _cachedSelectedIndex = index; // Update cache immediately
+      print('DEBUG: Tab index saved: $index');
+    }
   }
 
   Future<void> _loadSelectedDate() async {
@@ -159,6 +194,21 @@ class _AdminDashboardState extends State<AdminDashboard> {
   Widget build(BuildContext context) {
     return Consumer<AppProvider>(
       builder: (context, appProvider, child) {
+        // Use cached index if available to prevent reset on rebuild
+        final effectiveIndex = _cachedSelectedIndex ?? _selectedIndex;
+        if (_cachedSelectedIndex != null &&
+            _cachedSelectedIndex != _selectedIndex) {
+          // Sync state with cache if they're out of sync
+          WidgetsBinding.instance.addPostFrameCallback((_) {
+            if (mounted) {
+              setState(() {
+                _selectedIndex = _cachedSelectedIndex!;
+              });
+            }
+          });
+        }
+        print(
+            'DEBUG: AdminDashboard Consumer rebuild - Current tab index: $effectiveIndex (state: $_selectedIndex, cached: $_cachedSelectedIndex)');
         if (appProvider.currentUser == null) {
           // Redirect to login screen when user is null
           WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -193,8 +243,13 @@ class _AdminDashboardState extends State<AdminDashboard> {
             actions: [
               IconButton(
                 icon: const Icon(Icons.settings),
-                onPressed: () => setState(
-                    () => _selectedIndex = 2), // Navigate to Settings tab
+                onPressed: () {
+                  setState(() {
+                    _selectedIndex = 2;
+                    _cachedSelectedIndex = 2; // Update cache immediately
+                  });
+                  _saveSelectedTab(2); // Persist selected tab
+                },
                 tooltip: 'Settings',
               ),
             ],
@@ -224,8 +279,28 @@ class _AdminDashboardState extends State<AdminDashboard> {
               _buildSubscriptionStatusBanner(appProvider),
               // Main Content
               Expanded(
-                child: _getCurrentTab(_selectedIndex, selectedDateTargets,
-                    allTargets, allTransactions, appProvider, allBonuses),
+                child: Builder(
+                  builder: (context) {
+                    // Use cached index if available to prevent reset on rebuild
+                    final effectiveIndex =
+                        _cachedSelectedIndex ?? _selectedIndex;
+                    print(
+                        'DEBUG: Building IndexedStack with index: $effectiveIndex (state: $_selectedIndex, cached: $_cachedSelectedIndex, Bonuses tab = 1)');
+                    return IndexedStack(
+                      key: const ValueKey(
+                          'admin_tabs'), // Stable key to preserve widget identity
+                      index: effectiveIndex,
+                      children: [
+                        _buildDashboardTab(selectedDateTargets, allTargets,
+                            allTransactions, appProvider, allBonuses),
+                        _buildBonusesTab(appProvider, allBonuses),
+                        _buildSettingsTab(appProvider, allTargets,
+                            allTransactions, allBonuses),
+                        const MessagingScreen(), // Messages tab
+                      ],
+                    );
+                  },
+                ),
               ),
             ],
           ),
@@ -769,12 +844,8 @@ class _AdminDashboardState extends State<AdminDashboard> {
             _buildAutoProcessedTargetsCard(appProvider),
             const SizedBox(height: 16),
           ],
-          // Analytics Section (only show for today)
-          if (isToday) ...[
-            _buildAnalyticsSection(selectedDateTargets, allTargets,
-                allTransactions, allBonuses, appProvider),
-            const SizedBox(height: 24),
-          ],
+          // Analytics Section removed from dashboard view (available in Settings)
+          const SizedBox.shrink(),
           Text(
             isToday
                 ? 'Today\'s Targets'
@@ -2980,9 +3051,18 @@ class _AdminDashboardState extends State<AdminDashboard> {
   }
 
   Widget _buildNavItem(int index, IconData icon, String label) {
-    final isSelected = _selectedIndex == index;
+    final effectiveIndex = _cachedSelectedIndex ?? _selectedIndex;
+    final isSelected = effectiveIndex == index;
     return GestureDetector(
-      onTap: () => setState(() => _selectedIndex = index),
+      onTap: () {
+        setState(() {
+          _selectedIndex = index;
+          _cachedSelectedIndex =
+              index; // Update cache immediately (synchronously)
+        });
+        _saveSelectedTab(
+            index); // Persist selected tab (async, but cache already set)
+      },
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
         child: Column(
@@ -3015,7 +3095,13 @@ class _AdminDashboardState extends State<AdminDashboard> {
         icon: Icons.calendar_today,
         label: 'Calendar',
         color: Colors.blue,
-        onTap: () => setState(() => _selectedIndex = 0),
+        onTap: () {
+          setState(() {
+            _selectedIndex = 0;
+            _cachedSelectedIndex = 0; // Update cache immediately
+          });
+          _saveSelectedTab(0); // Persist selected tab
+        },
       ),
       ActionButton(
         icon: Icons.track_changes,
@@ -3042,7 +3128,13 @@ class _AdminDashboardState extends State<AdminDashboard> {
         icon: Icons.settings,
         label: 'Settings',
         color: Colors.orange,
-        onTap: () => setState(() => _selectedIndex = 2),
+        onTap: () {
+          setState(() {
+            _selectedIndex = 2;
+            _cachedSelectedIndex = 2; // Update cache immediately
+          });
+          _saveSelectedTab(2); // Persist selected tab
+        },
       ),
       ActionButton(
         icon: Icons.message,
@@ -3108,7 +3200,8 @@ class _AdminDashboardState extends State<AdminDashboard> {
 
           // Admin Points Balance Card (Employee-style gradient)
           Container(
-            margin: const EdgeInsets.symmetric(horizontal: 16),
+            width: double.infinity,
+            margin: const EdgeInsets.only(bottom: 16),
             padding: const EdgeInsets.all(20),
             decoration: BoxDecoration(
               gradient: LinearGradient(
@@ -3235,70 +3328,44 @@ class _AdminDashboardState extends State<AdminDashboard> {
           ),
           const SizedBox(height: 16),
 
-          // Toggle and summary
-          Card(
-            child: Padding(
-              padding: const EdgeInsets.all(16),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Row(
-                    children: [
-                      Icon(Icons.card_giftcard, color: Colors.purple[600]),
-                      const SizedBox(width: 8),
-                      Expanded(
-                        child: Text(
-                          _showAvailableBonuses
-                              ? 'Available Bonuses'
-                              : 'Redeemed Bonuses',
-                          style:
-                              Theme.of(context).textTheme.titleMedium?.copyWith(
-                                    fontWeight: FontWeight.bold,
-                                  ),
-                        ),
-                      ),
-                      Container(
-                        padding: const EdgeInsets.all(4),
-                        decoration: BoxDecoration(
-                          color: Colors.purple[50],
-                          borderRadius: BorderRadius.circular(20),
-                        ),
-                        child: Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            ChoiceChip(
-                              label: const Text('Available'),
-                              selected: _showAvailableBonuses,
-                              onSelected: (v) => setState(() {
-                                _showAvailableBonuses = true;
-                              }),
-                            ),
-                            const SizedBox(width: 8),
-                            ChoiceChip(
-                              label: const Text('Redeemed'),
-                              selected: !_showAvailableBonuses,
-                              onSelected: (v) => setState(() {
-                                _showAvailableBonuses = false;
-                              }),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 16),
-                  if (_showAvailableBonuses)
-                    Text(
-                      'Available: ${availableBonuses.length}',
-                      style: Theme.of(context).textTheme.titleLarge,
-                    )
-                  else
-                    Text(
-                      'Redeemed: ${redeemedByCurrentUser.length}',
-                      style: Theme.of(context).textTheme.titleLarge,
+          // Toggle buttons only - full width
+          Container(
+            width: double.infinity,
+            padding: const EdgeInsets.all(4),
+            decoration: BoxDecoration(
+              color: Colors.purple[50],
+              borderRadius: BorderRadius.circular(20),
+            ),
+            child: Row(
+              children: [
+                Expanded(
+                  child: ChoiceChip(
+                    label: const SizedBox(
+                      width: double.infinity,
+                      child: Center(child: Text('Available')),
                     ),
-                ],
-              ),
+                    selected: _showAvailableBonuses,
+                    onSelected: (v) => setState(() {
+                      _showAvailableBonuses = true;
+                    }),
+                    padding: const EdgeInsets.symmetric(vertical: 8),
+                  ),
+                ),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: ChoiceChip(
+                    label: const SizedBox(
+                      width: double.infinity,
+                      child: Center(child: Text('Redeemed')),
+                    ),
+                    selected: !_showAvailableBonuses,
+                    onSelected: (v) => setState(() {
+                      _showAvailableBonuses = false;
+                    }),
+                    padding: const EdgeInsets.symmetric(vertical: 8),
+                  ),
+                ),
+              ],
             ),
           ),
           const SizedBox(height: 16),
@@ -4778,6 +4845,7 @@ class _AdminDashboardState extends State<AdminDashboard> {
         TextEditingController(text: target.targetAmount.toString());
     final actualAmountController =
         TextEditingController(text: target.actualAmount.toString());
+    final teamMemberSearchController = TextEditingController();
     String? selectedEmployeeId = target.assignedEmployeeId;
     String? selectedWorkplaceId = target.assignedWorkplaceId;
     List<String> selectedTeamMemberIds =
@@ -4790,491 +4858,767 @@ class _AdminDashboardState extends State<AdminDashboard> {
       builder: (context) => StatefulBuilder(
         builder: (context, setState) => AlertDialog(
           title: const Text('Edit Target'),
-          content: SingleChildScrollView(
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                // Target Amount
-                TextField(
-                  controller: targetAmountController,
-                  decoration: const InputDecoration(
-                    labelText: 'Target Amount (\$)',
-                    border: OutlineInputBorder(),
+          content: SizedBox(
+            width: double.maxFinite,
+            child: SingleChildScrollView(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  // Target Amount
+                  TextField(
+                    controller: targetAmountController,
+                    style: const TextStyle(fontSize: 14),
+                    decoration: const InputDecoration(
+                      labelText: 'Target Amount (\$)',
+                      border: OutlineInputBorder(),
+                      contentPadding:
+                          EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+                      isDense: true,
+                    ),
+                    keyboardType: TextInputType.number,
                   ),
-                  keyboardType: TextInputType.number,
-                ),
-                const SizedBox(height: 16),
+                  const SizedBox(height: 10),
 
-                // Actual Amount
-                TextField(
-                  controller: actualAmountController,
-                  decoration: const InputDecoration(
-                    labelText: 'Actual Amount (\$)',
-                    border: OutlineInputBorder(),
+                  // Actual Amount
+                  TextField(
+                    controller: actualAmountController,
+                    style: const TextStyle(fontSize: 14),
+                    decoration: const InputDecoration(
+                      labelText: 'Actual Amount (\$)',
+                      border: OutlineInputBorder(),
+                      contentPadding:
+                          EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+                      isDense: true,
+                    ),
+                    keyboardType: TextInputType.number,
                   ),
-                  keyboardType: TextInputType.number,
-                ),
-                const SizedBox(height: 16),
+                  const SizedBox(height: 10),
 
-                // Date Picker
-                ListTile(
-                  leading: const Icon(Icons.calendar_today),
-                  title: const Text('Target Date'),
-                  subtitle:
-                      Text(DateFormat('MMM dd, yyyy').format(selectedDate)),
-                  trailing: const Icon(Icons.arrow_drop_down),
-                  onTap: () async {
-                    final date = await showDatePicker(
-                      context: context,
-                      initialDate: selectedDate,
-                      firstDate: DateTime(2020),
-                      lastDate: DateTime(2030),
-                    );
-                    if (date != null) {
-                      setState(() {
-                        selectedDate = date;
-                      });
-                    }
-                  },
-                ),
-                const SizedBox(height: 16),
-
-                // Employee Selection
-                FutureBuilder<List<User>>(
-                  future: appProvider.getUsers(),
-                  builder: (context, snapshot) {
-                    if (snapshot.hasData) {
-                      final employees = snapshot.data!
-                          .where((u) =>
-                              u.role == UserRole.employee ||
-                              u.role == UserRole.admin)
-                          .toList();
-                      return DropdownButtonFormField<String?>(
-                        value: selectedEmployeeId,
-                        decoration: const InputDecoration(
-                          labelText: 'Assigned Employee',
-                          border: OutlineInputBorder(),
-                        ),
-                        items: [
-                          const DropdownMenuItem<String?>(
-                            value: null,
-                            child: Text('No Employee Assigned'),
-                          ),
-                          ...employees
-                              .map((employee) => DropdownMenuItem<String?>(
-                                    value: employee.id,
-                                    child: Text(employee.name),
-                                  )),
-                        ],
-                        onChanged: (value) {
-                          setState(() {
-                            selectedEmployeeId = value;
-                            print(
-                                'DEBUG: Employee dropdown changed to: $value');
-                            // If no employee assigned, clear team members
-                            if (value == null) {
-                              selectedTeamMemberIds.clear();
-                              print(
-                                  'DEBUG: Cleared team members - no employee assigned');
-                            }
-                          });
-                        },
+                  // Date Picker
+                  InkWell(
+                    onTap: () async {
+                      final date = await showDatePicker(
+                        context: context,
+                        initialDate: selectedDate,
+                        firstDate: DateTime(2020),
+                        lastDate: DateTime(2030),
                       );
-                    }
-                    return const CircularProgressIndicator();
-                  },
-                ),
-                const SizedBox(height: 16),
-
-                // Workplace Selection
-                FutureBuilder<List<Workplace>>(
-                  future: appProvider.getWorkplaces(),
-                  builder: (context, snapshot) {
-                    if (snapshot.hasData) {
-                      final workplaces = snapshot.data!;
-                      return DropdownButtonFormField<String?>(
-                        value: selectedWorkplaceId,
-                        decoration: const InputDecoration(
-                          labelText: 'Assigned Workplace',
-                          border: OutlineInputBorder(),
-                        ),
-                        items: [
-                          const DropdownMenuItem<String?>(
-                            value: null,
-                            child: Text('No Workplace Assigned'),
-                          ),
-                          ...workplaces
-                              .map((workplace) => DropdownMenuItem<String?>(
-                                    value: workplace.id,
-                                    child: Text(workplace.name),
-                                  )),
-                        ],
-                        onChanged: (value) {
-                          setState(() {
-                            selectedWorkplaceId = value;
-                          });
-                        },
-                      );
-                    }
-                    return const CircularProgressIndicator();
-                  },
-                ),
-                const SizedBox(height: 16),
-
-                // Team Members Selection
-                FutureBuilder<List<User>>(
-                  future: appProvider.getUsers(),
-                  builder: (context, snapshot) {
-                    if (snapshot.hasData) {
-                      final employees = snapshot.data!
-                          .where((u) =>
-                              u.role == UserRole.employee ||
-                              u.role == UserRole.admin)
-                          .toList();
-                      return Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
+                      if (date != null) {
+                        setState(() {
+                          selectedDate = date;
+                        });
+                      }
+                    },
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 12, vertical: 12),
+                      decoration: BoxDecoration(
+                        border: Border.all(color: Colors.grey),
+                        borderRadius: BorderRadius.circular(4),
+                      ),
+                      child: Row(
                         children: [
-                          const Text(
-                            'Team Members (Optional)',
-                            style: TextStyle(fontWeight: FontWeight.bold),
+                          const Icon(Icons.calendar_today, size: 20),
+                          const SizedBox(width: 12),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                const Text(
+                                  'Target Date',
+                                  style: TextStyle(
+                                      fontSize: 12, color: Colors.grey),
+                                ),
+                                Text(
+                                  DateFormat('MMM dd, yyyy')
+                                      .format(selectedDate),
+                                  style: const TextStyle(fontSize: 14),
+                                ),
+                              ],
+                            ),
                           ),
-                          const SizedBox(height: 8),
-                          Wrap(
-                            spacing: 8,
-                            runSpacing: 8,
-                            children: employees.map((employee) {
-                              final isSelected =
-                                  selectedTeamMemberIds.contains(employee.id);
-                              return FilterChip(
-                                label: Text(employee.name),
-                                selected: isSelected,
-                                selectedColor: Colors.blue.shade100,
-                                checkmarkColor: Colors.blue.shade700,
-                                backgroundColor: Colors.grey.shade200,
-                                onSelected: (selected) {
-                                  setState(() {
-                                    if (selected) {
-                                      if (!selectedTeamMemberIds
-                                          .contains(employee.id)) {
-                                        selectedTeamMemberIds.add(employee.id);
-                                      }
-                                    } else {
-                                      selectedTeamMemberIds.remove(employee.id);
-                                    }
-                                    print(
-                                        'DEBUG: Team members selected: $selectedTeamMemberIds');
-                                  });
-                                },
-                              );
-                            }).toList(),
-                          ),
+                          const Icon(Icons.arrow_drop_down, size: 20),
                         ],
-                      );
-                    }
-                    return const CircularProgressIndicator();
-                  },
-                ),
-              ],
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 10),
+
+                  // Employee Selection
+                  FutureBuilder<List<User>>(
+                    future: appProvider.getUsers(),
+                    builder: (context, snapshot) {
+                      if (snapshot.hasData) {
+                        final employees = snapshot.data!
+                            .where((u) =>
+                                u.role == UserRole.employee ||
+                                u.role == UserRole.admin)
+                            .toList();
+                        return DropdownButtonFormField<String?>(
+                          value: selectedEmployeeId,
+                          style: const TextStyle(
+                              fontSize: 14, color: Colors.black87),
+                          decoration: const InputDecoration(
+                            labelText: 'Assigned Employee',
+                            labelStyle: TextStyle(color: Colors.black87),
+                            border: OutlineInputBorder(),
+                            contentPadding: EdgeInsets.symmetric(
+                                horizontal: 12, vertical: 12),
+                            isDense: true,
+                          ),
+                          items: [
+                            const DropdownMenuItem<String?>(
+                              value: null,
+                              child: Text('No Employee Assigned',
+                                  style: TextStyle(color: Colors.black87)),
+                            ),
+                            ...employees
+                                .map((employee) => DropdownMenuItem<String?>(
+                                      value: employee.id,
+                                      child: Text(employee.name,
+                                          style: const TextStyle(
+                                              color: Colors.black87)),
+                                    )),
+                          ],
+                          onChanged: (value) {
+                            setState(() {
+                              selectedEmployeeId = value;
+                              print(
+                                  'DEBUG: Employee dropdown changed to: $value');
+                              // If no employee assigned, clear team members
+                              if (value == null) {
+                                selectedTeamMemberIds.clear();
+                                print(
+                                    'DEBUG: Cleared team members - no employee assigned');
+                              }
+                            });
+                          },
+                        );
+                      }
+                      return const CircularProgressIndicator();
+                    },
+                  ),
+                  const SizedBox(height: 10),
+
+                  // Workplace Selection
+                  FutureBuilder<List<Workplace>>(
+                    future: appProvider.getWorkplaces(),
+                    builder: (context, snapshot) {
+                      if (snapshot.hasData) {
+                        final workplaces = snapshot.data!;
+                        return DropdownButtonFormField<String?>(
+                          value: selectedWorkplaceId,
+                          style: const TextStyle(
+                              fontSize: 14, color: Colors.black87),
+                          decoration: const InputDecoration(
+                            labelText: 'Assigned Workplace',
+                            labelStyle: TextStyle(color: Colors.black87),
+                            border: OutlineInputBorder(),
+                            contentPadding: EdgeInsets.symmetric(
+                                horizontal: 12, vertical: 12),
+                            isDense: true,
+                          ),
+                          items: [
+                            const DropdownMenuItem<String?>(
+                              value: null,
+                              child: Text('No Workplace Assigned',
+                                  style: TextStyle(color: Colors.black87)),
+                            ),
+                            ...workplaces
+                                .map((workplace) => DropdownMenuItem<String?>(
+                                      value: workplace.id,
+                                      child: Text(workplace.name,
+                                          style: const TextStyle(
+                                              color: Colors.black87)),
+                                    )),
+                          ],
+                          onChanged: (value) {
+                            setState(() {
+                              selectedWorkplaceId = value;
+                            });
+                          },
+                        );
+                      }
+                      return const CircularProgressIndicator();
+                    },
+                  ),
+                  const SizedBox(height: 10),
+
+                  // Team Members Selection
+                  FutureBuilder<List<User>>(
+                    future: appProvider.getUsers(),
+                    builder: (context, snapshot) {
+                      if (snapshot.hasData) {
+                        // Filter employees by the target's company and exclude the assigned employee
+                        var employees = snapshot.data!.where((u) {
+                          // Filter by role and exclude assigned employee
+                          if ((u.role != UserRole.employee &&
+                                  u.role != UserRole.admin) ||
+                              u.id == selectedEmployeeId) {
+                            return false;
+                          }
+                          // If target has no company, show all employees
+                          if (target.companyId == null ||
+                              target.companyId!.isEmpty) {
+                            return true;
+                          }
+                          // Otherwise, filter by company
+                          return u.primaryCompanyId == target.companyId ||
+                              u.companyIds.contains(target.companyId!);
+                        }).toList();
+
+                        // Fallback: if no employees found for company, show all employees (for debugging)
+                        if (employees.isEmpty &&
+                            target.companyId != null &&
+                            target.companyId!.isNotEmpty) {
+                          print(
+                              '⚠️ DEBUG: No employees found for company ${target.companyId}, showing all employees');
+                          employees = snapshot.data!
+                              .where((u) =>
+                                  (u.role == UserRole.employee ||
+                                      u.role == UserRole.admin) &&
+                                  u.id != selectedEmployeeId)
+                              .toList();
+                        }
+
+                        print(
+                            'DEBUG: Edit Target - Target company ID: ${target.companyId}');
+                        print(
+                            'DEBUG: Edit Target - Found ${employees.length} employees');
+                        print(
+                            'DEBUG: Edit Target - Employee names: ${employees.map((e) => e.name).toList()}');
+                        print(
+                            'DEBUG: Edit Target - Excluded assigned employee: $selectedEmployeeId');
+                        print(
+                            'DEBUG: Rendering ${employees.length} FilterChips for team members');
+                        // Filter employees by search query
+                        final searchQuery =
+                            teamMemberSearchController.text.toLowerCase();
+                        final filteredEmployees = searchQuery.isEmpty
+                            ? employees
+                            : employees
+                                .where((emp) =>
+                                    emp.name
+                                        .toLowerCase()
+                                        .contains(searchQuery) ||
+                                    emp.email
+                                        .toLowerCase()
+                                        .contains(searchQuery))
+                                .toList();
+
+                        return Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Row(
+                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                              children: [
+                                const Text(
+                                  'Team Members (Optional)',
+                                  style: TextStyle(
+                                      fontWeight: FontWeight.bold,
+                                      fontSize: 13),
+                                ),
+                                Text(
+                                  '${filteredEmployees.length} of ${employees.length}',
+                                  style: TextStyle(
+                                    fontSize: 11,
+                                    color: Colors.grey[600],
+                                  ),
+                                ),
+                              ],
+                            ),
+                            const SizedBox(height: 6),
+                            // Search field
+                            TextField(
+                              controller: teamMemberSearchController,
+                              style: const TextStyle(fontSize: 13),
+                              decoration: InputDecoration(
+                                hintText: 'Search employees...',
+                                hintStyle: const TextStyle(fontSize: 13),
+                                prefixIcon: const Icon(Icons.search, size: 20),
+                                suffixIcon: searchQuery.isNotEmpty
+                                    ? IconButton(
+                                        icon: const Icon(Icons.clear, size: 20),
+                                        onPressed: () {
+                                          teamMemberSearchController.clear();
+                                          setState(() {});
+                                        },
+                                      )
+                                    : null,
+                                border: OutlineInputBorder(
+                                  borderRadius: BorderRadius.circular(8),
+                                ),
+                                contentPadding: const EdgeInsets.symmetric(
+                                  horizontal: 12,
+                                  vertical: 10,
+                                ),
+                                isDense: true,
+                              ),
+                              onChanged: (value) {
+                                setState(() {}); // Rebuild to filter list
+                              },
+                            ),
+                            const SizedBox(height: 8),
+                            // Scrollable list of employees with fixed height
+                            SizedBox(
+                              height: 180, // Reduced height to prevent overflow
+                              child: filteredEmployees.isEmpty
+                                  ? Center(
+                                      child: Padding(
+                                        padding: const EdgeInsets.all(16.0),
+                                        child: Text(
+                                          searchQuery.isEmpty
+                                              ? 'No employees available'
+                                              : 'No employees found matching "$searchQuery"',
+                                          style: TextStyle(
+                                            color: Colors.grey[600],
+                                            fontSize: 14,
+                                          ),
+                                        ),
+                                      ),
+                                    )
+                                  : ListView.builder(
+                                      shrinkWrap: false,
+                                      itemCount: filteredEmployees.length,
+                                      itemBuilder: (context, index) {
+                                        final employee =
+                                            filteredEmployees[index];
+                                        final isSelected = selectedTeamMemberIds
+                                            .contains(employee.id);
+                                        return CheckboxListTile(
+                                          title: Text(
+                                            employee.name,
+                                            style:
+                                                const TextStyle(fontSize: 13),
+                                          ),
+                                          subtitle: Text(
+                                            employee.email,
+                                            style: TextStyle(
+                                              fontSize: 11,
+                                              color: Colors.grey[600],
+                                            ),
+                                          ),
+                                          value: isSelected,
+                                          onChanged: (selected) {
+                                            setState(() {
+                                              if (selected == true) {
+                                                if (!selectedTeamMemberIds
+                                                    .contains(employee.id)) {
+                                                  selectedTeamMemberIds
+                                                      .add(employee.id);
+                                                }
+                                              } else {
+                                                selectedTeamMemberIds
+                                                    .remove(employee.id);
+                                              }
+                                              print(
+                                                  'DEBUG: Team members selected: $selectedTeamMemberIds');
+                                            });
+                                          },
+                                          dense: true,
+                                          visualDensity: VisualDensity.compact,
+                                          contentPadding:
+                                              const EdgeInsets.symmetric(
+                                            horizontal: 8,
+                                            vertical: 2,
+                                          ),
+                                        );
+                                      },
+                                    ),
+                            ),
+                          ],
+                        );
+                      }
+                      return const CircularProgressIndicator();
+                    },
+                  ),
+                ],
+              ),
             ),
           ),
           actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(context),
-              child: const Text('Cancel'),
-            ),
-            TextButton(
-              onPressed: () async {
-                // Debounce: Prevent double submissions
-                if (isSaving) {
-                  print(
-                      'DEBUG: Save already in progress, ignoring duplicate click');
-                  return;
-                }
-
-                setState(() {
-                  isSaving = true;
-                });
-
-                try {
-                  final targetAmount =
-                      double.tryParse(targetAmountController.text);
-                  final actualAmount =
-                      double.tryParse(actualAmountController.text);
-
-                  if (targetAmount == null || targetAmount <= 0) {
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(
-                          content: Text('Please enter a valid target amount')),
-                    );
-                    setState(() {
-                      isSaving = false;
-                    });
-                    return;
-                  }
-
-                  if (actualAmount == null || actualAmount < 0) {
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(
-                          content: Text('Please enter a valid actual amount')),
-                    );
-                    setState(() {
-                      isSaving = false;
-                    });
-                    return;
-                  }
-
-                  // Get employee and workplace names
-                  final users = await appProvider.getUsers();
-                  final workplaces = await appProvider.getWorkplaces();
-
-                  final assignedEmployee = users.firstWhere(
-                    (u) => u.id == selectedEmployeeId,
-                    orElse: () => User(
-                      id: '',
-                      name: '',
-                      email: '',
-                      role: UserRole.employee,
-                      createdAt: DateTime.now(),
-                    ),
-                  );
-
-                  final assignedWorkplace = workplaces.firstWhere(
-                    (w) => w.id == selectedWorkplaceId,
-                    orElse: () => Workplace(
-                        id: '',
-                        name: '',
-                        address: '',
-                        createdAt: DateTime.now()),
-                  );
-
-                  final teamMembers = users
-                      .where((u) => selectedTeamMemberIds.contains(u.id))
-                      .toList();
-
-                  // Remove duplicates from team member IDs
-                  final uniqueTeamMemberIds =
-                      selectedTeamMemberIds.toSet().toList();
-                  final uniqueTeamMembers = users
-                      .where((u) => uniqueTeamMemberIds.contains(u.id))
-                      .toList();
-
-                  print(
-                      'DEBUG: Updating target - employeeId: $selectedEmployeeId, workplaceId: $selectedWorkplaceId');
-                  print(
-                      'DEBUG: Updating target - team member IDs: $uniqueTeamMemberIds');
-
-                  // Create updated target with recalculated status
-                  final baseUpdatedTarget = target.copyWith(
-                    targetAmount: targetAmount,
-                    actualAmount: actualAmount,
-                    date: selectedDate,
-                    assignedEmployeeId: selectedEmployeeId,
-                    assignedEmployeeName: selectedEmployeeId != null
-                        ? assignedEmployee.name
-                        : null,
-                    assignedWorkplaceId: selectedWorkplaceId,
-                    assignedWorkplaceName: selectedWorkplaceId != null
-                        ? assignedWorkplace.name
-                        : null,
-                    collaborativeEmployeeIds: uniqueTeamMemberIds,
-                    collaborativeEmployeeNames:
-                        uniqueTeamMembers.map((u) => u.name).toList(),
-                  );
-
-                  // Smart status calculation logic
-                  final actualAmountChanged =
-                      actualAmount != target.actualAmount;
-                  final targetAmountChanged =
-                      targetAmount != target.targetAmount;
-
-                  SalesTarget updatedTarget;
-                  if (actualAmountChanged && actualAmount > 0) {
-                    // Only recalculate status when actual sales amount changes AND there's actual activity
-                    updatedTarget = baseUpdatedTarget.calculateResults();
-                  } else if (actualAmountChanged && actualAmount == 0) {
-                    // If sales are reset to 0, set back to pending (target not started)
-                    updatedTarget = baseUpdatedTarget.copyWith(
-                      status: TargetStatus.pending,
-                      isMet: false,
-                      pointsAwarded: 0,
-                    );
-                  } else {
-                    // Keep existing status if actual amount didn't change or other details changed
-                    // This prevents marking targets as "missed" just for changing target amount or other details
-                    updatedTarget = baseUpdatedTarget;
-                  }
-
-                  // If the target is met and has points, recalculate points using the rules
-                  if (updatedTarget.isMet && updatedTarget.actualAmount > 0) {
-                    final effectivePercent = (updatedTarget.actualAmount /
-                            updatedTarget.targetAmount) *
-                        100;
-                    final calculatedPoints = appProvider
-                        .getPointsForEffectivePercent(effectivePercent);
-
-                    // When admin directly sets a met target, mark it as approved
-                    final finalUpdatedTarget = updatedTarget.copyWith(
-                      pointsAwarded: calculatedPoints,
-                      status: TargetStatus.approved,
-                      isApproved: true,
-                      approvedBy: appProvider.currentUser?.id,
-                      approvedAt: DateTime.now(),
-                    );
-                    await appProvider.updateSalesTarget(finalUpdatedTarget);
-                  } else {
-                    // Update the target
-                    await appProvider.updateSalesTarget(updatedTarget);
-                  }
-
-                  // Verify the target was updated correctly
-                  final verifyTarget = appProvider.salesTargets
-                      .firstWhere((t) => t.id == target.id);
-                  print(
-                      'DEBUG: After update - target employeeId: ${verifyTarget.assignedEmployeeId}, employeeName: ${verifyTarget.assignedEmployeeName}');
-
-                  if (context.mounted) {
+            Row(
+              mainAxisAlignment: MainAxisAlignment.end,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                TextButton(
+                  onPressed: () {
+                    // Dispose controllers before closing
+                    targetAmountController.dispose();
+                    actualAmountController.dispose();
+                    teamMemberSearchController.dispose();
                     Navigator.pop(context);
-                  }
-
-                  // Force UI refresh
-                  if (mounted) {
-                    setState(() {});
-                  }
-
-                  // Check for team member changes
-                  final originalTeamMembers =
-                      target.collaborativeEmployeeIds.toSet();
-                  final updatedTeamMembers =
-                      verifyTarget.collaborativeEmployeeIds.toSet();
-                  final teamMembersRemoved =
-                      originalTeamMembers.difference(updatedTeamMembers);
-                  final teamMembersAdded =
-                      updatedTeamMembers.difference(originalTeamMembers);
-                  final teamMembersChanged = teamMembersRemoved.isNotEmpty ||
-                      teamMembersAdded.isNotEmpty;
-
-                  // Get all users for name lookup
-                  final allUsers = await appProvider.getUsers();
-
-                  // Helper function to get user names from IDs
-                  String _getUserNames(Set<String> userIds) {
-                    final names = userIds.map((id) {
-                      final user = allUsers.firstWhere((u) => u.id == id,
-                          orElse: () => User(
-                                id: id,
-                                name: 'Unknown User',
-                                email: '',
-                                role: UserRole.employee,
-                                primaryCompanyId: '',
-                                companyIds: [],
-                                companyRoles: {},
-                                createdAt: DateTime.now(),
-                              ));
-                      return user.name;
-                    }).toList();
-                    return names.join(', ');
-                  }
-
-                  // Show appropriate feedback based on status change
-                  String message;
-                  Color backgroundColor = Colors.green;
-
-                  if (teamMembersChanged) {
-                    if (teamMembersRemoved.isNotEmpty &&
-                        teamMembersAdded.isNotEmpty) {
-                      final addedNames = _getUserNames(teamMembersAdded);
-                      final removedNames = _getUserNames(teamMembersRemoved);
-                      message =
-                          'Team members updated: Added $addedNames, Removed $removedNames - points adjusted';
-                    } else if (teamMembersRemoved.isNotEmpty) {
-                      final removedNames = _getUserNames(teamMembersRemoved);
-                      message =
-                          'Team member(s) removed: $removedNames - points withdrawn automatically';
-                    } else {
-                      final addedNames = _getUserNames(teamMembersAdded);
-                      message =
-                          'Team member(s) added: $addedNames - points awarded automatically';
+                  },
+                  style: TextButton.styleFrom(
+                    padding:
+                        const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                    minimumSize: Size.zero,
+                    tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                  ),
+                  child: const Text('Cancel', style: TextStyle(fontSize: 13)),
+                ),
+                const SizedBox(width: 4),
+                TextButton(
+                  onPressed: () async {
+                    // Debounce: Prevent double submissions
+                    if (isSaving) {
+                      print(
+                          'DEBUG: Save already in progress, ignoring duplicate click');
+                      return;
                     }
-                    backgroundColor = Colors.orange;
-                  } else if (!actualAmountChanged && !targetAmountChanged) {
-                    message = 'Target details updated (no status change)';
-                    backgroundColor = Colors.blue;
-                  } else if (targetAmountChanged && !actualAmountChanged) {
-                    message = 'Target amount updated (status preserved)';
-                    backgroundColor = Colors.blue;
-                  } else if (actualAmountChanged && actualAmount == 0) {
-                    message = 'Sales reset - target back to pending';
-                    backgroundColor = Colors.blue;
-                  } else if (actualAmountChanged &&
-                      updatedTarget.status == TargetStatus.missed) {
-                    message =
-                        'Sales updated and marked as missed (below target)';
-                    backgroundColor = Colors.orange;
-                  } else if (actualAmountChanged &&
-                      updatedTarget.status == TargetStatus.met) {
-                    message = 'Sales updated and marked as completed';
-                    backgroundColor = Colors.green;
-                  } else if (updatedTarget.status == TargetStatus.approved) {
-                    message = 'Target updated and approved';
-                    backgroundColor = Colors.green;
-                  } else {
-                    message = 'Target updated successfully';
-                    backgroundColor = Colors.green;
-                  }
 
-                  // Add points adjustment information
-                  final pointsDifference =
-                      updatedTarget.pointsAwarded - target.pointsAwarded;
-                  if (pointsDifference != 0) {
-                    if (pointsDifference > 0) {
-                      message +=
-                          '\n+${pointsDifference} points awarded to employees';
-                    } else {
-                      message +=
-                          '\n${pointsDifference.abs()} points withdrawn from employees';
-                      backgroundColor = Colors.orange;
-                    }
-                  }
-
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(
-                      content: Text(message),
-                      backgroundColor: backgroundColor,
-                      duration: const Duration(seconds: 4),
-                    ),
-                  );
-                } finally {
-                  // Reset debounce flag
-                  if (mounted) {
                     setState(() {
-                      isSaving = false;
+                      isSaving = true;
                     });
-                  }
-                }
-              },
-              child: isSaving
-                  ? const SizedBox(
-                      width: 16,
-                      height: 16,
-                      child: CircularProgressIndicator(
-                        strokeWidth: 2,
-                        valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
-                      ),
-                    )
-                  : const Text('Update'),
-            ),
-            TextButton(
-              onPressed: () {
-                Navigator.pop(context);
-                _showDeleteTargetDialog(context, target, appProvider);
-              },
-              style: TextButton.styleFrom(foregroundColor: Colors.red),
-              child: const Text('Delete Target'),
+
+                    try {
+                      final targetAmount =
+                          double.tryParse(targetAmountController.text);
+                      final actualAmount =
+                          double.tryParse(actualAmountController.text);
+
+                      if (targetAmount == null || targetAmount <= 0) {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          const SnackBar(
+                              content:
+                                  Text('Please enter a valid target amount')),
+                        );
+                        setState(() {
+                          isSaving = false;
+                        });
+                        return;
+                      }
+
+                      if (actualAmount == null || actualAmount < 0) {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          const SnackBar(
+                              content:
+                                  Text('Please enter a valid actual amount')),
+                        );
+                        setState(() {
+                          isSaving = false;
+                        });
+                        return;
+                      }
+
+                      // Get employee and workplace names
+                      final users = await appProvider.getUsers();
+                      final workplaces = await appProvider.getWorkplaces();
+
+                      final assignedEmployee = users.firstWhere(
+                        (u) => u.id == selectedEmployeeId,
+                        orElse: () => User(
+                          id: '',
+                          name: '',
+                          email: '',
+                          role: UserRole.employee,
+                          createdAt: DateTime.now(),
+                        ),
+                      );
+
+                      final assignedWorkplace = workplaces.firstWhere(
+                        (w) => w.id == selectedWorkplaceId,
+                        orElse: () => Workplace(
+                            id: '',
+                            name: '',
+                            address: '',
+                            createdAt: DateTime.now()),
+                      );
+
+                      final teamMembers = users
+                          .where((u) => selectedTeamMemberIds.contains(u.id))
+                          .toList();
+
+                      // Remove duplicates from team member IDs
+                      final uniqueTeamMemberIds =
+                          selectedTeamMemberIds.toSet().toList();
+                      final uniqueTeamMembers = users
+                          .where((u) => uniqueTeamMemberIds.contains(u.id))
+                          .toList();
+
+                      print(
+                          'DEBUG: Updating target - employeeId: $selectedEmployeeId, workplaceId: $selectedWorkplaceId');
+                      print(
+                          'DEBUG: Updating target - team member IDs: $uniqueTeamMemberIds');
+
+                      // Create updated target with recalculated status
+                      final baseUpdatedTarget = target.copyWith(
+                        targetAmount: targetAmount,
+                        actualAmount: actualAmount,
+                        date: selectedDate,
+                        assignedEmployeeId: selectedEmployeeId,
+                        assignedEmployeeName: selectedEmployeeId != null
+                            ? assignedEmployee.name
+                            : null,
+                        assignedWorkplaceId: selectedWorkplaceId,
+                        assignedWorkplaceName: selectedWorkplaceId != null
+                            ? assignedWorkplace.name
+                            : null,
+                        collaborativeEmployeeIds: uniqueTeamMemberIds,
+                        collaborativeEmployeeNames:
+                            uniqueTeamMembers.map((u) => u.name).toList(),
+                      );
+
+                      // Smart status calculation logic
+                      final actualAmountChanged =
+                          actualAmount != target.actualAmount;
+                      final targetAmountChanged =
+                          targetAmount != target.targetAmount;
+
+                      SalesTarget updatedTarget;
+                      if (actualAmountChanged && actualAmount > 0) {
+                        // Only recalculate status when actual sales amount changes AND there's actual activity
+                        updatedTarget = baseUpdatedTarget.calculateResults();
+                      } else if (actualAmountChanged && actualAmount == 0) {
+                        // If sales are reset to 0, set back to pending (target not started)
+                        updatedTarget = baseUpdatedTarget.copyWith(
+                          status: TargetStatus.pending,
+                          isMet: false,
+                          pointsAwarded: 0,
+                        );
+                      } else {
+                        // Keep existing status if actual amount didn't change or other details changed
+                        // This prevents marking targets as "missed" just for changing target amount or other details
+                        updatedTarget = baseUpdatedTarget;
+                      }
+
+                      // If the target is met and has points, recalculate points using the rules
+                      if (updatedTarget.isMet &&
+                          updatedTarget.actualAmount > 0) {
+                        final effectivePercent = (updatedTarget.actualAmount /
+                                updatedTarget.targetAmount) *
+                            100;
+                        final calculatedPoints = appProvider
+                            .getPointsForEffectivePercent(effectivePercent);
+
+                        // When admin directly sets a met target, mark it as approved
+                        final finalUpdatedTarget = updatedTarget.copyWith(
+                          pointsAwarded: calculatedPoints,
+                          status: TargetStatus.approved,
+                          isApproved: true,
+                          approvedBy: appProvider.currentUser?.id,
+                          approvedAt: DateTime.now(),
+                        );
+                        await appProvider.updateSalesTarget(finalUpdatedTarget);
+                      } else {
+                        // Update the target
+                        await appProvider.updateSalesTarget(updatedTarget);
+                      }
+
+                      // Verify the target was updated correctly
+                      final verifyTarget = appProvider.salesTargets
+                          .firstWhere((t) => t.id == target.id);
+                      print(
+                          'DEBUG: After update - target employeeId: ${verifyTarget.assignedEmployeeId}, employeeName: ${verifyTarget.assignedEmployeeName}');
+
+                      // Close dialog first before showing snackbar
+                      if (context.mounted) {
+                        Navigator.pop(context);
+                      }
+
+                      // Check for team member changes
+                      final originalTeamMembers =
+                          target.collaborativeEmployeeIds.toSet();
+                      final updatedTeamMembers =
+                          verifyTarget.collaborativeEmployeeIds.toSet();
+                      final teamMembersRemoved =
+                          originalTeamMembers.difference(updatedTeamMembers);
+                      final teamMembersAdded =
+                          updatedTeamMembers.difference(originalTeamMembers);
+                      final teamMembersChanged =
+                          teamMembersRemoved.isNotEmpty ||
+                              teamMembersAdded.isNotEmpty;
+
+                      // Get all users for name lookup
+                      final allUsers = await appProvider.getUsers();
+
+                      // Helper function to get user names from IDs
+                      String _getUserNames(Set<String> userIds) {
+                        final names = userIds.map((id) {
+                          final user = allUsers.firstWhere((u) => u.id == id,
+                              orElse: () => User(
+                                    id: id,
+                                    name: 'Unknown User',
+                                    email: '',
+                                    role: UserRole.employee,
+                                    primaryCompanyId: '',
+                                    companyIds: [],
+                                    companyRoles: {},
+                                    createdAt: DateTime.now(),
+                                  ));
+                          return user.name;
+                        }).toList();
+                        return names.join(', ');
+                      }
+
+                      // Show appropriate feedback based on status change
+                      String message;
+                      Color backgroundColor = Colors.green;
+
+                      if (teamMembersChanged) {
+                        if (teamMembersRemoved.isNotEmpty &&
+                            teamMembersAdded.isNotEmpty) {
+                          final addedNames = _getUserNames(teamMembersAdded);
+                          final removedNames =
+                              _getUserNames(teamMembersRemoved);
+                          message =
+                              'Team members updated: Added $addedNames, Removed $removedNames - points adjusted';
+                        } else if (teamMembersRemoved.isNotEmpty) {
+                          final removedNames =
+                              _getUserNames(teamMembersRemoved);
+                          message =
+                              'Team member(s) removed: $removedNames - points withdrawn automatically';
+                        } else {
+                          final addedNames = _getUserNames(teamMembersAdded);
+                          message =
+                              'Team member(s) added: $addedNames - points awarded automatically';
+                        }
+                        backgroundColor = Colors.orange;
+                      } else if (!actualAmountChanged && !targetAmountChanged) {
+                        message = 'Target details updated (no status change)';
+                        backgroundColor = Colors.blue;
+                      } else if (targetAmountChanged && !actualAmountChanged) {
+                        message = 'Target amount updated (status preserved)';
+                        backgroundColor = Colors.blue;
+                      } else if (actualAmountChanged && actualAmount == 0) {
+                        message = 'Sales reset - target back to pending';
+                        backgroundColor = Colors.blue;
+                      } else if (actualAmountChanged &&
+                          updatedTarget.status == TargetStatus.missed) {
+                        message =
+                            'Sales updated and marked as missed (below target)';
+                        backgroundColor = Colors.orange;
+                      } else if (actualAmountChanged &&
+                          updatedTarget.status == TargetStatus.met) {
+                        message = 'Sales updated and marked as completed';
+                        backgroundColor = Colors.green;
+                      } else if (updatedTarget.status ==
+                          TargetStatus.approved) {
+                        message = 'Target updated and approved';
+                        backgroundColor = Colors.green;
+                      } else {
+                        message = 'Target updated successfully';
+                        backgroundColor = Colors.green;
+                      }
+
+                      // Add points adjustment information
+                      final pointsDifference =
+                          updatedTarget.pointsAwarded - target.pointsAwarded;
+                      if (pointsDifference != 0) {
+                        if (pointsDifference > 0) {
+                          message +=
+                              '\n+${pointsDifference} points awarded to employees';
+                        } else {
+                          message +=
+                              '\n${pointsDifference.abs()} points withdrawn from employees';
+                          backgroundColor = Colors.orange;
+                        }
+                      }
+
+                      if (context.mounted) {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          SnackBar(
+                            content: Text(message),
+                            backgroundColor: backgroundColor,
+                            duration: const Duration(seconds: 4),
+                          ),
+                        );
+                      }
+                    } catch (e) {
+                      // Error occurred during update
+                      if (context.mounted) {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          SnackBar(
+                            content: Text('Error updating target: $e'),
+                            backgroundColor: Colors.red,
+                            duration: const Duration(seconds: 4),
+                          ),
+                        );
+                      }
+                    } finally {
+                      // Dispose controllers after all operations are complete
+                      // Use a small delay to ensure all UI operations are done
+                      Future.delayed(const Duration(milliseconds: 100), () {
+                        try {
+                          targetAmountController.dispose();
+                        } catch (e) {
+                          // Already disposed, ignore
+                        }
+                        try {
+                          actualAmountController.dispose();
+                        } catch (e) {
+                          // Already disposed, ignore
+                        }
+                        try {
+                          teamMemberSearchController.dispose();
+                        } catch (e) {
+                          // Already disposed, ignore
+                        }
+                      });
+                    }
+                  },
+                  style: TextButton.styleFrom(
+                    padding:
+                        const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                    minimumSize: Size.zero,
+                    tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                  ),
+                  child: isSaving
+                      ? const SizedBox(
+                          width: 14,
+                          height: 14,
+                          child: CircularProgressIndicator(
+                            strokeWidth: 2,
+                            valueColor:
+                                AlwaysStoppedAnimation<Color>(Colors.white),
+                          ),
+                        )
+                      : const Text('Update', style: TextStyle(fontSize: 13)),
+                ),
+                const SizedBox(width: 4),
+                TextButton(
+                  onPressed: () {
+                    Navigator.pop(context);
+                    _showDeleteTargetDialog(context, target, appProvider);
+                  },
+                  style: TextButton.styleFrom(
+                    foregroundColor: Colors.red,
+                    padding:
+                        const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                    minimumSize: Size.zero,
+                    tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                  ),
+                  child: const Text('Delete Target',
+                      style: TextStyle(fontSize: 13)),
+                ),
+              ],
             ),
           ],
         ),
       ),
-    );
+    ).then((_) {
+      // Safety disposal - only if controllers weren't already disposed
+      // (they should be disposed in button handlers, but this is a fallback)
+      // Use a small delay to ensure dialog is fully closed
+      Future.delayed(const Duration(milliseconds: 100), () {
+        try {
+          targetAmountController.dispose();
+        } catch (e) {
+          // Already disposed, ignore
+        }
+        try {
+          actualAmountController.dispose();
+        } catch (e) {
+          // Already disposed, ignore
+        }
+        try {
+          teamMemberSearchController.dispose();
+        } catch (e) {
+          // Already disposed, ignore
+        }
+      });
+    });
   }
 
   Future<List<CompanySubscription>> _getSubscriptionsWithUpdate() async {
@@ -7982,12 +8326,16 @@ class _EmployeeProfileScreenState extends State<EmployeeProfileScreen> {
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  Text(
-                    'Points History - ${currentEmployee.name}',
-                    style: TextStyle(
-                      fontSize: 20,
-                      fontWeight: FontWeight.bold,
-                      color: Colors.blue[700],
+                  Expanded(
+                    child: Text(
+                      'Points History - ${currentEmployee.name}',
+                      style: TextStyle(
+                        fontSize: 20,
+                        fontWeight: FontWeight.bold,
+                        color: Colors.blue[700],
+                      ),
+                      overflow: TextOverflow.ellipsis,
+                      maxLines: 2,
                     ),
                   ),
                   IconButton(

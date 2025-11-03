@@ -34,37 +34,37 @@ class Bonus {
   Map<String, dynamic> toJson() {
     return {
       'id': id,
-      'name': name,
+      'title': name,  // Map 'name' to 'title' for Supabase
       'description': description,
-      'pointsRequired': pointsRequired,
+      'points_required': pointsRequired,  // Keep as int, Supabase will handle conversion
       'status': status.name,
-      'createdAt': createdAt.toIso8601String(),
-      'redeemedAt': redeemedAt?.toIso8601String(),
-      'redeemedBy': redeemedBy,
-      'giftCardCode': giftCardCode,
-      'secretCode': secretCode,
-      'companyId': companyId,
+      'created_at': createdAt.toIso8601String(),
+      'redeemed_at': redeemedAt?.toIso8601String(),
+      'redeemed_by': redeemedBy,
+      'gift_card_code': giftCardCode,
+      'secret_code': secretCode,
+      'company_id': companyId,
     };
   }
 
   factory Bonus.fromJson(Map<String, dynamic> json) {
     return Bonus(
       id: json['id'],
-      name: json['name'],
+      name: json['name'] ?? json['title'],  // Handle both 'name' and 'title'
       description: json['description'],
-      pointsRequired: json['pointsRequired'],
+      pointsRequired: (json['pointsRequired'] ?? json['points_required'])?.toInt() ?? 0,
       status: BonusStatus.values.firstWhere(
         (e) => e.name == json['status'],
         orElse: () => BonusStatus.available,
       ),
-      createdAt: DateTime.parse(json['createdAt']),
-      redeemedAt: json['redeemedAt'] != null
-          ? DateTime.parse(json['redeemedAt'])
+      createdAt: DateTime.parse(json['createdAt'] ?? json['created_at']),
+      redeemedAt: (json['redeemedAt'] ?? json['redeemed_at']) != null
+          ? DateTime.parse(json['redeemedAt'] ?? json['redeemed_at'])
           : null,
-      redeemedBy: json['redeemedBy'],
-      giftCardCode: json['giftCardCode'],
-      secretCode: json['secretCode'],
-      companyId: json['companyId'],
+      redeemedBy: json['redeemedBy'] ?? json['redeemed_by'],
+      giftCardCode: json['giftCardCode'] ?? json['gift_card_code'],
+      secretCode: json['secretCode'] ?? json['secret_code'],
+      companyId: json['companyId'] ?? json['company_id'],
     );
   }
 

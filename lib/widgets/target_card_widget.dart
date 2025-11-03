@@ -510,7 +510,9 @@ class TargetCard extends StatelessWidget {
                 // Action Buttons (Employee view only)
                 if (!isAdminView) ...[
                   const SizedBox(height: 12),
-                  Row(
+                  Wrap(
+                    spacing: 8,
+                    runSpacing: 8,
                     children: [
                       // Show "Join Target" if user is not part of this target
                       if (!isAdminView &&
@@ -519,7 +521,8 @@ class TargetCard extends StatelessWidget {
                           !target.collaborativeEmployeeIds
                               .contains(currentUserId) &&
                           onJoinAsTeamMember != null) ...[
-                        Expanded(
+                        SizedBox(
+                          width: double.infinity,
                           child: ElevatedButton.icon(
                             onPressed: onJoinAsTeamMember,
                             icon: const Icon(Icons.person_add, size: 16),
@@ -534,7 +537,7 @@ class TargetCard extends StatelessWidget {
                             ),
                           ),
                         ),
-                        const SizedBox(width: 8),
+                        const SizedBox(width: 0),
                       ],
                       // Show "Add Team" if user is the assigned employee OR a collaborator
                       if (onAddCollaborators != null &&
@@ -542,7 +545,8 @@ class TargetCard extends StatelessWidget {
                           (target.assignedEmployeeId == currentUserId ||
                               target.collaborativeEmployeeIds
                                   .contains(currentUserId))) ...[
-                        Expanded(
+                        SizedBox(
+                          width: double.infinity,
                           child: ElevatedButton.icon(
                             onPressed: onAddCollaborators,
                             icon: const Icon(Icons.group_add, size: 16),
@@ -558,14 +562,15 @@ class TargetCard extends StatelessWidget {
                             ),
                           ),
                         ),
-                        const SizedBox(width: 8),
+                        const SizedBox(width: 0),
                       ],
                       // Show "Submit Sales" only if user is part of the team
                       if (currentUserId != null &&
                           (target.assignedEmployeeId == currentUserId ||
                               target.collaborativeEmployeeIds
                                   .contains(currentUserId)))
-                        Expanded(
+                        SizedBox(
+                          width: double.infinity,
                           child: !target.isSubmitted
                               ? ElevatedButton.icon(
                                   onPressed: onSubmitSales,

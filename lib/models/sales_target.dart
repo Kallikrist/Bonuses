@@ -34,6 +34,8 @@ class SalesTarget {
   final String? approvedBy; // Admin ID who approved
   final DateTime? approvedAt; // When it was approved
   final String? companyId; // Company context for this target (from workplace)
+  final DateTime? deletedAt; // When the target was deleted (soft delete)
+  final String? deletedBy; // Admin ID who deleted the target
 
   SalesTarget({
     required this.id,
@@ -57,63 +59,89 @@ class SalesTarget {
     this.companyId,
     this.approvedBy,
     this.approvedAt,
+    this.deletedAt,
+    this.deletedBy,
   });
 
   Map<String, dynamic> toJson() {
+    // Use snake_case keys for Supabase compatibility. The database columns
+    // are expected to be snake_case (e.g. target_amount, created_at, etc.).
     return {
       'id': id,
       'date': date.toIso8601String(),
-      'targetAmount': targetAmount,
-      'actualAmount': actualAmount,
-      'isMet': isMet,
+      'target_amount': targetAmount,
+      'actual_amount': actualAmount,
+      'is_met': isMet,
       'status': status.name,
-      'percentageAboveTarget': percentageAboveTarget,
-      'pointsAwarded': pointsAwarded,
-      'createdAt': createdAt.toIso8601String(),
-      'createdBy': createdBy,
-      'assignedEmployeeId': assignedEmployeeId,
-      'assignedEmployeeName': assignedEmployeeName,
-      'assignedWorkplaceId': assignedWorkplaceId,
-      'assignedWorkplaceName': assignedWorkplaceName,
-      'collaborativeEmployeeIds': collaborativeEmployeeIds,
-      'collaborativeEmployeeNames': collaborativeEmployeeNames,
-      'isSubmitted': isSubmitted,
-      'isApproved': isApproved,
-      'approvedBy': approvedBy,
-      'approvedAt': approvedAt?.toIso8601String(),
-      'companyId': companyId,
+      'percentage_above_target': percentageAboveTarget,
+      'points_awarded': pointsAwarded,
+      'created_at': createdAt.toIso8601String(),
+      'created_by': createdBy,
+      'assigned_employee_id': assignedEmployeeId,
+      'assigned_employee_name': assignedEmployeeName,
+      'assigned_workplace_id': assignedWorkplaceId,
+      'assigned_workplace_name': assignedWorkplaceName,
+      'collaborative_employee_ids': collaborativeEmployeeIds,
+      'collaborative_employee_names': collaborativeEmployeeNames,
+      'is_submitted': isSubmitted,
+      'is_approved': isApproved,
+      'approved_by': approvedBy,
+      'approved_at': approvedAt?.toIso8601String(),
+      'company_id': companyId,
+      'deleted_at': deletedAt?.toIso8601String(),
+      'deleted_by': deletedBy,
     };
   }
 
   factory SalesTarget.fromJson(Map<String, dynamic> json) {
+    // Accept both camelCase (local storage) and snake_case (Supabase)
+    double _toDouble(dynamic v) => v == null
+        ? 0.0
+        : (v is int)
+            ? v.toDouble()
+            : (v as num).toDouble();
+
     return SalesTarget(
       id: json['id'],
       date: DateTime.parse(json['date']),
-      targetAmount: json['targetAmount'].toDouble(),
-      actualAmount: json['actualAmount']?.toDouble() ?? 0.0,
-      isMet: json['isMet'] ?? false,
-      status: json['status'] != null
+      targetAmount: _toDouble(json['targetAmount'] ?? json['target_amount']),
+      actualAmount: _toDouble(json['actualAmount'] ?? json['actual_amount']),
+      isMet: (json['isMet'] ?? json['is_met']) ?? false,
+      status: (json['status'] != null)
           ? TargetStatus.values.firstWhere((e) => e.name == json['status'])
           : TargetStatus.pending,
-      percentageAboveTarget: json['percentageAboveTarget']?.toDouble() ?? 0.0,
-      pointsAwarded: json['pointsAwarded'] ?? 0,
-      createdAt: DateTime.parse(json['createdAt']),
-      createdBy: json['createdBy'],
-      assignedEmployeeId: json['assignedEmployeeId'],
-      assignedEmployeeName: json['assignedEmployeeName'],
-      assignedWorkplaceId: json['assignedWorkplaceId'],
-      assignedWorkplaceName: json['assignedWorkplaceName'],
-      collaborativeEmployeeIds:
-          List<String>.from(json['collaborativeEmployeeIds'] ?? []),
-      collaborativeEmployeeNames:
-          List<String>.from(json['collaborativeEmployeeNames'] ?? []),
-      isSubmitted: json['isSubmitted'] ?? false,
-      isApproved: json['isApproved'] ?? false,
-      approvedBy: json['approvedBy'],
-      approvedAt: json['approvedAt'] != null
-          ? DateTime.parse(json['approvedAt'])
+      percentageAboveTarget: _toDouble(
+          json['percentageAboveTarget'] ?? json['percentage_above_target']),
+      pointsAwarded: (json['pointsAwarded'] ?? json['points_awarded']) ?? 0,
+      createdAt: DateTime.parse(json['createdAt'] ?? json['created_at']),
+      createdBy: json['createdBy'] ?? json['created_by'],
+      assignedEmployeeId:
+          json['assignedEmployeeId'] ?? json['assigned_employee_id'],
+      assignedEmployeeName:
+          json['assignedEmployeeName'] ?? json['assigned_employee_name'],
+      assignedWorkplaceId:
+          json['assignedWorkplaceId'] ?? json['assigned_workplace_id'],
+      assignedWorkplaceName:
+          json['assignedWorkplaceName'] ?? json['assigned_workplace_name'],
+      collaborativeEmployeeIds: List<String>.from(
+          json['collaborativeEmployeeIds'] ??
+              json['collaborative_employee_ids'] ??
+              []),
+      collaborativeEmployeeNames: List<String>.from(
+          json['collaborativeEmployeeNames'] ??
+              json['collaborative_employee_names'] ??
+              []),
+      isSubmitted: (json['isSubmitted'] ?? json['is_submitted']) ?? false,
+      isApproved: (json['isApproved'] ?? json['is_approved']) ?? false,
+      approvedBy: json['approvedBy'] ?? json['approved_by'],
+      approvedAt: (json['approvedAt'] ?? json['approved_at']) != null
+          ? DateTime.parse(json['approvedAt'] ?? json['approved_at'])
           : null,
-      companyId: json['companyId'],
+      companyId: json['companyId'] ?? json['company_id'],
+      deletedAt: (json['deletedAt'] ?? json['deleted_at']) != null
+          ? DateTime.parse(json['deletedAt'] ?? json['deleted_at'])
+          : null,
+      deletedBy: json['deletedBy'] ?? json['deleted_by'],
     );
   }
 
@@ -139,6 +167,8 @@ class SalesTarget {
     String? approvedBy,
     DateTime? approvedAt,
     Object? companyId = const _Undefined(),
+    DateTime? deletedAt,
+    String? deletedBy,
   }) {
     return SalesTarget(
       id: id ?? this.id,
@@ -176,6 +206,8 @@ class SalesTarget {
       approvedAt: approvedAt ?? this.approvedAt,
       companyId:
           companyId is _Undefined ? this.companyId : companyId as String?,
+      deletedAt: deletedAt ?? this.deletedAt,
+      deletedBy: deletedBy ?? this.deletedBy,
     );
   }
 

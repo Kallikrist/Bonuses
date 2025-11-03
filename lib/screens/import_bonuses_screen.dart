@@ -141,18 +141,29 @@ class _ImportBonusesScreenState extends State<ImportBonusesScreen>
                   children: [
                     Text(bonus.description),
                     const SizedBox(height: 4),
-                    Row(
+                    Wrap(
+                      spacing: 16,
+                      runSpacing: 4,
                       children: [
-                        const Icon(Icons.stars, size: 16, color: Colors.orange),
-                        const SizedBox(width: 4),
-                        Text(
-                          '${bonus.pointsRequired} points',
-                          style: const TextStyle(fontWeight: FontWeight.w500),
+                        Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            const Icon(Icons.stars, size: 16, color: Colors.orange),
+                            const SizedBox(width: 4),
+                            Text(
+                              '${bonus.pointsRequired} points',
+                              style: const TextStyle(fontWeight: FontWeight.w500),
+                            ),
+                          ],
                         ),
-                        const SizedBox(width: 16),
-                        const Icon(Icons.people, size: 16, color: Colors.blue),
-                        const SizedBox(width: 4),
-                        Text('$redemptionCount redeemed'),
+                        Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            const Icon(Icons.people, size: 16, color: Colors.blue),
+                            const SizedBox(width: 4),
+                            Text('$redemptionCount redeemed'),
+                          ],
+                        ),
                       ],
                     ),
                   ],
@@ -296,18 +307,21 @@ class _ImportBonusesScreenState extends State<ImportBonusesScreen>
                         ),
                       ],
                     ),
-                    trailing: Container(
-                      padding: const EdgeInsets.symmetric(
-                          horizontal: 12, vertical: 6),
-                      decoration: BoxDecoration(
-                        color: Colors.red.withOpacity(0.1),
-                        borderRadius: BorderRadius.circular(16),
-                      ),
-                      child: Text(
-                        '-${transaction.points.abs()} pts',
-                        style: const TextStyle(
-                          color: Colors.red,
-                          fontWeight: FontWeight.bold,
+                    trailing: Flexible(
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 8, vertical: 6),
+                        decoration: BoxDecoration(
+                          color: Colors.red.withOpacity(0.1),
+                          borderRadius: BorderRadius.circular(16),
+                        ),
+                        child: Text(
+                          '-${transaction.points.abs()} pts',
+                          style: const TextStyle(
+                            color: Colors.red,
+                            fontWeight: FontWeight.bold,
+                            fontSize: 12,
+                          ),
                         ),
                       ),
                     ),

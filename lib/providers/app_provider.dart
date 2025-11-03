@@ -1,4 +1,5 @@
 import 'package:flutter/foundation.dart';
+import 'package:flutter/widgets.dart';
 import 'package:intl/intl.dart';
 import '../models/user.dart';
 import '../models/sales_target.dart';
@@ -77,7 +78,9 @@ class AppProvider with ChangeNotifier {
   }
 
   Future<void> initialize() async {
-    _setLoading(true);
+    // Avoid notifying listeners during the initial build phase.
+    // Mark loading synchronously without emitting notifications yet.
+    _isLoading = true;
     try {
       // Run migrations first (every time app starts)
       await StorageService.runMigrations();
@@ -108,7 +111,11 @@ class AppProvider with ChangeNotifier {
       }
       await _loadData();
     } finally {
-      _setLoading(false);
+      // Defer the final notifyListeners until after first frame to
+      // prevent "setState()/markNeedsBuild called during build".
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        _setLoading(false);
+      });
     }
   }
 
@@ -299,6 +306,7 @@ class AppProvider with ChangeNotifier {
           user.id,
           target.assignedWorkplaceName ?? 'Unknown Store',
           target.id,
+          target.companyId ?? '',
         );
       }
     }
@@ -341,7 +349,11 @@ class AppProvider with ChangeNotifier {
 
   Future<void> updateSalesTargetForApproval(SalesTarget target) async {
     // Update target without triggering points adjustment (used during approval)
+    print('🟢 UPDATE_FOR_APPROVAL: Updating target ${target.id}');
+    print(
+        '🟢 UPDATE_FOR_APPROVAL: isSubmitted=${target.isSubmitted}, status=${target.status.name}, actualAmount=${target.actualAmount}');
     await StorageService.updateSalesTarget(target);
+    print('🟢 UPDATE_FOR_APPROVAL: StorageService.updateSalesTarget completed');
     final index = _salesTargets.indexWhere((t) => t.id == target.id);
     if (index != -1) {
       _salesTargets[index] = target;
@@ -350,7 +362,62 @@ class AppProvider with ChangeNotifier {
   }
 
   Future<void> deleteSalesTarget(String targetId) async {
-    await StorageService.deleteSalesTarget(targetId);
+    // Get target before deleting to check if points need to be withdrawn
+    final targetIndex = _salesTargets.indexWhere((t) => t.id == targetId);
+    if (targetIndex == -1) {
+      print(
+          'DEBUG: Target $targetId not found in memory, cannot withdraw points');
+      // Still try to delete from storage in case it exists there
+      final deletedBy = _currentUser?.id ?? 'unknown';
+      await StorageService.deleteSalesTarget(targetId, deletedBy);
+      return;
+    }
+
+    final target = _salesTargets[targetIndex];
+    final deletedBy = _currentUser?.id ?? 'unknown';
+
+    // Withdraw points from all team members if points were awarded
+    if (target.pointsAwarded > 0 && target.isApproved) {
+      print(
+          'DEBUG: Withdrawing ${target.pointsAwarded} points from team members for deleted target $targetId');
+
+      // Get all team members (assigned employee + collaborators)
+      final List<String> teamMemberIds = [];
+      if (target.assignedEmployeeId != null) {
+        teamMemberIds.add(target.assignedEmployeeId!);
+      }
+      teamMemberIds.addAll(target.collaborativeEmployeeIds);
+
+      // Get company ID for the transaction
+      final companyId =
+          target.companyId ?? _currentUser?.primaryCompanyId ?? '';
+
+      // Create negative adjustment transactions for each team member
+      for (final memberId in teamMemberIds) {
+        final transaction = PointsTransaction(
+          id: '${DateTime.now().millisecondsSinceEpoch}_withdraw_$memberId',
+          userId: memberId,
+          type: PointsTransactionType.adjustment,
+          points: -target.pointsAwarded, // Negative to withdraw
+          description:
+              'Points withdrawal: Target deleted (was awarded ${target.pointsAwarded} points)',
+          date: DateTime.now(),
+          relatedTargetId: targetId,
+          companyId: companyId,
+        );
+
+        await StorageService.addPointsTransaction(transaction);
+        _pointsTransactions.add(transaction);
+        print(
+            'DEBUG: Withdrew ${target.pointsAwarded} points from member $memberId for deleted target $targetId');
+      }
+    }
+
+    // Perform soft delete
+    await StorageService.deleteSalesTarget(targetId, deletedBy);
+
+    // Remove from in-memory list so UI updates immediately
+    // (getSalesTargets() will filter it out on next load anyway)
     _salesTargets.removeWhere((t) => t.id == targetId);
     notifyListeners();
   }
@@ -622,11 +689,15 @@ class AppProvider with ChangeNotifier {
 
   Future<void> submitEmployeeSales(
       String targetId, double actualAmount, String employeeId) async {
+    print(
+        '🔵 SUBMIT: Starting submitEmployeeSales for target $targetId with actualAmount=$actualAmount');
     final target = _salesTargets.firstWhere((t) => t.id == targetId);
     final user = _currentUser!;
 
     // Check if target is met
     final isTargetMet = actualAmount >= target.targetAmount;
+    print(
+        '🔵 SUBMIT: Target met? $isTargetMet (actual=$actualAmount, target=${target.targetAmount})');
 
     if (isTargetMet) {
       // Target is met - create approval request for admin review
@@ -643,23 +714,30 @@ class AppProvider with ChangeNotifier {
       );
 
       await addApprovalRequest(approvalRequest);
+      print('🔵 SUBMIT: Approval request created');
 
       // Update target to show as submitted for approval
       // Pre-calc points preview using current rules (supports custom thresholds)
       final effectivePercent = (actualAmount / target.targetAmount) * 100.0;
       final prePoints =
           getPointsForEffectivePercent(effectivePercent, target.companyId);
+      print(
+          '🔵 SUBMIT: Calculated prePoints=$prePoints for effectivePercent=$effectivePercent%');
 
       final updatedTarget = target.copyWith(
         actualAmount: actualAmount,
         isSubmitted: true,
         status: TargetStatus.submitted,
+        isMet: true, // Explicitly mark met; approval will finalize points
         pointsAwarded: prePoints,
       );
+      print(
+          '🔵 SUBMIT: Updated target - isSubmitted=${updatedTarget.isSubmitted}, status=${updatedTarget.status.name}, actualAmount=${updatedTarget.actualAmount}, isMet=${updatedTarget.isMet}');
+      print('🔵 SUBMIT: About to call updateSalesTargetForApproval...');
 
       await updateSalesTargetForApproval(updatedTarget);
       print(
-          'DEBUG: Target $targetId met - approval request created and target marked as submitted');
+          '✅ SUBMIT: Target $targetId met - approval request created and target marked as submitted');
     } else {
       // Target not met - automatically mark as missed with no points
       final updatedTarget = target
@@ -684,9 +762,12 @@ class AppProvider with ChangeNotifier {
     print('DEBUG: Previous team: ${target.collaborativeEmployeeNames}');
     print('DEBUG: New team: $newTeamMemberNames');
 
-    // Check if the current user is the assigned employee for this target
-    if (target.assignedEmployeeId == user.id) {
-      // The assigned employee is adding team members - directly update the target
+    // Check if the target is approved - if so, all team changes require admin approval
+    if (target.isApproved || target.status == TargetStatus.approved) {
+      print('DEBUG: Target is approved - team changes require admin approval');
+      // Continue to approval request flow below
+    } else if (target.assignedEmployeeId == user.id) {
+      // The assigned employee is adding team members - directly update the target (only if not approved)
       print(
           'DEBUG: Assigned employee adding team members - updating target directly');
 
@@ -705,45 +786,48 @@ class AppProvider with ChangeNotifier {
 
       notifyListeners();
       print('DEBUG: Target updated directly with new team members');
-    } else {
-      // Different user changing team - requires approval
-      print('DEBUG: Non-assigned user changing team - sending for approval');
-
-      // Check if there's already a pending team change request for this target by this user
-      final existingRequests = _approvalRequests
-          .where(
-            (request) =>
-                request.targetId == targetId &&
-                request.submittedBy == employeeId &&
-                request.type == ApprovalRequestType.teamChange &&
-                request.status == ApprovalStatus.pending,
-          )
-          .toList();
-
-      if (existingRequests.isNotEmpty) {
-        print(
-            'DEBUG: Duplicate team change request detected - skipping creation');
-        print('DEBUG: Existing request ID: ${existingRequests.first.id}');
-        return;
-      }
-
-      final approvalRequest = ApprovalRequest(
-        id: DateTime.now().millisecondsSinceEpoch.toString(),
-        targetId: targetId,
-        submittedBy: employeeId,
-        submittedByName: user.name,
-        type: ApprovalRequestType.teamChange,
-        status: ApprovalStatus.pending,
-        submittedAt: DateTime.now(),
-        newTeamMemberIds: newTeamMemberIds,
-        newTeamMemberNames: newTeamMemberNames,
-        previousTeamMemberIds: target.collaborativeEmployeeIds,
-        previousTeamMemberNames: target.collaborativeEmployeeNames,
-      );
-
-      await addApprovalRequest(approvalRequest);
-      print('DEBUG: Team change approval request created and submitted');
+      return; // Exit early since we updated directly
     }
+
+    // For approved targets or non-assigned employees, require approval
+    // Different user changing team - requires approval
+    print(
+        'DEBUG: Team change requires approval (target approved or user not assigned)');
+
+    // Check if there's already a pending team change request for this target by this user
+    final existingRequests = _approvalRequests
+        .where(
+          (request) =>
+              request.targetId == targetId &&
+              request.submittedBy == employeeId &&
+              request.type == ApprovalRequestType.teamChange &&
+              request.status == ApprovalStatus.pending,
+        )
+        .toList();
+
+    if (existingRequests.isNotEmpty) {
+      print(
+          'DEBUG: Duplicate team change request detected - skipping creation');
+      print('DEBUG: Existing request ID: ${existingRequests.first.id}');
+      return;
+    }
+
+    final approvalRequest = ApprovalRequest(
+      id: DateTime.now().millisecondsSinceEpoch.toString(),
+      targetId: targetId,
+      submittedBy: employeeId,
+      submittedByName: user.name,
+      type: ApprovalRequestType.teamChange,
+      status: ApprovalStatus.pending,
+      submittedAt: DateTime.now(),
+      newTeamMemberIds: newTeamMemberIds,
+      newTeamMemberNames: newTeamMemberNames,
+      previousTeamMemberIds: target.collaborativeEmployeeIds,
+      previousTeamMemberNames: target.collaborativeEmployeeNames,
+    );
+
+    await addApprovalRequest(approvalRequest);
+    print('DEBUG: Team change approval request created and submitted');
   }
 
   Future<void> approveSalesTarget(String targetId, String adminId) async {
@@ -887,10 +971,16 @@ class AppProvider with ChangeNotifier {
   }
 
   // Award points to admin when added as team member to a store
-  Future<void> awardAdminTeamParticipationPoints(
-      String adminId, String workplaceName, String targetId) async {
+  Future<void> awardAdminTeamParticipationPoints(String adminId,
+      String workplaceName, String targetId, String companyId) async {
     const int adminParticipationPoints =
         5; // Points for being added as team member
+
+    if (companyId.isEmpty) {
+      print(
+          '⚠️ WARNING: Cannot award admin team participation points - companyId is empty');
+      return;
+    }
 
     final transaction = PointsTransaction(
       id: '${DateTime.now().millisecondsSinceEpoch}_admin_team_$adminId',
@@ -900,6 +990,7 @@ class AppProvider with ChangeNotifier {
       description: 'Added as team member to $workplaceName',
       date: DateTime.now(),
       relatedTargetId: targetId,
+      companyId: companyId,
     );
 
     await StorageService.addPointsTransaction(transaction);
@@ -1751,6 +1842,7 @@ class AppProvider with ChangeNotifier {
         _currentUser!.id,
         target.assignedWorkplaceName!,
         target.id,
+        target.companyId ?? '',
       );
     }
   }

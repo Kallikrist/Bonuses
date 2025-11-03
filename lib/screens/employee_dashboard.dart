@@ -1864,45 +1864,44 @@ class _EmployeeDashboardState extends State<EmployeeDashboard> {
             ),
           ),
 
-          // Toggle header
+          // Toggle buttons only - full width
           Container(
+            width: double.infinity,
             margin: const EdgeInsets.symmetric(horizontal: 16),
+            padding: const EdgeInsets.all(4),
+            decoration: BoxDecoration(
+              color: Colors.purple.shade50,
+              borderRadius: BorderRadius.circular(20),
+            ),
             child: Row(
               children: [
                 Expanded(
-                  child: Text(
-                    _showAvailableBonuses
-                        ? 'Available Bonuses'
-                        : 'Your Claimed Bonuses',
-                    style: const TextStyle(
-                      fontSize: 20,
-                      fontWeight: FontWeight.bold,
+                  child: ChoiceChip(
+                    label: SizedBox(
+                      width: double.infinity,
+                      child: Center(
+                        child: const Text('Available'),
+                      ),
                     ),
+                    selected: _showAvailableBonuses,
+                    onSelected: (v) =>
+                        setState(() => _showAvailableBonuses = true),
+                    padding: const EdgeInsets.symmetric(vertical: 8),
                   ),
                 ),
-                Container(
-                  padding: const EdgeInsets.all(4),
-                  decoration: BoxDecoration(
-                    color: Colors.purple.shade50,
-                    borderRadius: BorderRadius.circular(20),
-                  ),
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      ChoiceChip(
-                        label: const Text('Available'),
-                        selected: _showAvailableBonuses,
-                        onSelected: (v) =>
-                            setState(() => _showAvailableBonuses = true),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: ChoiceChip(
+                    label: SizedBox(
+                      width: double.infinity,
+                      child: Center(
+                        child: const Text('Redeemed'),
                       ),
-                      const SizedBox(width: 8),
-                      ChoiceChip(
-                        label: const Text('Redeemed'),
-                        selected: !_showAvailableBonuses,
-                        onSelected: (v) =>
-                            setState(() => _showAvailableBonuses = false),
-                      ),
-                    ],
+                    ),
+                    selected: !_showAvailableBonuses,
+                    onSelected: (v) =>
+                        setState(() => _showAvailableBonuses = false),
+                    padding: const EdgeInsets.symmetric(vertical: 8),
                   ),
                 ),
               ],
@@ -2644,8 +2643,40 @@ class _EmployeeDashboardState extends State<EmployeeDashboard> {
             ),
           );
         }
+      } else if (target.isApproved || target.status == TargetStatus.approved) {
+        // For approved targets, require admin approval for team changes
+        final updatedCollaboratorIds = [
+          ...target.collaborativeEmployeeIds,
+          if (!target.collaborativeEmployeeIds.contains(userId)) userId,
+        ];
+        final updatedCollaboratorNames = [
+          ...target.collaborativeEmployeeNames,
+          if (!target.collaborativeEmployeeIds.contains(userId))
+            currentUser.name,
+        ];
+
+        // Remove duplicates
+        final uniqueIds = updatedCollaboratorIds.toSet().toList();
+        final uniqueNames = updatedCollaboratorNames.toSet().toList();
+
+        await appProvider.submitTeamChange(
+          target.id,
+          uniqueIds,
+          uniqueNames,
+          userId,
+        );
+
+        if (context.mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content:
+                  Text('Team change request submitted for admin approval!'),
+              backgroundColor: Colors.orange,
+            ),
+          );
+        }
       } else {
-        // For non-submitted targets, update directly
+        // For non-submitted, non-approved targets, update directly
         final updatedCollaboratorIds = [
           ...target.collaborativeEmployeeIds,
           if (!target.collaborativeEmployeeIds.contains(userId)) userId,

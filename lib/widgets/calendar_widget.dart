@@ -5,8 +5,10 @@ import '../models/sales_target.dart';
 import '../models/user.dart';
 import '../models/workplace.dart';
 import '../models/approval_request.dart';
+import '../models/company.dart';
 import '../providers/app_provider.dart';
 import '../screens/target_profile_screen.dart';
+import '../services/storage_service.dart';
 
 class CalendarPage extends StatefulWidget {
   final DateTime? selectedDate;
@@ -900,16 +902,14 @@ class AddTargetDialog extends StatefulWidget {
 class _AddTargetDialogState extends State<AddTargetDialog> {
   final _formKey = GlobalKey<FormState>();
   final _targetAmountController = TextEditingController();
-  final _employeeController = TextEditingController();
-  final _workplaceController = TextEditingController();
+  final _teamMemberSearchController = TextEditingController();
 
   DateTime _selectedDate = DateTime.now();
-  User? _selectedEmployee;
-  Workplace? _selectedWorkplace;
-  List<User> _availableEmployees = [];
-  List<Workplace> _availableWorkplaces = [];
-  List<User> _selectedCollaborators = [];
+  String? _selectedEmployeeId;
+  String? _selectedWorkplaceId;
+  List<String> _selectedTeamMemberIds = [];
   bool _isLoading = false;
+  String? _companyId;
 
   @override
   void initState() {
@@ -923,30 +923,25 @@ class _AddTargetDialogState extends State<AddTargetDialog> {
 
     final appProvider = Provider.of<AppProvider>(context, listen: false);
     final currentUser = appProvider.currentUser;
-    final currentCompanyId = currentUser?.primaryCompanyId;
+    _companyId = currentUser?.primaryCompanyId;
 
-    // Load all users and workplaces
-    final allUsers = await appProvider.getUsers();
-    final allWorkplaces = await appProvider.getWorkplaces();
-
-    // Filter employees by current company
-    if (currentCompanyId != null) {
-      _availableEmployees = allUsers
-          .where((user) =>
-              user.companyIds.contains(currentCompanyId) &&
-              (user.role == UserRole.employee || user.role == UserRole.admin))
-          .toList();
-
-      _availableWorkplaces = allWorkplaces
-          .where((workplace) => workplace.companyId == currentCompanyId)
-          .toList();
-    } else {
-      // Fallback if no company ID (shouldn't happen for admins)
-      _availableEmployees = allUsers
-          .where((user) =>
-              user.role == UserRole.employee || user.role == UserRole.admin)
-          .toList();
-      _availableWorkplaces = allWorkplaces;
+    // If no company ID, try to find admin company
+    if (_companyId == null || _companyId!.isEmpty) {
+      try {
+        final companies = await StorageService.getCompanies();
+        final adminCompany = companies.firstWhere(
+          (c) => c.adminUserId == currentUser?.id,
+          orElse: () => Company(
+            id: '',
+            name: '',
+            adminUserId: currentUser?.id ?? '',
+            createdAt: DateTime.now(),
+          ),
+        );
+        if (adminCompany.id.isNotEmpty) {
+          _companyId = adminCompany.id;
+        }
+      } catch (_) {}
     }
 
     setState(() => _isLoading = false);
@@ -955,8 +950,7 @@ class _AddTargetDialogState extends State<AddTargetDialog> {
   @override
   void dispose() {
     _targetAmountController.dispose();
-    _employeeController.dispose();
-    _workplaceController.dispose();
+    _teamMemberSearchController.dispose();
     super.dispose();
   }
 
@@ -970,225 +964,44 @@ class _AddTargetDialogState extends State<AddTargetDialog> {
             ? const Center(child: CircularProgressIndicator())
             : Form(
                 key: _formKey,
-                child: SingleChildScrollView(
-                  child: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      // Date Selection
-                      const Text(
-                        'Target Date',
-                        style: TextStyle(
-                          fontSize: 16,
-                          fontWeight: FontWeight.w600,
-                          color: Colors.black87,
-                        ),
-                      ),
-                      const SizedBox(height: 8),
-                      Row(
-                        children: [
-                          Expanded(
-                            child: Container(
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: 12,
-                                vertical: 8,
-                              ),
-                              decoration: BoxDecoration(
-                                border: Border.all(color: Colors.grey[300]!),
-                                borderRadius: BorderRadius.circular(8),
-                              ),
-                              child: Text(
-                                DateFormat('MMM dd, yyyy')
-                                    .format(_selectedDate),
-                                style: const TextStyle(fontSize: 16),
-                              ),
-                            ),
-                          ),
-                          const SizedBox(width: 8),
-                          IconButton(
-                            onPressed: _selectDate,
-                            icon: const Icon(Icons.calendar_today),
-                            tooltip: 'Select Date',
-                          ),
-                        ],
-                      ),
-                      const SizedBox(height: 16),
-
-                      // Target Amount
-                      const Text(
-                        'Target Amount (\$)',
-                        style: TextStyle(
-                          fontSize: 16,
-                          fontWeight: FontWeight.w600,
-                          color: Colors.black87,
-                        ),
-                      ),
-                      const SizedBox(height: 8),
-                      TextFormField(
-                        controller: _targetAmountController,
-                        keyboardType: TextInputType.number,
-                        decoration: const InputDecoration(
-                          hintText: 'Enter target amount',
-                          border: OutlineInputBorder(),
-                        ),
-                        validator: (value) {
-                          if (value == null || value.isEmpty) {
-                            return 'Please enter target amount';
+                child: Consumer<AppProvider>(
+                  builder: (context, appProvider, _) {
+                    return TargetFormWidget(
+                      targetAmountController: _targetAmountController,
+                      teamMemberSearchController: _teamMemberSearchController,
+                      selectedDate: _selectedDate,
+                      selectedEmployeeId: _selectedEmployeeId,
+                      selectedWorkplaceId: _selectedWorkplaceId,
+                      selectedTeamMemberIds: _selectedTeamMemberIds,
+                      companyId: _companyId,
+                      onDateChanged: (date) {
+                        setState(() {
+                          _selectedDate = date;
+                        });
+                      },
+                      onEmployeeChanged: (employeeId) {
+                        setState(() {
+                          _selectedEmployeeId = employeeId;
+                          // If no employee assigned, clear team members
+                          if (employeeId == null) {
+                            _selectedTeamMemberIds.clear();
                           }
-                          final amount = double.tryParse(value);
-                          if (amount == null || amount <= 0) {
-                            return 'Please enter a valid amount';
-                          }
-                          return null;
-                        },
-                      ),
-                      const SizedBox(height: 16),
-
-                      // Employee Selection
-                      const Text(
-                        'Assigned Employee',
-                        style: TextStyle(
-                          fontSize: 16,
-                          fontWeight: FontWeight.w600,
-                          color: Colors.black87,
-                        ),
-                      ),
-                      const SizedBox(height: 8),
-                      DropdownButtonFormField<User>(
-                        value: _selectedEmployee,
-                        decoration: const InputDecoration(
-                          border: OutlineInputBorder(),
-                          hintText: 'Select employee',
-                        ),
-                        items: _availableEmployees.map((employee) {
-                          return DropdownMenuItem<User>(
-                            value: employee,
-                            child: Text(employee.name),
-                          );
-                        }).toList(),
-                        onChanged: (User? value) {
-                          setState(() {
-                            _selectedEmployee = value;
-                            if (value != null) {
-                              _employeeController.text = value.name;
-                              // Auto-select workplace if employee has one
-                              if (value.workplaceIds.isNotEmpty) {
-                                _selectedWorkplace =
-                                    _availableWorkplaces.firstWhere(
-                                  (wp) => wp.id == value.workplaceIds.first,
-                                  orElse: () => _availableWorkplaces.first,
-                                );
-                                _workplaceController.text =
-                                    _selectedWorkplace?.name ?? '';
-                              }
-                            }
-                          });
-                        },
-                        validator: (value) {
-                          if (value == null) {
-                            return 'Please select an employee';
-                          }
-                          return null;
-                        },
-                      ),
-                      const SizedBox(height: 16),
-
-                      // Workplace Selection
-                      const Text(
-                        'Workplace',
-                        style: TextStyle(
-                          fontSize: 16,
-                          fontWeight: FontWeight.w600,
-                          color: Colors.black87,
-                        ),
-                      ),
-                      const SizedBox(height: 8),
-                      DropdownButtonFormField<Workplace>(
-                        value: _selectedWorkplace,
-                        decoration: const InputDecoration(
-                          border: OutlineInputBorder(),
-                          hintText: 'Select workplace',
-                        ),
-                        items: _availableWorkplaces.map((workplace) {
-                          return DropdownMenuItem<Workplace>(
-                            value: workplace,
-                            child: Text(workplace.name),
-                          );
-                        }).toList(),
-                        onChanged: (Workplace? value) {
-                          setState(() {
-                            _selectedWorkplace = value;
-                            if (value != null) {
-                              _workplaceController.text = value.name;
-                            }
-                          });
-                        },
-                        validator: (value) {
-                          if (value == null) {
-                            return 'Please select a workplace';
-                          }
-                          return null;
-                        },
-                      ),
-                      const SizedBox(height: 16),
-
-                      // Collaborators Selection
-                      const Text(
-                        'Team Members (Optional)',
-                        style: TextStyle(
-                          fontSize: 16,
-                          fontWeight: FontWeight.w600,
-                          color: Colors.black87,
-                        ),
-                      ),
-                      const SizedBox(height: 8),
-                      Container(
-                        padding: const EdgeInsets.all(12),
-                        decoration: BoxDecoration(
-                          border: Border.all(color: Colors.grey[300]!),
-                          borderRadius: BorderRadius.circular(8),
-                        ),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            if (_selectedCollaborators.isEmpty)
-                              Text(
-                                'No team members selected',
-                                style: TextStyle(
-                                  color: Colors.grey[600],
-                                  fontSize: 14,
-                                ),
-                              )
-                            else
-                              Wrap(
-                                spacing: 8,
-                                runSpacing: 8,
-                                children:
-                                    _selectedCollaborators.map((collaborator) {
-                                  return Chip(
-                                    label: Text(collaborator.name),
-                                    onDeleted: () {
-                                      setState(() {
-                                        _selectedCollaborators
-                                            .remove(collaborator);
-                                      });
-                                    },
-                                    deleteIcon:
-                                        const Icon(Icons.close, size: 16),
-                                  );
-                                }).toList(),
-                              ),
-                            const SizedBox(height: 8),
-                            TextButton.icon(
-                              onPressed: _selectCollaborators,
-                              icon: const Icon(Icons.add, size: 16),
-                              label: const Text('Add Team Members'),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ],
-                  ),
+                        });
+                      },
+                      onWorkplaceChanged: (workplaceId) {
+                        setState(() {
+                          _selectedWorkplaceId = workplaceId;
+                        });
+                      },
+                      onTeamMembersChanged: (teamMemberIds) {
+                        setState(() {
+                          _selectedTeamMemberIds = teamMemberIds;
+                        });
+                      },
+                      appProvider: appProvider,
+                      showActualAmount: false, // Not needed for Add mode
+                    );
+                  },
                 ),
               ),
       ),
@@ -1209,44 +1022,38 @@ class _AddTargetDialogState extends State<AddTargetDialog> {
     );
   }
 
-  Future<void> _selectDate() async {
-    final date = await showDatePicker(
-      context: context,
-      initialDate: _selectedDate,
-      firstDate: DateTime.now().subtract(const Duration(days: 365)),
-      lastDate: DateTime.now().add(const Duration(days: 365)),
-    );
-
-    if (date != null) {
-      setState(() {
-        _selectedDate = date;
-      });
-    }
-  }
-
-  Future<void> _selectCollaborators() async {
-    final availableCollaborators = _availableEmployees
-        .where((emp) => emp.id != _selectedEmployee?.id)
-        .toList();
-
-    final selected = await showDialog<List<User>>(
-      context: context,
-      builder: (context) => MultiSelectDialog(
-        title: 'Select Team Members',
-        items: availableCollaborators,
-        selectedItems: _selectedCollaborators,
-      ),
-    );
-
-    if (selected != null) {
-      setState(() {
-        _selectedCollaborators = selected;
-      });
-    }
-  }
-
   Future<void> _addTarget() async {
-    if (!_formKey.currentState!.validate()) return;
+    // Validate form
+    final targetAmount = double.tryParse(_targetAmountController.text);
+    if (targetAmount == null || targetAmount <= 0) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Please enter a valid target amount'),
+          backgroundColor: Colors.red,
+        ),
+      );
+      return;
+    }
+
+    if (_selectedEmployeeId == null || _selectedEmployeeId!.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Please select an employee'),
+          backgroundColor: Colors.red,
+        ),
+      );
+      return;
+    }
+
+    if (_selectedWorkplaceId == null || _selectedWorkplaceId!.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Please select a workplace'),
+          backgroundColor: Colors.red,
+        ),
+      );
+      return;
+    }
 
     setState(() => _isLoading = true);
 
@@ -1258,24 +1065,122 @@ class _AddTargetDialogState extends State<AddTargetDialog> {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text('Please log in to add targets')),
         );
+        setState(() => _isLoading = false);
         return;
       }
+
+      // Get employee and workplace names
+      final users = await appProvider.getUsers();
+      final workplaces = await appProvider.getWorkplaces();
+
+      final selectedEmployee = users.firstWhere(
+        (u) => u.id == _selectedEmployeeId,
+        orElse: () => User(
+          id: '',
+          name: 'Unknown',
+          email: '',
+          role: UserRole.employee,
+          createdAt: DateTime.now(),
+          phoneNumber: '',
+          primaryCompanyId: '',
+          workplaceIds: [],
+          workplaceNames: [],
+          totalPoints: 0,
+          companyPoints: {},
+          companyRoles: {},
+        ),
+      );
+
+      final selectedWorkplace = workplaces.firstWhere(
+        (w) => w.id == _selectedWorkplaceId,
+        orElse: () => Workplace(
+          id: '',
+          name: 'Unknown',
+          address: '',
+          createdAt: DateTime.now(),
+          companyId: '',
+        ),
+      );
+
+      // Resolve companyId: prefer workplace.companyId, fallback to user's primary company,
+      // finally infer from companies where current user is admin
+      String? resolvedCompanyId = (selectedWorkplace.companyId != null &&
+              selectedWorkplace.companyId!.isNotEmpty)
+          ? selectedWorkplace.companyId
+          : _companyId;
+
+      if (resolvedCompanyId == null || resolvedCompanyId.isEmpty) {
+        resolvedCompanyId = currentUser.primaryCompanyId;
+      }
+
+      if (resolvedCompanyId == null || resolvedCompanyId.isEmpty) {
+        try {
+          final companies = await StorageService.getCompanies();
+          final adminCompany = companies.firstWhere(
+            (c) => c.adminUserId == currentUser.id,
+            orElse: () => Company(
+              id: '',
+              name: '',
+              adminUserId: currentUser.id,
+              createdAt: DateTime.now(),
+            ),
+          );
+          if (adminCompany.id.isNotEmpty) {
+            resolvedCompanyId = adminCompany.id;
+          }
+        } catch (_) {}
+      }
+
+      if (resolvedCompanyId == null || resolvedCompanyId.isEmpty) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text(
+                  'Missing company context for this target. Please select a company first.'),
+              backgroundColor: Colors.red,
+            ),
+          );
+        }
+        setState(() => _isLoading = false);
+        return;
+      }
+
+      // Get team member names
+      final teamMemberNames = _selectedTeamMemberIds.map((id) {
+        return users
+            .firstWhere(
+              (u) => u.id == id,
+              orElse: () => User(
+                id: '',
+                name: 'Unknown',
+                email: '',
+                role: UserRole.employee,
+                createdAt: DateTime.now(),
+                phoneNumber: '',
+                primaryCompanyId: '',
+                workplaceIds: [],
+                workplaceNames: [],
+                totalPoints: 0,
+                companyPoints: {},
+                companyRoles: {},
+              ),
+            )
+            .name;
+      }).toList();
 
       final target = SalesTarget(
         id: DateTime.now().millisecondsSinceEpoch.toString(),
         date: _selectedDate,
-        targetAmount: double.parse(_targetAmountController.text),
+        targetAmount: targetAmount,
         createdAt: DateTime.now(),
         createdBy: currentUser.id,
-        companyId: currentUser.primaryCompanyId, // Add company ID
-        assignedEmployeeId: _selectedEmployee!.id,
-        assignedEmployeeName: _selectedEmployee!.name,
-        assignedWorkplaceId: _selectedWorkplace!.id,
-        assignedWorkplaceName: _selectedWorkplace!.name,
-        collaborativeEmployeeIds:
-            _selectedCollaborators.map((e) => e.id).toList(),
-        collaborativeEmployeeNames:
-            _selectedCollaborators.map((e) => e.name).toList(),
+        companyId: resolvedCompanyId,
+        assignedEmployeeId: _selectedEmployeeId,
+        assignedEmployeeName: selectedEmployee.name,
+        assignedWorkplaceId: _selectedWorkplaceId,
+        assignedWorkplaceName: selectedWorkplace.name,
+        collaborativeEmployeeIds: _selectedTeamMemberIds,
+        collaborativeEmployeeNames: teamMemberNames,
       );
 
       await appProvider.addSalesTarget(target);
@@ -1285,7 +1190,7 @@ class _AddTargetDialogState extends State<AddTargetDialog> {
         widget.onTargetAdded();
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('Target added for ${_selectedEmployee!.name}'),
+            content: Text('Target added for ${selectedEmployee.name}'),
             backgroundColor: Colors.green,
           ),
         );
@@ -1379,6 +1284,388 @@ class _MultiSelectDialogState extends State<MultiSelectDialog> {
           child: const Text('Done'),
         ),
       ],
+    );
+  }
+}
+
+// Reusable Target Form Widget - shared between Add and Edit dialogs
+class TargetFormWidget extends StatefulWidget {
+  final TextEditingController targetAmountController;
+  final TextEditingController? actualAmountController; // Optional for Add mode
+  final TextEditingController teamMemberSearchController;
+  final DateTime selectedDate;
+  final String? selectedEmployeeId;
+  final String? selectedWorkplaceId;
+  final List<String> selectedTeamMemberIds;
+  final String? companyId; // For filtering employees
+  final String? excludedEmployeeId; // Employee to exclude from team members
+  final Function(DateTime) onDateChanged;
+  final Function(String?) onEmployeeChanged;
+  final Function(String?) onWorkplaceChanged;
+  final Function(List<String>) onTeamMembersChanged;
+  final AppProvider appProvider;
+  final bool showActualAmount; // Whether to show actual amount field
+
+  const TargetFormWidget({
+    super.key,
+    required this.targetAmountController,
+    this.actualAmountController,
+    required this.teamMemberSearchController,
+    required this.selectedDate,
+    required this.selectedEmployeeId,
+    required this.selectedWorkplaceId,
+    required this.selectedTeamMemberIds,
+    required this.onDateChanged,
+    required this.onEmployeeChanged,
+    required this.onWorkplaceChanged,
+    required this.onTeamMembersChanged,
+    required this.appProvider,
+    this.companyId,
+    this.excludedEmployeeId,
+    this.showActualAmount = false,
+  });
+
+  @override
+  State<TargetFormWidget> createState() => _TargetFormWidgetState();
+}
+
+class _TargetFormWidgetState extends State<TargetFormWidget> {
+  @override
+  Widget build(BuildContext context) {
+    return SingleChildScrollView(
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          // Target Amount
+          TextField(
+            controller: widget.targetAmountController,
+            style: const TextStyle(fontSize: 14),
+            decoration: const InputDecoration(
+              labelText: 'Target Amount (\$)',
+              border: OutlineInputBorder(),
+              contentPadding:
+                  EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+              isDense: true,
+            ),
+            keyboardType: TextInputType.number,
+          ),
+          const SizedBox(height: 10),
+
+          // Actual Amount (only for Edit mode)
+          if (widget.showActualAmount &&
+              widget.actualAmountController != null) ...[
+            TextField(
+              controller: widget.actualAmountController!,
+              style: const TextStyle(fontSize: 14),
+              decoration: const InputDecoration(
+                labelText: 'Actual Amount (\$)',
+                border: OutlineInputBorder(),
+                contentPadding:
+                    EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+                isDense: true,
+              ),
+              keyboardType: TextInputType.number,
+            ),
+            const SizedBox(height: 10),
+          ],
+
+          // Date Picker
+          InkWell(
+            onTap: () async {
+              final date = await showDatePicker(
+                context: context,
+                initialDate: widget.selectedDate,
+                firstDate: DateTime(2020),
+                lastDate: DateTime(2030),
+              );
+              if (date != null) {
+                widget.onDateChanged(date);
+              }
+            },
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+              decoration: BoxDecoration(
+                border: Border.all(color: Colors.grey),
+                borderRadius: BorderRadius.circular(4),
+              ),
+              child: Row(
+                children: [
+                  const Icon(Icons.calendar_today, size: 20),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        const Text(
+                          'Target Date',
+                          style: TextStyle(fontSize: 12, color: Colors.grey),
+                        ),
+                        Text(
+                          DateFormat('MMM dd, yyyy')
+                              .format(widget.selectedDate),
+                          style: const TextStyle(fontSize: 14),
+                        ),
+                      ],
+                    ),
+                  ),
+                  const Icon(Icons.arrow_drop_down, size: 20),
+                ],
+              ),
+            ),
+          ),
+          const SizedBox(height: 10),
+
+          // Employee Selection
+          FutureBuilder<List<User>>(
+            future: widget.appProvider.getUsers(),
+            builder: (context, snapshot) {
+              if (snapshot.hasData) {
+                // Filter employees by company and role
+                var employees = snapshot.data!.where((u) {
+                  if (u.role != UserRole.employee && u.role != UserRole.admin) {
+                    return false;
+                  }
+                  if (widget.companyId == null || widget.companyId!.isEmpty) {
+                    return true;
+                  }
+                  return u.primaryCompanyId == widget.companyId ||
+                      u.companyIds.contains(widget.companyId!);
+                }).toList();
+
+                return DropdownButtonFormField<String?>(
+                  value: widget.selectedEmployeeId,
+                  style: const TextStyle(fontSize: 14, color: Colors.black87),
+                  decoration: const InputDecoration(
+                    labelText: 'Assigned Employee',
+                    labelStyle: TextStyle(color: Colors.black87),
+                    border: OutlineInputBorder(),
+                    contentPadding:
+                        EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+                    isDense: true,
+                  ),
+                  items: [
+                    const DropdownMenuItem<String?>(
+                      value: null,
+                      child: Text('No Employee Assigned',
+                          style: TextStyle(color: Colors.black87)),
+                    ),
+                    ...employees.map((employee) => DropdownMenuItem<String?>(
+                          value: employee.id,
+                          child: Text(employee.name,
+                              style: const TextStyle(color: Colors.black87)),
+                        )),
+                  ],
+                  onChanged: (value) {
+                    widget.onEmployeeChanged(value);
+                  },
+                );
+              }
+              return const CircularProgressIndicator();
+            },
+          ),
+          const SizedBox(height: 10),
+
+          // Workplace Selection
+          FutureBuilder<List<Workplace>>(
+            future: widget.appProvider.getWorkplaces(),
+            builder: (context, snapshot) {
+              if (snapshot.hasData) {
+                // Filter workplaces by company if companyId is provided
+                List<Workplace> workplaces = snapshot.data!;
+                if (widget.companyId != null && widget.companyId!.isNotEmpty) {
+                  workplaces = workplaces
+                      .where((wp) => wp.companyId == widget.companyId)
+                      .toList();
+                }
+
+                return DropdownButtonFormField<String?>(
+                  value: widget.selectedWorkplaceId,
+                  style: const TextStyle(fontSize: 14, color: Colors.black87),
+                  decoration: const InputDecoration(
+                    labelText: 'Assigned Workplace',
+                    labelStyle: TextStyle(color: Colors.black87),
+                    border: OutlineInputBorder(),
+                    contentPadding:
+                        EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+                    isDense: true,
+                  ),
+                  items: [
+                    const DropdownMenuItem<String?>(
+                      value: null,
+                      child: Text('No Workplace Assigned',
+                          style: TextStyle(color: Colors.black87)),
+                    ),
+                    ...workplaces.map((workplace) => DropdownMenuItem<String?>(
+                          value: workplace.id,
+                          child: Text(workplace.name,
+                              style: const TextStyle(color: Colors.black87)),
+                        )),
+                  ],
+                  onChanged: (value) {
+                    widget.onWorkplaceChanged(value);
+                  },
+                );
+              }
+              return const CircularProgressIndicator();
+            },
+          ),
+          const SizedBox(height: 10),
+
+          // Team Members Selection
+          FutureBuilder<List<User>>(
+            future: widget.appProvider.getUsers(),
+            builder: (context, snapshot) {
+              if (snapshot.hasData) {
+                // Filter employees by the target's company and exclude the assigned employee
+                var employees = snapshot.data!.where((u) {
+                  // Filter by role and exclude assigned employee
+                  if ((u.role != UserRole.employee &&
+                          u.role != UserRole.admin) ||
+                      u.id == widget.selectedEmployeeId ||
+                      u.id == widget.excludedEmployeeId) {
+                    return false;
+                  }
+                  // If no company filter, show all employees
+                  if (widget.companyId == null || widget.companyId!.isEmpty) {
+                    return true;
+                  }
+                  // Otherwise, filter by company
+                  return u.primaryCompanyId == widget.companyId ||
+                      u.companyIds.contains(widget.companyId!);
+                }).toList();
+
+                // Filter employees by search query
+                final searchQuery =
+                    widget.teamMemberSearchController.text.toLowerCase();
+                final filteredEmployees = searchQuery.isEmpty
+                    ? employees
+                    : employees
+                        .where((emp) =>
+                            emp.name.toLowerCase().contains(searchQuery) ||
+                            emp.email.toLowerCase().contains(searchQuery))
+                        .toList();
+
+                return Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        const Text(
+                          'Team Members (Optional)',
+                          style: TextStyle(
+                              fontWeight: FontWeight.bold, fontSize: 13),
+                        ),
+                        Text(
+                          '${filteredEmployees.length} of ${employees.length}',
+                          style: TextStyle(
+                            fontSize: 11,
+                            color: Colors.grey[600],
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 6),
+                    // Search field
+                    TextField(
+                      controller: widget.teamMemberSearchController,
+                      style: const TextStyle(fontSize: 13),
+                      decoration: InputDecoration(
+                        hintText: 'Search employees...',
+                        hintStyle: const TextStyle(fontSize: 13),
+                        prefixIcon: const Icon(Icons.search, size: 20),
+                        suffixIcon: searchQuery.isNotEmpty
+                            ? IconButton(
+                                icon: const Icon(Icons.clear, size: 20),
+                                onPressed: () {
+                                  widget.teamMemberSearchController.clear();
+                                  setState(() {});
+                                },
+                              )
+                            : null,
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                        contentPadding: const EdgeInsets.symmetric(
+                          horizontal: 12,
+                          vertical: 10,
+                        ),
+                        isDense: true,
+                      ),
+                      onChanged: (value) {
+                        setState(() {}); // Rebuild to filter list
+                      },
+                    ),
+                    const SizedBox(height: 8),
+                    // Scrollable list of employees with fixed height
+                    SizedBox(
+                      height: 180,
+                      child: filteredEmployees.isEmpty
+                          ? Center(
+                              child: Padding(
+                                padding: const EdgeInsets.all(16.0),
+                                child: Text(
+                                  searchQuery.isEmpty
+                                      ? 'No employees available'
+                                      : 'No employees found matching "$searchQuery"',
+                                  style: TextStyle(
+                                    color: Colors.grey[600],
+                                    fontSize: 14,
+                                  ),
+                                ),
+                              ),
+                            )
+                          : ListView.builder(
+                              shrinkWrap: false,
+                              itemCount: filteredEmployees.length,
+                              itemBuilder: (context, index) {
+                                final employee = filteredEmployees[index];
+                                final isSelected = widget.selectedTeamMemberIds
+                                    .contains(employee.id);
+                                return CheckboxListTile(
+                                  title: Text(
+                                    employee.name,
+                                    style: const TextStyle(fontSize: 13),
+                                  ),
+                                  subtitle: Text(
+                                    employee.email,
+                                    style: TextStyle(
+                                      fontSize: 11,
+                                      color: Colors.grey[600],
+                                    ),
+                                  ),
+                                  value: isSelected,
+                                  onChanged: (selected) {
+                                    final updatedList = List<String>.from(
+                                        widget.selectedTeamMemberIds);
+                                    if (selected == true) {
+                                      if (!updatedList.contains(employee.id)) {
+                                        updatedList.add(employee.id);
+                                      }
+                                    } else {
+                                      updatedList.remove(employee.id);
+                                    }
+                                    widget.onTeamMembersChanged(updatedList);
+                                  },
+                                  dense: true,
+                                  visualDensity: VisualDensity.compact,
+                                  contentPadding: const EdgeInsets.symmetric(
+                                    horizontal: 8,
+                                    vertical: 2,
+                                  ),
+                                );
+                              },
+                            ),
+                    ),
+                  ],
+                );
+              }
+              return const CircularProgressIndicator();
+            },
+          ),
+        ],
+      ),
     );
   }
 }
