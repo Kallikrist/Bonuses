@@ -67,7 +67,7 @@ firebase_options.dart
 
 # Supabase configuration
 supabase_config.dart
-lib/services/supabase_service.dart
+# Note: lib/services/supabase_service.dart is NOT ignored - it uses AppConfig with env vars
 
 # Stripe configuration
 stripe_config.dart

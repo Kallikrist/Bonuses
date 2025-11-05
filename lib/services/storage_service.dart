@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'package:flutter/foundation.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../models/user.dart';
 import 'supabase_service.dart';
@@ -16,6 +17,8 @@ import '../models/notification.dart';
 import '../models/payment_card.dart';
 import '../models/financial_transaction.dart';
 import '../models/bank_account.dart';
+import 'password_service.dart';
+import 'secure_storage_service.dart';
 
 class StorageService {
   static const String _usersKey = 'users';
@@ -1241,9 +1244,10 @@ class StorageService {
       await savePassword('test_user_1', 'demo123');
       print('DEBUG: Added passwords for all demo users');
 
-      // Debug: Verify admin1 password was saved
-      final admin1Password = await getPassword('admin1');
-      print('DEBUG: Verified admin1 password: $admin1Password');
+      // Debug: Verify admin1 password was saved (without exposing the hash)
+      final admin1HasPassword = await getPassword('admin1') != null;
+      print(
+          'DEBUG: Verified admin1 password: ${admin1HasPassword ? "set" : "not set"}');
     }
 
     // Create sample targets for the last 12 years (demo company only)
@@ -1527,16 +1531,67 @@ class StorageService {
     return decoded.map((key, value) => MapEntry(key, value.toString()));
   }
 
+  /// Save a password (will be hashed before storage)
+  /// If password is already hashed (contains ':'), it will be stored as-is
+  /// Migrates to secure storage (flutter_secure_storage) for better security
   static Future<void> savePassword(String userId, String password) async {
-    final passwords = await getPasswords();
-    passwords[userId] = password;
-    final prefs = await _prefs;
-    await prefs.setString(_passwordsKey, jsonEncode(passwords));
+    // Hash the password if it's not already hashed
+    final hashedPassword = password.contains(':') ||
+            password.startsWith('\$2a\$') ||
+            password.startsWith('\$2b\$') ||
+            password.startsWith('\$2y\$')
+        ? password // Already hashed (SHA-256 or bcrypt)
+        : PasswordService.hashPassword(password); // Hash plaintext password
+
+    // Save to secure storage (primary)
+    try {
+      await SecureStorageService.savePassword(userId, hashedPassword);
+    } catch (e) {
+      if (kDebugMode) {
+        print(
+            'DEBUG: Failed to save to secure storage, falling back to SharedPreferences: $e');
+      }
+      // Fallback to SharedPreferences if secure storage fails
+      final passwords = await getPasswords();
+      passwords[userId] = hashedPassword;
+      final prefs = await _prefs;
+      await prefs.setString(_passwordsKey, jsonEncode(passwords));
+    }
   }
 
   static Future<String?> getPassword(String userId) async {
+    // Try secure storage first (primary)
+    try {
+      final password = await SecureStorageService.getPassword(userId);
+      if (password != null) {
+        return password;
+      }
+    } catch (e) {
+      if (kDebugMode) {
+        print(
+            'DEBUG: Failed to read from secure storage, trying SharedPreferences: $e');
+      }
+    }
+
+    // Fallback to SharedPreferences (for migration)
     final passwords = await getPasswords();
-    return passwords[userId];
+    final password = passwords[userId];
+
+    // If found in SharedPreferences, migrate to secure storage
+    if (password != null) {
+      try {
+        await SecureStorageService.savePassword(userId, password);
+        // Optionally remove from SharedPreferences after migration
+        // passwords.remove(userId);
+        // await prefs.setString(_passwordsKey, jsonEncode(passwords));
+      } catch (e) {
+        if (kDebugMode) {
+          print('DEBUG: Failed to migrate password to secure storage: $e');
+        }
+      }
+    }
+
+    return password;
   }
 
   // Message management

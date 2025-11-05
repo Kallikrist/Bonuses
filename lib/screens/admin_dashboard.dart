@@ -1,6 +1,9 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/foundation.dart';
 import 'package:provider/provider.dart';
 import 'package:intl/intl.dart';
+import '../utils/error_handler.dart';
+import '../services/validation_service.dart';
 import 'target_profile_screen.dart';
 import 'import_targets_screen.dart';
 import 'import_employees_screen.dart';
@@ -1808,6 +1811,7 @@ class _AdminDashboardState extends State<AdminDashboard> {
   }
 
   void _showCreateCompanyDialog(BuildContext context, AppProvider appProvider) {
+    final formKey = GlobalKey<FormState>();
     final nameController = TextEditingController();
     final addressController = TextEditingController();
     final emailController = TextEditingController();
@@ -1818,61 +1822,76 @@ class _AdminDashboardState extends State<AdminDashboard> {
       builder: (context) => AlertDialog(
         title: const Text('Register Your Company'),
         content: SingleChildScrollView(
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              TextField(
-                controller: nameController,
-                decoration: const InputDecoration(
-                  labelText: 'Company Name *',
-                  border: OutlineInputBorder(),
-                  hintText: 'Enter company name',
+          child: Form(
+            key: formKey,
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                TextFormField(
+                  controller: nameController,
+                  maxLength: ValidationService.maxNameLength,
+                  decoration: const InputDecoration(
+                    labelText: 'Company Name *',
+                    border: OutlineInputBorder(),
+                    hintText: 'Enter company name',
+                    counterText: '',
+                  ),
+                  validator: (value) => ValidationService.validateName(value,
+                      fieldName: 'Company Name'),
                 ),
-              ),
-              const SizedBox(height: 16),
-              TextField(
-                controller: addressController,
-                decoration: const InputDecoration(
-                  labelText: 'Address',
-                  border: OutlineInputBorder(),
-                  hintText: 'Enter company address',
+                const SizedBox(height: 16),
+                TextFormField(
+                  controller: addressController,
+                  maxLength: ValidationService.maxDescriptionLength,
+                  maxLines: 2,
+                  decoration: const InputDecoration(
+                    labelText: 'Address',
+                    border: OutlineInputBorder(),
+                    hintText: 'Enter company address',
+                    counterText: '',
+                  ),
+                  validator: (value) => ValidationService.validateDescription(
+                      value,
+                      fieldName: 'Address'),
                 ),
-                maxLines: 2,
-              ),
-              const SizedBox(height: 16),
-              TextField(
-                controller: emailController,
-                decoration: const InputDecoration(
-                  labelText: 'Contact Email',
-                  border: OutlineInputBorder(),
-                  hintText: 'company@example.com',
+                const SizedBox(height: 16),
+                TextFormField(
+                  controller: emailController,
+                  keyboardType: TextInputType.emailAddress,
+                  maxLength: ValidationService.maxEmailLength,
+                  decoration: const InputDecoration(
+                    labelText: 'Contact Email',
+                    border: OutlineInputBorder(),
+                    hintText: 'company@example.com',
+                    counterText: '',
+                  ),
+                  validator: (value) => value == null || value.trim().isEmpty
+                      ? null
+                      : ValidationService.validateEmail(value),
                 ),
-                keyboardType: TextInputType.emailAddress,
-              ),
-              const SizedBox(height: 16),
-              TextField(
-                controller: phoneController,
-                decoration: const InputDecoration(
-                  labelText: 'Contact Phone',
-                  border: OutlineInputBorder(),
-                  hintText: '+1234567890',
+                const SizedBox(height: 16),
+                TextFormField(
+                  controller: phoneController,
+                  keyboardType: TextInputType.phone,
+                  decoration: const InputDecoration(
+                    labelText: 'Contact Phone',
+                    border: OutlineInputBorder(),
+                    hintText: '+1234567890',
+                  ),
+                  validator: ValidationService.validatePhoneNumber,
                 ),
-                keyboardType: TextInputType.phone,
-              ),
-            ],
+              ],
+            ),
           ),
-        ),
-        actions: [
+          // Keep AlertDialog open here; actions are defined below
+          actions: [
           TextButton(
             onPressed: () => Navigator.pop(context),
             child: const Text('Cancel'),
           ),
           ElevatedButton(
             onPressed: () async {
-              if (nameController.text.trim().isEmpty) {
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(content: Text('Please enter a company name')),
-                );
+              if (!formKey.currentState!.validate()) {
                 return;
               }
 
@@ -4405,6 +4424,7 @@ class _AdminDashboardState extends State<AdminDashboard> {
   }
 
   void _showAddEmployeeDialog(BuildContext context, AppProvider appProvider) {
+    final formKey = GlobalKey<FormState>();
     final nameController = TextEditingController();
     final emailController = TextEditingController();
     final phoneController = TextEditingController();
@@ -4433,69 +4453,95 @@ class _AdminDashboardState extends State<AdminDashboard> {
           return AlertDialog(
             title: const Text('Add Employee'),
             content: SingleChildScrollView(
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  TextField(
-                    controller: nameController,
-                    decoration: const InputDecoration(labelText: 'Name'),
-                  ),
-                  TextField(
-                    controller: emailController,
-                    decoration: const InputDecoration(labelText: 'Email'),
-                    keyboardType: TextInputType.emailAddress,
-                  ),
-                  TextField(
-                    controller: phoneController,
-                    decoration: const InputDecoration(labelText: 'Phone'),
-                    keyboardType: TextInputType.phone,
-                  ),
-                  TextField(
-                    controller: passwordController,
-                    decoration: const InputDecoration(labelText: 'Password'),
-                    obscureText: true,
-                  ),
-                  const SizedBox(height: 16),
-                  // Show current company (non-editable)
-                  Container(
-                    padding: const EdgeInsets.all(12),
-                    decoration: BoxDecoration(
-                      color: Colors.blue.shade50,
-                      borderRadius: BorderRadius.circular(8),
-                      border: Border.all(color: Colors.blue.shade200),
+              child: Form(
+                key: formKey,
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    TextFormField(
+                      controller: nameController,
+                      maxLength: ValidationService.maxNameLength,
+                      decoration: const InputDecoration(
+                        labelText: 'Name',
+                        counterText: '',
+                      ),
+                      validator: (value) => ValidationService.validateName(
+                          value,
+                          fieldName: 'Name'),
                     ),
-                    child: Row(
-                      children: [
-                        Icon(Icons.business,
-                            color: Colors.blue.shade700, size: 24),
-                        const SizedBox(width: 12),
-                        Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              const Text(
-                                'Will be added to:',
-                                style: TextStyle(
-                                  fontSize: 12,
-                                  color: Colors.grey,
+                    const SizedBox(height: 16),
+                    TextFormField(
+                      controller: emailController,
+                      keyboardType: TextInputType.emailAddress,
+                      maxLength: ValidationService.maxEmailLength,
+                      decoration: const InputDecoration(
+                        labelText: 'Email',
+                        counterText: '',
+                      ),
+                      validator: ValidationService.validateEmail,
+                    ),
+                    const SizedBox(height: 16),
+                    TextFormField(
+                      controller: phoneController,
+                      keyboardType: TextInputType.phone,
+                      decoration: const InputDecoration(labelText: 'Phone'),
+                      validator: ValidationService.validatePhoneNumber,
+                    ),
+                    const SizedBox(height: 16),
+                    TextFormField(
+                      controller: passwordController,
+                      obscureText: true,
+                      maxLength: ValidationService.maxPasswordLength,
+                      decoration: const InputDecoration(
+                        labelText: 'Password',
+                        counterText: '',
+                      ),
+                      validator: (value) => ValidationService.validatePassword(
+                          value,
+                          isNewPassword: true),
+                    ),
+                    const SizedBox(height: 16),
+                    // Show current company (non-editable)
+                    Container(
+                      padding: const EdgeInsets.all(12),
+                      decoration: BoxDecoration(
+                        color: Colors.blue.shade50,
+                        borderRadius: BorderRadius.circular(8),
+                        border: Border.all(color: Colors.blue.shade200),
+                      ),
+                      child: Row(
+                        children: [
+                          Icon(Icons.business,
+                              color: Colors.blue.shade700, size: 24),
+                          const SizedBox(width: 12),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                const Text(
+                                  'Will be added to:',
+                                  style: TextStyle(
+                                    fontSize: 12,
+                                    color: Colors.grey,
+                                  ),
                                 ),
-                              ),
-                              const SizedBox(height: 4),
-                              Text(
-                                currentCompany.name,
-                                style: TextStyle(
-                                  fontSize: 16,
-                                  fontWeight: FontWeight.bold,
-                                  color: Colors.blue.shade900,
+                                const SizedBox(height: 4),
+                                Text(
+                                  currentCompany.name,
+                                  style: TextStyle(
+                                    fontSize: 16,
+                                    fontWeight: FontWeight.bold,
+                                    color: Colors.blue.shade900,
+                                  ),
                                 ),
-                              ),
-                            ],
+                              ],
+                            ),
                           ),
-                        ),
-                      ],
+                        ],
+                      ),
                     ),
-                  ),
-                ],
+                  ],
+                ),
               ),
             ),
             actions: [
@@ -4505,11 +4551,11 @@ class _AdminDashboardState extends State<AdminDashboard> {
               ),
               ElevatedButton(
                 onPressed: () async {
-                  if (nameController.text.isNotEmpty &&
-                      emailController.text.isNotEmpty &&
-                      phoneController.text.isNotEmpty &&
-                      passwordController.text.isNotEmpty &&
-                      currentCompanyId != null) {
+                  if (!formKey.currentState!.validate()) {
+                    return;
+                  }
+
+                  if (currentCompanyId != null) {
                     final user = User(
                       id: DateTime.now().millisecondsSinceEpoch.toString(),
                       name: nameController.text,
@@ -4623,19 +4669,27 @@ class _AdminDashboardState extends State<AdminDashboard> {
           return AlertDialog(
             title: const Text('Add Target'),
             content: SingleChildScrollView(
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  TextField(
-                    controller: targetController,
-                    decoration:
-                        const InputDecoration(labelText: 'Target Amount'),
-                    keyboardType: TextInputType.number,
-                  ),
+              child: Form(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    TextFormField(
+                      controller: targetController,
+                      decoration:
+                          const InputDecoration(labelText: 'Target Amount (\$) *'),
+                      keyboardType: TextInputType.number,
+                      validator: (value) => ValidationService.validateNumeric(
+                        value,
+                        fieldName: 'Target Amount',
+                        min: 0.01,
+                        max: 10000000.0,
+                      ),
+                    ),
                   const SizedBox(height: 16),
                   DropdownButtonFormField<Workplace>(
                     value: selectedWorkplace,
-                    decoration: const InputDecoration(labelText: 'Workplace'),
+                    decoration: const InputDecoration(labelText: 'Workplace *'),
+                    validator: (value) => value == null ? 'Please select a workplace' : null,
                     items: appProvider.workplaces.map((workplace) {
                       return DropdownMenuItem(
                         value: workplace,
@@ -4648,7 +4702,8 @@ class _AdminDashboardState extends State<AdminDashboard> {
                   const SizedBox(height: 16),
                   DropdownButtonFormField<User>(
                     value: selectedEmployee,
-                    decoration: const InputDecoration(labelText: 'Employee'),
+                    decoration: const InputDecoration(labelText: 'Employee *'),
+                    validator: (value) => value == null ? 'Please select an employee' : null,
                     items: employees.map((user) {
                       return DropdownMenuItem(
                         value: user,
@@ -4675,7 +4730,8 @@ class _AdminDashboardState extends State<AdminDashboard> {
                       }
                     },
                   ),
-                ],
+                  ],
+                ),
               ),
             ),
             actions: [
@@ -4685,15 +4741,30 @@ class _AdminDashboardState extends State<AdminDashboard> {
               ),
               ElevatedButton(
                 onPressed: () async {
-                  if (targetController.text.isNotEmpty &&
-                      selectedWorkplace != null &&
+                  // Get form key from context
+                  final formKey = Form.of(context);
+                  if (!formKey.validate()) {
+                    return;
+                  }
+                  
+                  if (selectedWorkplace != null &&
                       selectedEmployee != null) {
+                    final amount = double.tryParse(targetController.text.trim());
+                    if (amount == null || amount <= 0) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(
+                          content: Text('Please enter a valid target amount'),
+                          backgroundColor: Colors.red,
+                        ),
+                      );
+                      return;
+                    }
                     try {
                       final target = SalesTarget(
                         id: DateTime.now().millisecondsSinceEpoch.toString(),
                         date: selectedDate,
-                        targetAmount: double.parse(targetController.text),
-                        actualAmount: 0,
+                        targetAmount: amount,
+                        actualAmount: 0.0,
                         createdAt: DateTime.now(),
                         createdBy: appProvider.currentUser!.id,
                         assignedEmployeeId: selectedEmployee!.id,
@@ -4710,11 +4781,13 @@ class _AdminDashboardState extends State<AdminDashboard> {
                             content: Text('Target added successfully')),
                       );
                     } catch (e) {
-                      // Show error message for workplace conflict
+                      // Show sanitized error message
+                      if (kDebugMode) {
+                        print('DEBUG: Target creation error: $e');
+                      }
                       ScaffoldMessenger.of(context).showSnackBar(
                         SnackBar(
-                          content: Text(
-                              e.toString().replaceFirst('Exception: ', '')),
+                          content: Text(ErrorHandler.getSanitizedMessage(e)),
                           backgroundColor: Colors.red,
                           duration: const Duration(seconds: 4),
                         ),
@@ -4746,7 +4819,12 @@ class _AdminDashboardState extends State<AdminDashboard> {
           return const Center(child: CircularProgressIndicator());
         }
         if (snapshot.hasError) {
-          return Center(child: Text('Error: ${snapshot.error}'));
+          if (kDebugMode) {
+            print('DEBUG: Targets management error: ${snapshot.error}');
+          }
+          return Center(
+            child: Text(ErrorHandler.getSanitizedMessage(snapshot.error)),
+          );
         }
         if (!snapshot.hasData || snapshot.data!.isEmpty) {
           return Card(
@@ -4855,43 +4933,59 @@ class _AdminDashboardState extends State<AdminDashboard> {
 
     showDialog(
       context: context,
-      builder: (context) => StatefulBuilder(
-        builder: (context, setState) => AlertDialog(
-          title: const Text('Edit Target'),
-          content: SizedBox(
-            width: double.maxFinite,
-            child: SingleChildScrollView(
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  // Target Amount
-                  TextField(
-                    controller: targetAmountController,
-                    style: const TextStyle(fontSize: 14),
-                    decoration: const InputDecoration(
-                      labelText: 'Target Amount (\$)',
-                      border: OutlineInputBorder(),
-                      contentPadding:
-                          EdgeInsets.symmetric(horizontal: 12, vertical: 12),
-                      isDense: true,
-                    ),
-                    keyboardType: TextInputType.number,
-                  ),
-                  const SizedBox(height: 10),
+      builder: (context) {
+        final formKey = GlobalKey<FormState>();
+        return StatefulBuilder(
+          builder: (context, setState) => AlertDialog(
+            title: const Text('Edit Target'),
+            content: SizedBox(
+              width: double.maxFinite,
+              child: SingleChildScrollView(
+                child: Form(
+                  key: formKey,
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      // Target Amount
+                      TextFormField(
+                        controller: targetAmountController,
+                        style: const TextStyle(fontSize: 14),
+                        decoration: const InputDecoration(
+                          labelText: 'Target Amount (\$) *',
+                          border: OutlineInputBorder(),
+                          contentPadding:
+                              EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+                          isDense: true,
+                        ),
+                        keyboardType: TextInputType.number,
+                        validator: (value) => ValidationService.validateNumeric(
+                          value,
+                          fieldName: 'Target Amount',
+                          min: 0.01,
+                          max: 10000000.0,
+                        ),
+                      ),
+                      const SizedBox(height: 10),
 
-                  // Actual Amount
-                  TextField(
-                    controller: actualAmountController,
-                    style: const TextStyle(fontSize: 14),
-                    decoration: const InputDecoration(
-                      labelText: 'Actual Amount (\$)',
-                      border: OutlineInputBorder(),
-                      contentPadding:
-                          EdgeInsets.symmetric(horizontal: 12, vertical: 12),
-                      isDense: true,
-                    ),
-                    keyboardType: TextInputType.number,
-                  ),
+                      // Actual Amount
+                      TextFormField(
+                        controller: actualAmountController,
+                        style: const TextStyle(fontSize: 14),
+                        decoration: const InputDecoration(
+                          labelText: 'Actual Amount (\$) *',
+                          border: OutlineInputBorder(),
+                          contentPadding:
+                              EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+                          isDense: true,
+                        ),
+                        keyboardType: TextInputType.number,
+                        validator: (value) => ValidationService.validateNumeric(
+                          value,
+                          fieldName: 'Actual Amount',
+                          min: 0.0,
+                          max: 10000000.0,
+                        ),
+                      ),
                   const SizedBox(height: 10),
 
                   // Date Picker
@@ -5234,7 +5328,6 @@ class _AdminDashboardState extends State<AdminDashboard> {
                     },
                   ),
                 ],
-              ),
             ),
           ),
           actions: [
@@ -5261,10 +5354,16 @@ class _AdminDashboardState extends State<AdminDashboard> {
                 const SizedBox(width: 4),
                 TextButton(
                   onPressed: () async {
+                    // Validate form first
+                    if (!formKey.currentState!.validate()) {
+                      return;
+                    }
+
                     // Debounce: Prevent double submissions
                     if (isSaving) {
-                      print(
-                          'DEBUG: Save already in progress, ignoring duplicate click');
+                      if (kDebugMode) {
+                        print('DEBUG: Save already in progress, ignoring duplicate click');
+                      }
                       return;
                     }
 
@@ -5274,9 +5373,9 @@ class _AdminDashboardState extends State<AdminDashboard> {
 
                     try {
                       final targetAmount =
-                          double.tryParse(targetAmountController.text);
+                          double.tryParse(targetAmountController.text.trim());
                       final actualAmount =
-                          double.tryParse(actualAmountController.text);
+                          double.tryParse(actualAmountController.text.trim());
 
                       if (targetAmount == null || targetAmount <= 0) {
                         ScaffoldMessenger.of(context).showSnackBar(
@@ -5595,8 +5694,8 @@ class _AdminDashboardState extends State<AdminDashboard> {
               ],
             ),
           ],
-        ),
-      ),
+        );
+      },
     ).then((_) {
       // Safety disposal - only if controllers weren't already disposed
       // (they should be disposed in button handlers, but this is a fallback)

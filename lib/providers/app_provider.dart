@@ -10,7 +10,7 @@ import '../models/company.dart';
 import '../models/approval_request.dart';
 import '../models/message.dart';
 import '../services/storage_service.dart';
-import '../services/auth_service.dart';
+import '../services/auth_service.dart' show AuthService, RateLimitException;
 // Firebase auth service removed - using Supabase now
 import '../models/points_rules.dart';
 
@@ -37,6 +37,19 @@ class AppProvider with ChangeNotifier {
   List<Message> get messages => _messages;
   bool get isLoading => _isLoading;
   bool get isDarkMode => _isDarkMode;
+
+  /// Sanitize sensitive data for logging (user IDs, etc.)
+  /// Shows only first 6 characters followed by "..."
+  /// This is a public method for security testing and reuse
+  static String sanitizeId(String id) {
+    if (id.length <= 6) {
+      return '***';
+    }
+    return '${id.substring(0, 6)}...';
+  }
+
+  // Private alias for backward compatibility with existing code
+  static String _sanitizeId(String id) => sanitizeId(id);
 
   // Check if user is admin for their current company (company-specific role)
   bool get isAdmin {
@@ -231,6 +244,9 @@ class AppProvider with ChangeNotifier {
         await _loadData();
       }
       return success;
+    } on RateLimitException {
+      // Re-throw rate limit exceptions so LoginScreen can handle them
+      rethrow;
     } finally {
       _setLoading(false);
     }
@@ -409,7 +425,7 @@ class AppProvider with ChangeNotifier {
         await StorageService.addPointsTransaction(transaction);
         _pointsTransactions.add(transaction);
         print(
-            'DEBUG: Withdrew ${target.pointsAwarded} points from member $memberId for deleted target $targetId');
+            'DEBUG: Withdrew ${target.pointsAwarded} points from member ${_sanitizeId(memberId)} for deleted target ${_sanitizeId(targetId)}');
       }
     }
 
@@ -477,7 +493,7 @@ class AppProvider with ChangeNotifier {
           await StorageService.addPointsTransaction(tx);
           _pointsTransactions.add(tx);
           print(
-              'DEBUG: Withdrew $withdrawPoints points from removed member $userId for target ${originalTarget.id}');
+              'DEBUG: Withdrew $withdrawPoints points from removed member ${_sanitizeId(userId)} for target ${_sanitizeId(originalTarget.id)}');
         }
       }
     }
@@ -501,7 +517,7 @@ class AppProvider with ChangeNotifier {
           await StorageService.addPointsTransaction(tx);
           _pointsTransactions.add(tx);
           print(
-              'DEBUG: Granted $grantPoints points to newly added member $userId for target ${originalTarget.id}');
+              'DEBUG: Granted $grantPoints points to newly added member ${_sanitizeId(userId)} for target ${_sanitizeId(originalTarget.id)}');
         }
       }
     }
@@ -887,7 +903,7 @@ class AppProvider with ChangeNotifier {
           teamMemberIds.add(updatedTarget.assignedEmployeeId!);
           teamMemberNames.add(updatedTarget.assignedEmployeeName ?? 'Unknown');
           print(
-              'DEBUG: Added primary assignee: ${updatedTarget.assignedEmployeeName} (${updatedTarget.assignedEmployeeId})');
+              'DEBUG: Added primary assignee: ${updatedTarget.assignedEmployeeName} (${_sanitizeId(updatedTarget.assignedEmployeeId ?? '')})');
         } else {
           print('DEBUG: No primary assignee found');
         }
@@ -897,14 +913,16 @@ class AppProvider with ChangeNotifier {
         print(
             'DEBUG: Added collaborators: ${updatedTarget.collaborativeEmployeeNames}');
 
+        final sanitizedIds =
+            teamMemberIds.map((id) => _sanitizeId(id)).toList();
         print(
-            'DEBUG: Team members to award points to: $teamMemberNames (IDs: $teamMemberIds)');
+            'DEBUG: Team members to award points to: $teamMemberNames (IDs: $sanitizedIds)');
 
         // Award points to each team member
         for (int i = 0; i < teamMemberIds.length; i++) {
           final memberId = teamMemberIds[i];
           print(
-              'DEBUG: Awarding ${updatedTarget.pointsAwarded} points to member $memberId');
+              'DEBUG: Awarding ${updatedTarget.pointsAwarded} points to member ${_sanitizeId(memberId)}');
 
           final transaction = PointsTransaction(
             id: '${DateTime.now().millisecondsSinceEpoch}_$memberId',
@@ -1161,7 +1179,8 @@ class AppProvider with ChangeNotifier {
   }
 
   Future<bool> redeemBonus(String bonusId, String userId) async {
-    print('DEBUG: Redeeming bonus $bonusId for user $userId');
+    print(
+        'DEBUG: Redeeming bonus ${_sanitizeId(bonusId)} for user ${_sanitizeId(userId)}');
 
     final bonusIndex = _bonuses.indexWhere((b) => b.id == bonusId);
     if (bonusIndex == -1) {
@@ -1233,7 +1252,7 @@ class AppProvider with ChangeNotifier {
         : getUserTotalPoints(userId);
 
     print(
-        'DEBUG: Bonus redeemed successfully. User points in company $companyId: $newTotalPoints');
+        'DEBUG: Bonus redeemed successfully. User points in company ${companyId != null ? _sanitizeId(companyId) : 'N/A'}: $newTotalPoints');
     notifyListeners();
     return true;
   }
@@ -1560,7 +1579,7 @@ class AppProvider with ChangeNotifier {
     final newTotalPoints = currentPoints + pointsChange;
 
     print(
-        'DEBUG: updateUserPoints - User: ${user.name}, Company: $validCompanyId, Current points: $currentPoints, Change: $pointsChange, New total: $newTotalPoints');
+        'DEBUG: updateUserPoints - User: ${user.name}, Company: ${_sanitizeId(validCompanyId)}, Current points: $currentPoints, Change: $pointsChange, New total: $newTotalPoints');
 
     // Ensure points don't go below 0
     if (newTotalPoints < 0) {
@@ -1608,7 +1627,8 @@ class AppProvider with ChangeNotifier {
     final userTransactions = _pointsTransactions
         .where((t) => t.userId == userId && t.companyId == companyId);
 
-    print('DEBUG: getUserCompanyPoints - User: $userId, Company: $companyId');
+    print(
+        'DEBUG: getUserCompanyPoints - User: ${_sanitizeId(userId)}, Company: ${_sanitizeId(companyId)}');
     print(
         'DEBUG: Found ${userTransactions.length} transactions for this user/company');
 
@@ -1783,7 +1803,7 @@ class AppProvider with ChangeNotifier {
           companyId: target.companyId,
         );
         print(
-            'DEBUG: Awarded ${target.pointsAwarded} points to newly added member: $newMemberId in company ${target.companyId}');
+            'DEBUG: Awarded ${target.pointsAwarded} points to newly added member: ${_sanitizeId(newMemberId)} in company ${_sanitizeId(target.companyId ?? '')}');
       }
     } else {
       print(
@@ -1816,7 +1836,7 @@ class AppProvider with ChangeNotifier {
         relatedTargetId: target.id,
       );
       print(
-          'DEBUG: Awarded ${target.pointsAwarded} points to assigned employee: ${target.assignedEmployeeId}');
+          'DEBUG: Awarded ${target.pointsAwarded} points to assigned employee: ${_sanitizeId(target.assignedEmployeeId ?? '')}');
     }
 
     // Award points to team members with company context
@@ -1833,7 +1853,7 @@ class AppProvider with ChangeNotifier {
         relatedTargetId: target.id,
       );
       print(
-          'DEBUG: Awarded ${target.pointsAwarded} points to team member $employeeName ($employeeId) in company ${target.companyId}');
+          'DEBUG: Awarded ${target.pointsAwarded} points to team member $employeeName (${_sanitizeId(employeeId)}) in company ${_sanitizeId(target.companyId ?? '')}');
     }
 
     // Award admin team participation points
@@ -1912,7 +1932,7 @@ class AppProvider with ChangeNotifier {
           relatedTargetId: targetId,
         );
         print(
-            'DEBUG: Awarded ${target.pointsAwarded} points to $userName ($userId)');
+            'DEBUG: Awarded ${target.pointsAwarded} points to $userName (${_sanitizeId(userId)})');
       }
     } else {
       // No transactions exist yet - award to all team members

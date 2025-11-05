@@ -5,6 +5,8 @@ import '../providers/app_provider.dart';
 import '../models/bonus.dart';
 import '../models/points_transaction.dart';
 import '../models/user.dart';
+import '../services/validation_service.dart';
+import '../utils/error_handler.dart';
 
 // Comprehensive Import Bonuses Screen for Admin
 class ImportBonusesScreen extends StatefulWidget {
@@ -148,18 +150,21 @@ class _ImportBonusesScreenState extends State<ImportBonusesScreen>
                         Row(
                           mainAxisSize: MainAxisSize.min,
                           children: [
-                            const Icon(Icons.stars, size: 16, color: Colors.orange),
+                            const Icon(Icons.stars,
+                                size: 16, color: Colors.orange),
                             const SizedBox(width: 4),
                             Text(
                               '${bonus.pointsRequired} points',
-                              style: const TextStyle(fontWeight: FontWeight.w500),
+                              style:
+                                  const TextStyle(fontWeight: FontWeight.w500),
                             ),
                           ],
                         ),
                         Row(
                           mainAxisSize: MainAxisSize.min,
                           children: [
-                            const Icon(Icons.people, size: 16, color: Colors.blue),
+                            const Icon(Icons.people,
+                                size: 16, color: Colors.blue),
                             const SizedBox(width: 4),
                             Text('$redemptionCount redeemed'),
                           ],
@@ -337,130 +342,156 @@ class _ImportBonusesScreenState extends State<ImportBonusesScreen>
 
   // Tab 3: Add New Bonus
   Widget _buildAddBonusTab() {
+    final formKey = GlobalKey<FormState>();
+
     return SingleChildScrollView(
       padding: const EdgeInsets.all(16),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          const Text(
-            'Create New Bonus',
-            style: TextStyle(
-              fontSize: 24,
-              fontWeight: FontWeight.bold,
-              color: Colors.purple,
+      child: Form(
+        key: formKey,
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text(
+              'Create New Bonus',
+              style: TextStyle(
+                fontSize: 24,
+                fontWeight: FontWeight.bold,
+                color: Colors.purple,
+              ),
             ),
-          ),
-          const SizedBox(height: 24),
+            const SizedBox(height: 24),
 
-          // Bonus Name
-          TextFormField(
-            controller: _bonusNameController,
-            decoration: const InputDecoration(
-              labelText: 'Bonus Name',
-              hintText: 'e.g., Coffee Voucher, Extra Day Off',
-              prefixIcon: Icon(Icons.card_giftcard),
-              border: OutlineInputBorder(),
+            // Bonus Name
+            TextFormField(
+              controller: _bonusNameController,
+              maxLength: ValidationService.maxNameLength,
+              decoration: const InputDecoration(
+                labelText: 'Bonus Name *',
+                hintText: 'e.g., Coffee Voucher, Extra Day Off',
+                prefixIcon: Icon(Icons.card_giftcard),
+                border: OutlineInputBorder(),
+                counterText: '',
+              ),
+              validator: (value) => ValidationService.validateName(value,
+                  fieldName: 'Bonus Name'),
             ),
-          ),
-          const SizedBox(height: 16),
+            const SizedBox(height: 16),
 
-          // Bonus Description
-          TextFormField(
-            controller: _bonusDescriptionController,
-            maxLines: 3,
-            decoration: const InputDecoration(
-              labelText: 'Description',
-              hintText: 'Describe what this bonus offers...',
-              prefixIcon: Icon(Icons.description),
-              border: OutlineInputBorder(),
+            // Bonus Description
+            TextFormField(
+              controller: _bonusDescriptionController,
+              maxLines: 3,
+              maxLength: ValidationService.maxDescriptionLength,
+              decoration: const InputDecoration(
+                labelText: 'Description *',
+                hintText: 'Describe what this bonus offers...',
+                prefixIcon: Icon(Icons.description),
+                border: OutlineInputBorder(),
+                counterText: '',
+              ),
+              validator: (value) => ValidationService.validateDescription(value,
+                  fieldName: 'Description'),
             ),
-          ),
-          const SizedBox(height: 16),
+            const SizedBox(height: 16),
 
-          // Points Required
-          TextFormField(
-            controller: _pointsRequiredController,
-            keyboardType: TextInputType.number,
-            decoration: const InputDecoration(
-              labelText: 'Points Required',
-              hintText: 'e.g., 50, 100, 200',
-              prefixIcon: Icon(Icons.stars),
-              border: OutlineInputBorder(),
+            // Points Required
+            TextFormField(
+              controller: _pointsRequiredController,
+              keyboardType: TextInputType.number,
+              decoration: const InputDecoration(
+                labelText: 'Points Required *',
+                hintText: 'e.g., 50, 100, 200',
+                prefixIcon: Icon(Icons.stars),
+                border: OutlineInputBorder(),
+              ),
+              validator: (value) => ValidationService.validateNumeric(
+                value,
+                fieldName: 'Points Required',
+                min: 1.0,
+                max: 1000000.0,
+              ),
             ),
-          ),
-          const SizedBox(height: 16),
+            const SizedBox(height: 16),
 
-          // Secret Code
-          TextFormField(
-            controller: _secretCodeController,
-            decoration: const InputDecoration(
-              labelText: 'Secret Code',
-              hintText: 'e.g., COFFEE123, LUNCH2024',
-              prefixIcon: Icon(Icons.security),
-              border: OutlineInputBorder(),
-              helperText: 'This code will be revealed when bonus is claimed',
+            // Secret Code
+            TextFormField(
+              controller: _secretCodeController,
+              maxLength: ValidationService.maxNameLength,
+              decoration: const InputDecoration(
+                labelText: 'Secret Code (Optional)',
+                hintText: 'e.g., COFFEE123, LUNCH2024',
+                prefixIcon: Icon(Icons.security),
+                border: OutlineInputBorder(),
+                helperText: 'This code will be revealed when bonus is claimed',
+                counterText: '',
+              ),
+              validator: (value) => value == null || value.trim().isEmpty
+                  ? null
+                  : ValidationService.validateName(value,
+                      fieldName: 'Secret Code'),
             ),
-          ),
-          const SizedBox(height: 32),
+            const SizedBox(height: 32),
 
-          // Add Bonus Button
-          SizedBox(
-            width: double.infinity,
-            height: 50,
-            child: ElevatedButton(
-              onPressed: _addNewBonus,
-              style: ElevatedButton.styleFrom(
-                backgroundColor: Colors.purple,
-                foregroundColor: Colors.white,
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(8),
+            // Add Bonus Button
+            SizedBox(
+              width: double.infinity,
+              height: 50,
+              child: ElevatedButton(
+                onPressed: () => _addNewBonus(formKey),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: Colors.purple,
+                  foregroundColor: Colors.white,
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                ),
+                child: const Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Icon(Icons.add_circle),
+                    SizedBox(width: 8),
+                    Text(
+                      'Add Bonus',
+                      style:
+                          TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                    ),
+                  ],
                 ),
               ),
-              child: const Row(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  Icon(Icons.add_circle),
-                  SizedBox(width: 8),
-                  Text(
-                    'Add Bonus',
-                    style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
-                  ),
-                ],
+            ),
+
+            const SizedBox(height: 24),
+
+            // Quick Add Templates
+            const Text(
+              'Quick Templates',
+              style: TextStyle(
+                fontSize: 18,
+                fontWeight: FontWeight.bold,
               ),
             ),
-          ),
+            const SizedBox(height: 12),
 
-          const SizedBox(height: 24),
-
-          // Quick Add Templates
-          const Text(
-            'Quick Templates',
-            style: TextStyle(
-              fontSize: 18,
-              fontWeight: FontWeight.bold,
+            Wrap(
+              spacing: 8,
+              runSpacing: 8,
+              children: [
+                _buildQuickTemplate(
+                    'Coffee Voucher', 'Free coffee at any location', 50),
+                _buildQuickTemplate(
+                    'Lunch Voucher', 'Free lunch at company cafeteria', 100),
+                _buildQuickTemplate(
+                    'Extra Day Off', 'Take an extra day off with pay', 200),
+                _buildQuickTemplate(
+                    'Gift Card \$25', '\$25 gift card to any store', 300),
+                _buildQuickTemplate(
+                    'Parking Spot', 'Reserved parking for one month', 150),
+                _buildQuickTemplate(
+                    'Team Lunch', 'Team lunch at a restaurant', 400),
+              ],
             ),
-          ),
-          const SizedBox(height: 12),
-
-          Wrap(
-            spacing: 8,
-            runSpacing: 8,
-            children: [
-              _buildQuickTemplate(
-                  'Coffee Voucher', 'Free coffee at any location', 50),
-              _buildQuickTemplate(
-                  'Lunch Voucher', 'Free lunch at company cafeteria', 100),
-              _buildQuickTemplate(
-                  'Extra Day Off', 'Take an extra day off with pay', 200),
-              _buildQuickTemplate(
-                  'Gift Card \$25', '\$25 gift card to any store', 300),
-              _buildQuickTemplate(
-                  'Parking Spot', 'Reserved parking for one month', 150),
-              _buildQuickTemplate(
-                  'Team Lunch', 'Team lunch at a restaurant', 400),
-            ],
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }
@@ -503,20 +534,12 @@ class _ImportBonusesScreenState extends State<ImportBonusesScreen>
     );
   }
 
-  void _addNewBonus() async {
-    if (_bonusNameController.text.isEmpty ||
-        _bonusDescriptionController.text.isEmpty ||
-        _pointsRequiredController.text.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Please fill in all fields'),
-          backgroundColor: Colors.red,
-        ),
-      );
+  void _addNewBonus(GlobalKey<FormState> formKey) async {
+    if (!formKey.currentState!.validate()) {
       return;
     }
 
-    final points = int.tryParse(_pointsRequiredController.text);
+    final points = int.tryParse(_pointsRequiredController.text.trim());
     if (points == null || points <= 0) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
@@ -529,12 +552,12 @@ class _ImportBonusesScreenState extends State<ImportBonusesScreen>
 
     final newBonus = Bonus(
       id: DateTime.now().millisecondsSinceEpoch.toString(),
-      name: _bonusNameController.text,
-      description: _bonusDescriptionController.text,
+      name: _bonusNameController.text.trim(),
+      description: _bonusDescriptionController.text.trim(),
       pointsRequired: points,
       createdAt: DateTime.now(),
-      secretCode: _secretCodeController.text.isNotEmpty
-          ? _secretCodeController.text
+      secretCode: _secretCodeController.text.trim().isNotEmpty
+          ? _secretCodeController.text.trim()
           : null,
       companyId: widget.appProvider.currentUser?.primaryCompanyId,
     );
@@ -560,7 +583,8 @@ class _ImportBonusesScreenState extends State<ImportBonusesScreen>
     } catch (e) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text('Error adding bonus: $e'),
+          content: Text(ErrorHandler.getSanitizedMessage(e,
+              defaultMessage: 'Failed to add bonus. Please try again.')),
           backgroundColor: Colors.red,
         ),
       );
@@ -568,6 +592,7 @@ class _ImportBonusesScreenState extends State<ImportBonusesScreen>
   }
 
   void _showEditBonusDialog(Bonus bonus) {
+    final formKey = GlobalKey<FormState>();
     final nameController = TextEditingController(text: bonus.name);
     final descriptionController =
         TextEditingController(text: bonus.description);
@@ -579,35 +604,53 @@ class _ImportBonusesScreenState extends State<ImportBonusesScreen>
       builder: (context) => AlertDialog(
         title: const Text('Edit Bonus'),
         content: SingleChildScrollView(
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              TextField(
-                controller: nameController,
-                decoration: const InputDecoration(
-                  labelText: 'Bonus Name',
-                  border: OutlineInputBorder(),
+          child: Form(
+            key: formKey,
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                TextFormField(
+                  controller: nameController,
+                  maxLength: ValidationService.maxNameLength,
+                  decoration: const InputDecoration(
+                    labelText: 'Bonus Name *',
+                    border: OutlineInputBorder(),
+                    counterText: '',
+                  ),
+                  validator: (value) => ValidationService.validateName(value,
+                      fieldName: 'Bonus Name'),
                 ),
-              ),
-              const SizedBox(height: 16),
-              TextField(
-                controller: descriptionController,
-                maxLines: 3,
-                decoration: const InputDecoration(
-                  labelText: 'Description',
-                  border: OutlineInputBorder(),
+                const SizedBox(height: 16),
+                TextFormField(
+                  controller: descriptionController,
+                  maxLines: 3,
+                  maxLength: ValidationService.maxDescriptionLength,
+                  decoration: const InputDecoration(
+                    labelText: 'Description *',
+                    border: OutlineInputBorder(),
+                    counterText: '',
+                  ),
+                  validator: (value) => ValidationService.validateDescription(
+                      value,
+                      fieldName: 'Description'),
                 ),
-              ),
-              const SizedBox(height: 16),
-              TextField(
-                controller: pointsController,
-                keyboardType: TextInputType.number,
-                decoration: const InputDecoration(
-                  labelText: 'Points Required',
-                  border: OutlineInputBorder(),
+                const SizedBox(height: 16),
+                TextFormField(
+                  controller: pointsController,
+                  keyboardType: TextInputType.number,
+                  decoration: const InputDecoration(
+                    labelText: 'Points Required *',
+                    border: OutlineInputBorder(),
+                  ),
+                  validator: (value) => ValidationService.validateNumeric(
+                    value,
+                    fieldName: 'Points Required',
+                    min: 1.0,
+                    max: 1000000.0,
+                  ),
                 ),
-              ),
-            ],
+              ],
+            ),
           ),
         ),
         actions: [
@@ -617,7 +660,11 @@ class _ImportBonusesScreenState extends State<ImportBonusesScreen>
           ),
           ElevatedButton(
             onPressed: () async {
-              final points = int.tryParse(pointsController.text);
+              if (!formKey.currentState!.validate()) {
+                return;
+              }
+
+              final points = int.tryParse(pointsController.text.trim());
               if (points == null || points <= 0) {
                 ScaffoldMessenger.of(context).showSnackBar(
                   const SnackBar(
@@ -629,8 +676,8 @@ class _ImportBonusesScreenState extends State<ImportBonusesScreen>
               }
 
               final updatedBonus = bonus.copyWith(
-                name: nameController.text,
-                description: descriptionController.text,
+                name: nameController.text.trim(),
+                description: descriptionController.text.trim(),
                 pointsRequired: points,
               );
 
@@ -646,7 +693,9 @@ class _ImportBonusesScreenState extends State<ImportBonusesScreen>
               } catch (e) {
                 ScaffoldMessenger.of(context).showSnackBar(
                   SnackBar(
-                    content: Text('Error updating bonus: $e'),
+                    content: Text(ErrorHandler.getSanitizedMessage(e,
+                        defaultMessage:
+                            'Failed to update bonus. Please try again.')),
                     backgroundColor: Colors.red,
                   ),
                 );

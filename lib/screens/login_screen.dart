@@ -1,9 +1,14 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/foundation.dart';
 import 'package:provider/provider.dart';
+import '../utils/error_handler.dart';
 import '../providers/app_provider.dart';
 import 'onboarding_screen.dart';
 import '../services/supabase_service.dart';
 import '../services/storage_service.dart';
+import '../services/password_service.dart';
+import '../services/auth_service.dart';
+import '../services/validation_service.dart';
 import '../models/user.dart';
 import '../models/company.dart';
 import '../models/bonus.dart';
@@ -48,6 +53,31 @@ class _LoginScreenState extends State<LoginScreen> {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
             content: Text('Invalid email or password'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    } on RateLimitException catch (e) {
+      // Handle rate limit errors with specific messaging
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(e.message),
+            backgroundColor: Colors.orange,
+            duration: const Duration(seconds: 5),
+          ),
+        );
+      }
+    } catch (e) {
+      // Handle other errors
+      if (mounted && !(e is RateLimitException)) {
+        if (kDebugMode) {
+          print('DEBUG: Login error: $e');
+        }
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(ErrorHandler.getSanitizedMessage(e,
+                defaultMessage: 'Login failed. Please try again.')),
             backgroundColor: Colors.red,
           ),
         );
@@ -119,36 +149,29 @@ class _LoginScreenState extends State<LoginScreen> {
                         TextFormField(
                           controller: _emailController,
                           keyboardType: TextInputType.emailAddress,
+                          maxLength: ValidationService.maxEmailLength,
                           decoration: const InputDecoration(
                             labelText: 'Email',
                             prefixIcon: Icon(Icons.email),
                             border: OutlineInputBorder(),
+                            counterText: '', // Hide counter for cleaner UI
                           ),
-                          validator: (value) {
-                            if (value == null || value.isEmpty) {
-                              return 'Please enter your email';
-                            }
-                            if (!value.contains('@')) {
-                              return 'Please enter a valid email';
-                            }
-                            return null;
-                          },
+                          validator: ValidationService.validateEmail,
                         ),
                         const SizedBox(height: 16),
                         TextFormField(
                           controller: _passwordController,
                           obscureText: true,
+                          maxLength: ValidationService.maxPasswordLength,
                           decoration: const InputDecoration(
                             labelText: 'Password',
                             prefixIcon: Icon(Icons.lock),
                             border: OutlineInputBorder(),
+                            counterText: '', // Hide counter for cleaner UI
                           ),
-                          validator: (value) {
-                            if (value == null || value.isEmpty) {
-                              return 'Please enter your password';
-                            }
-                            return null;
-                          },
+                          validator: (value) =>
+                              ValidationService.validatePassword(value,
+                                  isNewPassword: false),
                         ),
                         const SizedBox(height: 24),
                         SizedBox(
@@ -278,6 +301,26 @@ class _LoginScreenState extends State<LoginScreen> {
                           ),
                           child: const Text('🔬 Comprehensive DB Test'),
                         ),
+                        const SizedBox(height: 8),
+                        // Check Password Status Button
+                        ElevatedButton(
+                          onPressed: _checkPasswordStatus,
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: Colors.teal,
+                            foregroundColor: Colors.white,
+                          ),
+                          child: const Text('🔍 Check Password Status'),
+                        ),
+                        const SizedBox(height: 8),
+                        // Password Reset Utility Button
+                        ElevatedButton(
+                          onPressed: _resetPasswordForUser,
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: Colors.red,
+                            foregroundColor: Colors.white,
+                          ),
+                          child: const Text('🔑 Reset Password for User'),
+                        ),
                       ],
                     ),
                   ),
@@ -336,12 +379,15 @@ class _LoginScreenState extends State<LoginScreen> {
       String debugInfo = 'Current Users (${users.length}):\n\n';
 
       for (final user in users) {
-        final password = await StorageService.getPassword(user.id);
+        final hasPassword = await StorageService.getPassword(user.id) != null;
+        // Sanitize user ID - show only first 6 chars for debugging
+        final sanitizedId =
+            user.id.length > 6 ? '${user.id.substring(0, 6)}...' : '***';
         debugInfo += '${user.email}:\n';
-        debugInfo += '  ID: ${user.id}\n';
+        debugInfo += '  ID: $sanitizedId\n';
         debugInfo += '  Name: ${user.name}\n';
         debugInfo += '  Role: ${user.role}\n';
-        debugInfo += '  Password: $password\n';
+        debugInfo += '  Password: ${hasPassword ? "*** (set)" : "Not set"}\n';
         debugInfo += '  Companies: ${user.companyNames.join(", ")}\n\n';
       }
 
@@ -796,6 +842,204 @@ class _LoginScreenState extends State<LoginScreen> {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text('❌ Database test failed: $e'),
+          backgroundColor: Colors.red,
+        ),
+      );
+    }
+  }
+
+  Future<void> _checkPasswordStatus() async {
+    try {
+      // Show dialog to get email
+      final emailController = TextEditingController();
+
+      final result = await showDialog<bool>(
+        context: context,
+        builder: (context) => AlertDialog(
+          title: const Text('Check Password Status'),
+          content: TextField(
+            controller: emailController,
+            decoration: const InputDecoration(
+              labelText: 'Email',
+              hintText: 'Enter user email (e.g., this@this.is)',
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(false),
+              child: const Text('Cancel'),
+            ),
+            ElevatedButton(
+              onPressed: () {
+                if (emailController.text.isNotEmpty) {
+                  Navigator.of(context).pop(true);
+                }
+              },
+              child: const Text('Check'),
+            ),
+          ],
+        ),
+      );
+
+      if (result != true) return;
+
+      final email = emailController.text.trim();
+
+      if (email.isEmpty) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Please enter an email'),
+            backgroundColor: Colors.red,
+          ),
+        );
+        return;
+      }
+
+      // Find user by email
+      final users = await StorageService.getUsers();
+      final user = users.firstWhere(
+        (u) => u.email.toLowerCase() == email.toLowerCase(),
+        orElse: () => throw Exception('User not found'),
+      );
+
+      // Get password status
+      final storedPassword = await StorageService.getPassword(user.id);
+      final hasPassword = storedPassword != null;
+      final isHashed =
+          hasPassword && !PasswordService.isPlaintext(storedPassword);
+
+      String statusMessage = 'Password Status for ${user.email}:\n\n';
+      if (!hasPassword) {
+        statusMessage += '❌ No password set\n';
+        statusMessage += 'The user has no password stored.\n';
+        statusMessage += 'Use "Reset Password" to set a new password.';
+      } else if (isHashed) {
+        statusMessage += '✅ Password is set and hashed\n';
+        statusMessage += 'Password format: Hashed (secure)\n';
+        statusMessage += 'Note: Original password cannot be recovered.\n';
+        statusMessage += 'Use "Reset Password" to set a new password.';
+      } else {
+        statusMessage += '⚠️ Password is set but in plaintext\n';
+        statusMessage += 'Password format: Plaintext (insecure)\n';
+        statusMessage += 'Password will be hashed on next login.\n';
+        statusMessage += 'Use "Reset Password" to set a new secure password.';
+      }
+
+      showDialog(
+        context: context,
+        builder: (context) => AlertDialog(
+          title: const Text('Password Status'),
+          content: SingleChildScrollView(
+            child: Text(statusMessage),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(),
+              child: const Text('OK'),
+            ),
+          ],
+        ),
+      );
+
+      print('🔍 Password status checked for user: ${user.email}');
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('❌ Failed to check password: $e'),
+          backgroundColor: Colors.red,
+        ),
+      );
+    }
+  }
+
+  Future<void> _resetPasswordForUser() async {
+    try {
+      // Show dialog to get email and new password
+      final emailController = TextEditingController();
+      final passwordController = TextEditingController();
+
+      final result = await showDialog<bool>(
+        context: context,
+        builder: (context) => AlertDialog(
+          title: const Text('Reset Password'),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              TextField(
+                controller: emailController,
+                decoration: const InputDecoration(
+                  labelText: 'Email',
+                  hintText: 'Enter user email (e.g., this@this.is)',
+                ),
+              ),
+              const SizedBox(height: 16),
+              TextField(
+                controller: passwordController,
+                obscureText: true,
+                decoration: const InputDecoration(
+                  labelText: 'New Password',
+                  hintText: 'Enter new password',
+                ),
+              ),
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(false),
+              child: const Text('Cancel'),
+            ),
+            ElevatedButton(
+              onPressed: () {
+                if (emailController.text.isNotEmpty &&
+                    passwordController.text.isNotEmpty) {
+                  Navigator.of(context).pop(true);
+                }
+              },
+              child: const Text('Reset'),
+            ),
+          ],
+        ),
+      );
+
+      if (result != true) return;
+
+      final email = emailController.text.trim();
+      final newPassword = passwordController.text;
+
+      if (email.isEmpty || newPassword.isEmpty) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Please enter both email and password'),
+            backgroundColor: Colors.red,
+          ),
+        );
+        return;
+      }
+
+      // Find user by email
+      final users = await StorageService.getUsers();
+      final user = users.firstWhere(
+        (u) => u.email.toLowerCase() == email.toLowerCase(),
+        orElse: () => throw Exception('User not found'),
+      );
+
+      // Save the new password (will be hashed automatically)
+      await StorageService.savePassword(user.id, newPassword);
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+              '✅ Password reset for ${user.email}\nNew password: $newPassword'),
+          backgroundColor: Colors.green,
+          duration: const Duration(seconds: 5),
+        ),
+      );
+
+      print('✅ Password reset for user: ${user.email}');
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('❌ Failed to reset password: $e'),
           backgroundColor: Colors.red,
         ),
       );

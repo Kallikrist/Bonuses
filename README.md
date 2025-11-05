@@ -91,6 +91,33 @@ The app includes pre-configured bonuses:
 
 ## Getting Started
 
+### Environment Variables Setup
+
+**⚠️ IMPORTANT:** This app requires Supabase credentials to be configured via environment variables.
+
+1. **Copy the example environment file:**
+   ```bash
+   cp env.example .env
+   ```
+
+2. **Edit `.env` and add your Supabase credentials:**
+   ```bash
+   SUPABASE_URL=https://your-project.supabase.co
+   SUPABASE_ANON_KEY=your_actual_anon_key_here
+   ```
+   Get your credentials from: Supabase Dashboard → Settings → API
+
+3. **Run the app:**
+   ```bash
+   # Option 1: Use the helper script (recommended)
+   ./scripts/run_with_env.sh
+   
+   # Option 2: Manual with --dart-define flags
+   flutter run --dart-define=SUPABASE_URL=xxx --dart-define=SUPABASE_ANON_KEY=yyy
+   ```
+
+For detailed setup instructions, see [SETUP_ENVIRONMENT_VARIABLES.md](SETUP_ENVIRONMENT_VARIABLES.md).
+
 1. **Prerequisites**:
    - Flutter SDK (3.6.0 or higher)
    - Dart SDK
