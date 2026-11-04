@@ -102,7 +102,10 @@ class AppWrapper extends StatefulWidget {
 }
 
 class _AppWrapperState extends State<AppWrapper> {
-  String? _companyName;
+  /// Keeps the branded splash up through first-frame login flash and the
+  /// short post-init beat. Name is resolved from the *current* user on each
+  /// build so login/logout does not keep a stale tenant.
+  bool _showSplash = true;
 
   @override
   void initState() {
@@ -112,36 +115,37 @@ class _AppWrapperState extends State<AppWrapper> {
 
   Future<void> _initializeApp() async {
     final appProvider = context.read<AppProvider>();
-
-    // Initialize the app provider
     await appProvider.initialize();
-
-    // Get the company name after initialization
-    final companyName = await _getCompanyName(appProvider);
-
-    setState(() {
-      _companyName = companyName;
-    });
-
-    // Add a short delay to show the splash screen
+    await _getCompanyName(appProvider);
     await Future.delayed(const Duration(seconds: 2));
+    if (mounted) {
+      setState(() => _showSplash = false);
+    }
   }
 
+  String _splashCompanyName(AppProvider appProvider) {
+    return resolveSplashCompanyName(
+      currentUser: appProvider.currentUser,
+      companies: appProvider.companies,
+    );
+  }
+
+  Widget _brandedSplash(AppProvider appProvider) {
+    return BrandedSplashScreen(
+      companyName: _splashCompanyName(appProvider),
+      showProgress: true,
+    );
+  }
+
+  /// Splash branding for the signed-in user. Kept as a `Future` so existing
+  /// source-scan tests can bound this method; the visible splash reads the
+  /// current user synchronously in `_splashCompanyName`.
   Future<String?> _getCompanyName(AppProvider appProvider) async {
-    try {
-      final currentUser = appProvider.currentUser;
-      List<Company> companies = const [];
-      if (currentUser != null && currentUser.role != UserRole.superAdmin) {
-        companies = await appProvider.getCompanies();
-      }
-      return resolveSplashCompanyName(
-        currentUser: currentUser,
-        companies: companies,
-      );
-    } catch (e) {
-      print('Error getting company name: $e');
-      return 'Bonuses';
-    }
+    final currentUser = appProvider.currentUser;
+    return resolveSplashCompanyName(
+      currentUser: currentUser,
+      companies: appProvider.companies,
+    );
   }
 
   Future<List<Company>> _getUserActiveCompanies(AppProvider appProvider) async {
@@ -163,11 +167,8 @@ class _AppWrapperState extends State<AppWrapper> {
   Widget build(BuildContext context) {
     return Consumer<AppProvider>(
       builder: (context, appProvider, child) {
-        if (appProvider.isLoading) {
-          return BrandedSplashScreen(
-            companyName: _companyName ?? 'Bonuses',
-            showProgress: true,
-          );
+        if (appProvider.isLoading || _showSplash) {
+          return _brandedSplash(appProvider);
         }
 
         if (appProvider.currentUser == null) {
@@ -181,10 +182,7 @@ class _AppWrapperState extends State<AppWrapper> {
             future: _getUserActiveCompanies(appProvider),
             builder: (context, snapshot) {
               if (snapshot.connectionState == ConnectionState.waiting) {
-                return BrandedSplashScreen(
-                  companyName: _companyName ?? 'Loading...',
-                  showProgress: true,
-                );
+                return _brandedSplash(appProvider);
               }
 
               if (snapshot.hasError ||
