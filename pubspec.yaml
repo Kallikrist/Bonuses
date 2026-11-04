@@ -60,7 +60,7 @@ dependencies:
   flutter_stripe: ^10.1.0
   
   # Supabase - PostgreSQL database with real-time features
-  supabase_flutter: ^2.0.0
+  supabase_flutter: ^2.15.4
   
   # Password hashing
   crypto: ^3.0.8
