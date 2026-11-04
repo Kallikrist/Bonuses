@@ -80,5 +80,41 @@ void main() {
       expect(sql, isNot(contains('sk_test_')));
       expect(sql, isNot(contains('STRIPE_SECRET_KEY')));
     });
+
+    test('RLS is phone-JWT authenticated-only (anon dual-write would fail)', () {
+      final rls = File('supabase/migrations/20261104180100_app_rls.sql')
+          .readAsStringSync();
+      expect(rls, contains('private.auth_phone'));
+      expect(rls, contains("auth.jwt() ->> 'phone'"));
+      expect(rls, contains('TO authenticated'));
+      expect(rls, contains('REVOKE ALL ON TABLE public.users FROM anon, PUBLIC'));
+      expect(
+        rls,
+        isNot(contains(RegExp(r'CREATE POLICY\b.*\bTO anon\b'))),
+        reason: 'no policy should grant the anon role',
+      );
+      expect(rls, isNot(contains('signInWithPassword')));
+    });
+  });
+
+  group('current client vs paused phone OTP', () {
+    test('AuthService is still local email/password, not phone OTP', () {
+      final auth = File('lib/services/auth_service.dart').readAsStringSync();
+      expect(auth, contains('Using local storage authentication'));
+      expect(auth, contains('StorageService.getPassword'));
+      expect(auth, isNot(contains('signInWithOtp')));
+      expect(auth, isNot(contains('verifyOTP')));
+      expect(auth, isNot(contains('OtpType')));
+    });
+
+    test('product getUsers is local SharedPreferences, not PostgREST', () {
+      final storage = File('lib/services/storage_service.dart').readAsStringSync();
+      final getUsers = storage.substring(
+        storage.indexOf('static Future<List<User>> getUsers()'),
+        storage.indexOf('static Future<Map<String, List<String>>> getHeaderNavPrefs()'),
+      );
+      expect(getUsers, contains("prefs.getStringList(_usersKey)"));
+      expect(getUsers, isNot(contains('SupabaseService')));
+    });
   });
 }
