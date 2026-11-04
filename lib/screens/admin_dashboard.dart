@@ -5333,10 +5333,6 @@ class _AdminDashboardState extends State<AdminDashboard> {
               ),
             ),
             actions: [
-            Row(
-              mainAxisAlignment: MainAxisAlignment.end,
-              mainAxisSize: MainAxisSize.min,
-              children: [
                 TextButton(
                   onPressed: () {
                     // Dispose controllers before closing
@@ -5353,7 +5349,6 @@ class _AdminDashboardState extends State<AdminDashboard> {
                   ),
                   child: const Text('Cancel', style: TextStyle(fontSize: 13)),
                 ),
-                const SizedBox(width: 4),
                 TextButton(
                   onPressed: () async {
                     // Validate form first
@@ -5677,7 +5672,6 @@ class _AdminDashboardState extends State<AdminDashboard> {
                         )
                       : const Text('Update', style: TextStyle(fontSize: 13)),
                 ),
-                const SizedBox(width: 4),
                 TextButton(
                   onPressed: () {
                     Navigator.pop(context);
@@ -5693,8 +5687,6 @@ class _AdminDashboardState extends State<AdminDashboard> {
                   child: const Text('Delete Target',
                       style: TextStyle(fontSize: 13)),
                 ),
-              ],
-            ),
             ],
           ),
         );
