@@ -1883,8 +1883,8 @@ class _AdminDashboardState extends State<AdminDashboard> {
               ],
             ),
           ),
-          // Keep AlertDialog open here; actions are defined below
-          actions: [
+        ),
+        actions: [
           TextButton(
             onPressed: () => Navigator.pop(context),
             child: const Text('Cancel'),
@@ -5328,13 +5328,11 @@ class _AdminDashboardState extends State<AdminDashboard> {
                     },
                   ),
                 ],
+                  ),
+                ),
+              ),
             ),
-          ),
-          actions: [
-            Row(
-              mainAxisAlignment: MainAxisAlignment.end,
-              mainAxisSize: MainAxisSize.min,
-              children: [
+            actions: [
                 TextButton(
                   onPressed: () {
                     // Dispose controllers before closing
@@ -5351,7 +5349,6 @@ class _AdminDashboardState extends State<AdminDashboard> {
                   ),
                   child: const Text('Cancel', style: TextStyle(fontSize: 13)),
                 ),
-                const SizedBox(width: 4),
                 TextButton(
                   onPressed: () async {
                     // Validate form first
@@ -5675,7 +5672,6 @@ class _AdminDashboardState extends State<AdminDashboard> {
                         )
                       : const Text('Update', style: TextStyle(fontSize: 13)),
                 ),
-                const SizedBox(width: 4),
                 TextButton(
                   onPressed: () {
                     Navigator.pop(context);
@@ -5691,9 +5687,8 @@ class _AdminDashboardState extends State<AdminDashboard> {
                   child: const Text('Delete Target',
                       style: TextStyle(fontSize: 13)),
                 ),
-              ],
-            ),
-          ],
+            ],
+          ),
         );
       },
     ).then((_) {
