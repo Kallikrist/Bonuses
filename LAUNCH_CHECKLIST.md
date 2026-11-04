@@ -22,7 +22,7 @@ Status in this file:
 ## Hard rules
 
 - **Do not enable live Stripe.** `AppConfig.demoMode` defaults to `true`. `AppConfig.useMockStripe` is true when demo is on **or** Supabase is not configured. Leave that default until every Stripe and auth row below is Done.
-- **Do not delete data.** Do not run login “Reset Demo Data”, mass-wipe SharedPreferences, or drop Supabase tables as part of launch prep.
+- **Do not delete data.** Do not mass-wipe SharedPreferences or drop Supabase tables as part of launch prep. Logged-out login no longer has “Reset Demo Data”.
 - **Do not commit secrets.** `.env`, `*.env`, and `STRIPE_SECRET_KEY` stay out of git and out of Flutter `--dart-define`.
 - **Owner-only** (even after review/CI): live payments, secret rotation, and any data deletion.
 
@@ -68,7 +68,7 @@ Until that flip, a successful checkout in the app is **mock money**.
 | Logout signs out of Auth | In flight | Not wired |
 | Session restore requires live Auth session when Supabase is up | In flight | Not wired |
 | `stripe-secret` `verify_jwt = true` + `auth.getUser()` | In flight | Today `verify_jwt = false`; handler does not call `auth.getUser()`. No amount cap / currency allowlist / per-user rate limit in the function yet (those are part of the same plan) |
-| Create matching Auth users for demo emails | Owner | Required after BON-12 merge so login-box passwords still work. Turn **Confirm email** off (or auto-confirm). Keep **Anonymous sign-ins** off |
+| Create matching Auth users for demo emails | Owner | Required after BON-12 merge so seeded demo passwords still work. Turn **Confirm email** off (or auto-confirm). Keep **Anonymous sign-ins** off |
 | New employees get an Auth user | Not started | Admin create-employee still sets local default `password123` (`admin_dashboard.dart`). That will not sign in under Auth until a matching `auth.users` row exists |
 
 Do not treat `SupabaseService.signIn` as “Auth is done.” The product login path is still local.
@@ -105,9 +105,9 @@ Leave `DEMO_MODE=true` until §1’s launch flip.
 
 ## 4. Demo accounts
 
-Canonical set (README, login Demo Accounts box, `StorageService.initializeSampleData()`). Do not invent a fourth list.
+Canonical set (README + `StorageService.initializeSampleData()`). Not shown on the logged-out login screen. Do not invent a fourth list.
 
-### Login-screen accounts
+### Canonical seeded accounts
 
 | Role | Email | Password |
 | --- | --- | --- |
@@ -127,15 +127,15 @@ Canonical set (README, login Demo Accounts box, `StorageService.initializeSample
 
 | Item | Status | Current code |
 | --- | --- | --- |
-| README matches seed + login box | Done | `README.md` Demo Accounts; locked by `test/demo_accounts_alignment_test.dart` |
-| App always seeds missing demo users | Done (launch risk) | `AppProvider.initialize()` calls `initializeSampleData()` when any of the four login-box emails is missing |
+| README matches seed | Done | `README.md` Demo Accounts; locked by `test/demo_accounts_alignment_test.dart` |
+| App always seeds missing demo users | Done (launch risk) | `AppProvider.initialize()` calls `initializeSampleData()` when any of the four canonical demo emails is missing |
 | Passwords shown on the login screen | Done | Removed from logged-out `lib/screens/login_screen.dart`; locked by `test/login_screen_hardening_test.dart` |
 | Debug / wipe controls on login | Done | Removed from logged-out login (Reset Demo Data, Test Supabase, Debug Users, unauthenticated reset) |
 | Hide demo chrome in store builds | Done | Logged-out login has no demo box or debug buttons |
 | Some tests still use stale emails | Not started | e.g. `john@store.com` / `jane@store.com` in `test/widget_test.dart`, `test/john_login_test.dart`, `test/integration_test.dart` |
 | Auth users for these emails | Owner | After BON-12; same emails/passwords |
 
-**Reset Demo Data** can wipe local demo state. Do not use it on a device that holds real data. Do not ship that button.
+Logged-out login no longer has **Reset Demo Data**. Do not restore that wipe control.
 
 ---
 

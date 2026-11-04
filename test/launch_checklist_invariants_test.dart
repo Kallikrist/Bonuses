@@ -141,6 +141,16 @@ void main() {
       expect(loginSource, isNot(contains('Reset Password for User')));
       expect(loginSource, isNot(contains('Test Create Jon2 Employee')));
       expect(loginSource, isNot(contains('Comprehensive DB Test')));
+      expect(loginSource, isNot(contains('Check Password Status')));
+      expect(loginSource, isNot(contains('Test Create Bonus')));
+    });
+
+    test('checklist and README do not treat login UI as a demo-password source',
+        () {
+      final readme = _readRepoFile('README.md');
+      expect(checklist, isNot(contains('login Demo Accounts box')));
+      expect(readme, isNot(contains('login screen Demo Accounts box')));
+      expect(checklist, contains('Not shown on the logged-out login screen'));
     });
   });
 

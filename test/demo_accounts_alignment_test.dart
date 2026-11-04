@@ -93,6 +93,7 @@ void main() {
     test('Getting Started and Demo Accounts list login-screen emails', () {
       expect(readme, contains('## Demo Accounts'));
       expect(readme, contains('## Getting Started'));
+      expect(readme, isNot(contains('login screen Demo Accounts box')));
       for (final account in loginScreenAccounts) {
         expect(readme, contains(account.email),
             reason: 'README should list ${account.email}');
