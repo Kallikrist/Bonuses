@@ -1,3 +1,7 @@
+import 'dart:convert';
+import 'dart:io';
+
+import 'package:crypto/crypto.dart' as crypto_lib;
 import 'package:flutter_test/flutter_test.dart';
 import 'package:bonuses/services/password_service.dart';
 import 'package:bonuses/providers/app_provider.dart';
@@ -63,15 +67,43 @@ void main() {
         expect(PasswordService.isSha256Hash('plaintext'), isFalse);
       });
 
-      test('should verify legacy SHA-256 hashes', () {
-        // Create a SHA-256 hash manually (legacy format)
-        // Note: This test verifies backward compatibility
-        // In production, SHA-256 hashes will be migrated to bcrypt on login
-        final password = 'testpassword123';
-        final legacyHash = PasswordService.hashPassword(password);
+      test('should verify legacy SHA-256 hashes via package:crypto', () {
+        // Product SHA-256 path: utf8(password + salt) then sha256.convert.
+        // hashPassword() now emits bcrypt, so this constructs the legacy format.
+        const password = 'testpassword123';
+        const salt = 'testsalt';
+        final digest =
+            crypto_lib.sha256.convert(utf8.encode(password + salt));
+        final legacyHash = '$salt:${digest.toString()}';
 
-        // New passwords use bcrypt, so verify works
+        expect(PasswordService.isSha256Hash(legacyHash), isTrue);
+        expect(PasswordService.needsUpgrade(legacyHash), isTrue);
         expect(PasswordService.verifyPassword(password, legacyHash), isTrue);
+        expect(PasswordService.verifyPassword('wrongpassword', legacyHash),
+            isFalse);
+      });
+
+      test('sha256.convert matches NIST empty-string and abc vectors', () {
+        expect(
+          crypto_lib.sha256.convert(utf8.encode('')).toString(),
+          'e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855',
+        );
+        expect(
+          crypto_lib.sha256.convert(utf8.encode('abc')).toString(),
+          'ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad',
+        );
+      });
+
+      test('pubspec pins crypto 3.0.8 after the dependabot bump', () {
+        final yaml = File('pubspec.yaml').readAsStringSync();
+        final lock = File('pubspec.lock').readAsStringSync();
+        expect(yaml, contains('crypto: ^3.0.8'));
+        expect(
+          RegExp(r'  crypto:\n(?:    .*\n)*    version: "3\.0\.8"',
+                  multiLine: true)
+              .hasMatch(lock),
+          isTrue,
+        );
       });
 
       test('should detect if password needs upgrade', () {
