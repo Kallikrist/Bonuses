@@ -3,6 +3,7 @@ import 'package:intl/intl.dart';
 import 'calendar_widget.dart';
 import '../models/sales_target.dart';
 import '../models/company.dart';
+import '../utils/app_semantics.dart';
 
 class ProfileHeaderWidget extends StatelessWidget {
   final String userName;
@@ -34,36 +35,42 @@ class ProfileHeaderWidget extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        gradient: LinearGradient(
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-          colors: [
-            Theme.of(context).colorScheme.primary.withOpacity(0.1),
-            Theme.of(context).colorScheme.secondary.withOpacity(0.05),
+    return Semantics(
+      identifier: AppSemantics.profileHeader,
+      container: true,
+      explicitChildNodes: true,
+      label: AppSemantics.profileHeader,
+      child: Container(
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          gradient: LinearGradient(
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+            colors: [
+              Theme.of(context).colorScheme.primary.withOpacity(0.1),
+              Theme.of(context).colorScheme.secondary.withOpacity(0.05),
+            ],
+          ),
+          borderRadius: const BorderRadius.only(
+            bottomLeft: Radius.circular(20),
+            bottomRight: Radius.circular(20),
+          ),
+        ),
+        child: Column(
+          children: [
+            // Profile Picture and Greeting
+            _buildProfileSection(context),
+
+            // Company Switcher (if user has multiple companies)
+            if (userCompanies != null && userCompanies!.length > 1)
+              _buildCompanySwitcher(context),
+
+            const SizedBox(height: 16),
+
+            // Action Buttons Grid
+            _buildActionButtonsGrid(context),
           ],
         ),
-        borderRadius: const BorderRadius.only(
-          bottomLeft: Radius.circular(20),
-          bottomRight: Radius.circular(20),
-        ),
-      ),
-      child: Column(
-        children: [
-          // Profile Picture and Greeting
-          _buildProfileSection(context),
-
-          // Company Switcher (if user has multiple companies)
-          if (userCompanies != null && userCompanies!.length > 1)
-            _buildCompanySwitcher(context),
-
-          const SizedBox(height: 16),
-
-          // Action Buttons Grid
-          _buildActionButtonsGrid(context),
-        ],
       ),
     );
   }
@@ -72,39 +79,44 @@ class ProfileHeaderWidget extends StatelessWidget {
     return Row(
       children: [
         // Profile Picture
-        GestureDetector(
-          onTap: onProfileTap,
-          child: Container(
-            width: 60,
-            height: 60,
-            decoration: BoxDecoration(
-              shape: BoxShape.circle,
-              border: Border.all(
-                color: Theme.of(context).colorScheme.primary,
-                width: 2,
-              ),
-              boxShadow: [
-                BoxShadow(
-                  color: Colors.black.withOpacity(0.1),
-                  blurRadius: 8,
-                  offset: const Offset(0, 2),
+        Semantics(
+          button: onProfileTap != null,
+          label: AppSemantics.profile,
+          child: GestureDetector(
+            onTap: onProfileTap,
+            child: Container(
+              width: 60,
+              height: 60,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                border: Border.all(
+                  color: Theme.of(context).colorScheme.primary,
+                  width: 2,
                 ),
-              ],
-            ),
-            child: CircleAvatar(
-              radius: 28,
-              backgroundColor:
-                  Theme.of(context).colorScheme.primary.withOpacity(0.1),
-              backgroundImage: profileImageUrl != null
-                  ? NetworkImage(profileImageUrl!)
-                  : null,
-              child: profileImageUrl == null
-                  ? Icon(
-                      Icons.person,
-                      size: 30,
-                      color: Theme.of(context).colorScheme.primary,
-                    )
-                  : null,
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withOpacity(0.1),
+                    blurRadius: 8,
+                    offset: const Offset(0, 2),
+                  ),
+                ],
+              ),
+              child: CircleAvatar(
+                radius: 28,
+                backgroundColor:
+                    Theme.of(context).colorScheme.primary.withOpacity(0.1),
+                backgroundImage: profileImageUrl != null
+                    ? NetworkImage(profileImageUrl!)
+                    : null,
+                child: profileImageUrl == null
+                    ? Icon(
+                        Icons.person,
+                        size: 30,
+                        color: Theme.of(context).colorScheme.primary,
+                        semanticLabel: AppSemantics.profile,
+                      )
+                    : null,
+              ),
             ),
           ),
         ),
@@ -162,50 +174,56 @@ class ProfileHeaderWidget extends StatelessWidget {
   }
 
   Widget _buildActionButton(BuildContext context, ActionButton button) {
-    return GestureDetector(
-      onTap: () => _handleButtonTap(context, button),
-      child: Container(
-        height: 70,
-        decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.circular(10),
-          boxShadow: [
-            BoxShadow(
-              color: Colors.black.withOpacity(0.08),
-              blurRadius: 4,
-              offset: const Offset(0, 2),
-            ),
-          ],
-        ),
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Container(
-              width: 32,
-              height: 32,
-              decoration: BoxDecoration(
-                color: button.color.withOpacity(0.1),
-                borderRadius: BorderRadius.circular(6),
+    return Semantics(
+      button: true,
+      label: button.label,
+      excludeSemantics: true,
+      child: GestureDetector(
+        onTap: () => _handleButtonTap(context, button),
+        child: Container(
+          height: 70,
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(10),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withOpacity(0.08),
+                blurRadius: 4,
+                offset: const Offset(0, 2),
               ),
-              child: Icon(
-                button.icon,
-                color: button.color,
-                size: 16,
+            ],
+          ),
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Container(
+                width: 32,
+                height: 32,
+                decoration: BoxDecoration(
+                  color: button.color.withOpacity(0.1),
+                  borderRadius: BorderRadius.circular(6),
+                ),
+                child: Icon(
+                  button.icon,
+                  color: button.color,
+                  size: 16,
+                  semanticLabel: button.label,
+                ),
               ),
-            ),
-            const SizedBox(height: 4),
-            Text(
-              button.label,
-              style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                    fontWeight: FontWeight.w600,
-                    color: Theme.of(context).colorScheme.onSurface,
-                    fontSize: 10,
-                  ),
-              textAlign: TextAlign.center,
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-            ),
-          ],
+              const SizedBox(height: 4),
+              Text(
+                button.label,
+                style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                      fontWeight: FontWeight.w600,
+                      color: Theme.of(context).colorScheme.onSurface,
+                      fontSize: 10,
+                    ),
+                textAlign: TextAlign.center,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+              ),
+            ],
+          ),
         ),
       ),
     );
@@ -259,44 +277,52 @@ class ProfileHeaderWidget extends StatelessWidget {
       orElse: () => userCompanies!.first,
     );
 
-    return Container(
-      margin: const EdgeInsets.only(top: 12),
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-      decoration: BoxDecoration(
-        color: Colors.white.withOpacity(0.7),
-        borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: Colors.blue.withOpacity(0.3)),
-      ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          const Icon(Icons.business, size: 16, color: Colors.blue),
-          const SizedBox(width: 8),
-          DropdownButtonHideUnderline(
-            child: DropdownButton<String>(
-              value: currentCompanyId ?? userCompanies!.first.id,
-              isDense: true,
-              style: const TextStyle(
-                fontSize: 14,
-                fontWeight: FontWeight.w600,
-                color: Colors.black87,
+    return Semantics(
+      identifier: AppSemantics.companySwitcher,
+      label: AppSemantics.companySwitcher,
+      child: Container(
+        margin: const EdgeInsets.only(top: 12),
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+        decoration: BoxDecoration(
+          color: Colors.white.withOpacity(0.7),
+          borderRadius: BorderRadius.circular(20),
+          border: Border.all(color: Colors.blue.withOpacity(0.3)),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Icon(Icons.business,
+                size: 16,
+                color: Colors.blue,
+                semanticLabel: AppSemantics.companySwitcher),
+            const SizedBox(width: 8),
+            DropdownButtonHideUnderline(
+              child: DropdownButton<String>(
+                value: currentCompanyId ?? userCompanies!.first.id,
+                isDense: true,
+                style: const TextStyle(
+                  fontSize: 14,
+                  fontWeight: FontWeight.w600,
+                  color: Colors.black87,
+                ),
+                icon: const Icon(Icons.arrow_drop_down,
+                    size: 18, color: Colors.blue),
+                items: userCompanies!.map((company) {
+                  return DropdownMenuItem<String>(
+                    value: company.id,
+                    child: Text(company.name),
+                  );
+                }).toList(),
+                onChanged: (String? newCompanyId) {
+                  if (newCompanyId != null &&
+                      newCompanyId != currentCompanyId) {
+                    onCompanyChanged!(newCompanyId);
+                  }
+                },
               ),
-              icon: const Icon(Icons.arrow_drop_down,
-                  size: 18, color: Colors.blue),
-              items: userCompanies!.map((company) {
-                return DropdownMenuItem<String>(
-                  value: company.id,
-                  child: Text(company.name),
-                );
-              }).toList(),
-              onChanged: (String? newCompanyId) {
-                if (newCompanyId != null && newCompanyId != currentCompanyId) {
-                  onCompanyChanged!(newCompanyId);
-                }
-              },
             ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }

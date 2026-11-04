@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:intl/intl.dart';
 import '../providers/app_provider.dart';
+import '../utils/app_semantics.dart';
 import '../models/sales_target.dart';
 import '../models/bonus.dart';
 import '../models/user.dart';
@@ -148,7 +149,10 @@ class _EmployeeDashboardState extends State<EmployeeDashboard> {
 
     return visibleItems
         .map((item) => BottomNavigationBarItem(
-              icon: Icon(item['icon'] as IconData),
+              icon: Icon(
+                item['icon'] as IconData,
+                semanticLabel: item['label'] as String,
+              ),
               label: item['label'] as String,
             ))
         .toList();
@@ -767,72 +771,34 @@ class _EmployeeDashboardState extends State<EmployeeDashboard> {
   }
 
   Widget _buildDarkModeToggle(AppProvider appProvider) {
-    return Container(
-      margin: const EdgeInsets.only(bottom: 8),
-      child: Padding(
-        padding: const EdgeInsets.all(12),
-        child: Row(
-          children: [
-            Icon(Icons.dark_mode, color: Colors.blue[600], size: 20),
-            const SizedBox(width: 12),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  const Text(
-                    'Dark Mode',
-                    style: TextStyle(
-                      fontSize: 16,
-                      fontWeight: FontWeight.w500,
-                    ),
-                  ),
-                  Text(
-                    appProvider.isDarkMode ? 'Enabled' : 'Disabled',
-                    style: TextStyle(
-                      fontSize: 12,
-                      color: Colors.grey[600],
-                    ),
-                  ),
-                ],
-              ),
-            ),
-            Switch(
-              value: appProvider.isDarkMode,
-              onChanged: (value) => appProvider.toggleDarkMode(),
-              activeColor: Colors.blue[600],
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _buildSettingsItem(
-      IconData icon, String title, String subtitle, VoidCallback onTap) {
-    return Container(
-      margin: const EdgeInsets.only(bottom: 8),
-      child: InkWell(
-        onTap: onTap,
-        borderRadius: BorderRadius.circular(8),
+    return Semantics(
+      identifier: AppSemantics.darkMode,
+      toggled: appProvider.isDarkMode,
+      label: AppSemantics.darkMode,
+      child: Container(
+        margin: const EdgeInsets.only(bottom: 8),
         child: Padding(
           padding: const EdgeInsets.all(12),
           child: Row(
             children: [
-              Icon(icon, color: Colors.blue[600], size: 20),
+              Icon(Icons.dark_mode,
+                  color: Colors.blue[600],
+                  size: 20,
+                  semanticLabel: AppSemantics.darkMode),
               const SizedBox(width: 12),
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text(
-                      title,
-                      style: const TextStyle(
+                    const Text(
+                      'Dark Mode',
+                      style: TextStyle(
                         fontSize: 16,
                         fontWeight: FontWeight.w500,
                       ),
                     ),
                     Text(
-                      subtitle,
+                      appProvider.isDarkMode ? 'Enabled' : 'Disabled',
                       style: TextStyle(
                         fontSize: 12,
                         color: Colors.grey[600],
@@ -841,8 +807,60 @@ class _EmployeeDashboardState extends State<EmployeeDashboard> {
                   ],
                 ),
               ),
-              Icon(Icons.arrow_forward_ios, size: 16, color: Colors.grey[400]),
+              Switch(
+                value: appProvider.isDarkMode,
+                onChanged: (value) => appProvider.toggleDarkMode(),
+                activeColor: Colors.blue[600],
+              ),
             ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildSettingsItem(
+      IconData icon, String title, String subtitle, VoidCallback onTap) {
+    return Semantics(
+      button: true,
+      label: title,
+      child: Container(
+        margin: const EdgeInsets.only(bottom: 8),
+        child: InkWell(
+          onTap: onTap,
+          borderRadius: BorderRadius.circular(8),
+          child: Padding(
+            padding: const EdgeInsets.all(12),
+            child: Row(
+              children: [
+                Icon(icon,
+                    color: Colors.blue[600], size: 20, semanticLabel: title),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        title,
+                        style: const TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.w500,
+                        ),
+                      ),
+                      Text(
+                        subtitle,
+                        style: TextStyle(
+                          fontSize: 12,
+                          color: Colors.grey[600],
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                Icon(Icons.arrow_forward_ios,
+                    size: 16, color: Colors.grey[400]),
+              ],
+            ),
           ),
         ),
       ),
@@ -1044,112 +1062,133 @@ class _EmployeeDashboardState extends State<EmployeeDashboard> {
         final redeemedBonuses = appProvider.getUserRedeemedBonuses(
             user.id, null); // null = show all companies
 
-        return Scaffold(
-          appBar: AppBar(
-            title: const Text('Employee Dashboard'),
-            backgroundColor: Colors.transparent,
-            elevation: 0,
-            actions: [
-              IconButton(
-                icon: const Icon(Icons.settings),
-                onPressed: () => setState(
-                    () => _selectedIndex = 3), // Navigate to Settings tab
-                tooltip: 'Settings',
+        return Semantics(
+          identifier: AppSemantics.employeeDashboard,
+          container: true,
+          explicitChildNodes: true,
+          namesRoute: true,
+          label: AppSemantics.employeeDashboard,
+          child: Scaffold(
+            appBar: AppBar(
+              title: Semantics(
+                header: true,
+                label: AppSemantics.employeeDashboard,
+                child: const Text('Employee Dashboard'),
               ),
-            ],
-          ),
-          body: Column(
-            children: [
-              // Profile Header with Action Buttons
-              FutureBuilder<List<Company>>(
-                future: appProvider.getCompanies(),
-                builder: (context, snapshot) {
-                  final allCompanies = snapshot.data ?? [];
-                  final userCompanies = allCompanies
-                      .where((c) => user.companyIds.contains(c.id))
-                      .toList();
+              backgroundColor: Colors.transparent,
+              elevation: 0,
+              actions: [
+                IconButton(
+                  icon: const Icon(
+                    Icons.settings,
+                    semanticLabel: AppSemantics.settings,
+                  ),
+                  onPressed: () => setState(
+                      () => _selectedIndex = 3), // Navigate to Settings tab
+                  tooltip: AppSemantics.settings,
+                ),
+              ],
+            ),
+            body: Column(
+              children: [
+                // Profile Header with Action Buttons
+                FutureBuilder<List<Company>>(
+                  future: appProvider.getCompanies(),
+                  builder: (context, snapshot) {
+                    final allCompanies = snapshot.data ?? [];
+                    final userCompanies = allCompanies
+                        .where((c) => user.companyIds.contains(c.id))
+                        .toList();
 
-                  return ProfileHeaderWidget(
-                    userName: user.name,
-                    userEmail: user.email,
-                    onProfileTap: () => setState(
-                        () => _selectedIndex = 4), // Navigate to Profile tab
-                    // Apply header shortcut preferences
-                    actionButtons:
-                        _getEmployeeActionButtons(context, appProvider)
-                            .where((b) => _headerShortcutPrefs[b.label] ?? true)
-                            .toList(),
-                    salesTargets: allTargets,
-                    userCompanies: userCompanies,
-                    currentCompanyId: user.primaryCompanyId,
-                    selectedDate: _selectedDate,
-                    onDateSelected: (selectedDate) {
+                    return ProfileHeaderWidget(
+                      userName: user.name,
+                      userEmail: user.email,
+                      onProfileTap: () => setState(
+                          () => _selectedIndex = 4), // Navigate to Profile tab
+                      // Apply header shortcut preferences
+                      actionButtons: _getEmployeeActionButtons(
+                              context, appProvider)
+                          .where((b) => _headerShortcutPrefs[b.label] ?? true)
+                          .toList(),
+                      salesTargets: allTargets,
+                      userCompanies: userCompanies,
+                      currentCompanyId: user.primaryCompanyId,
+                      selectedDate: _selectedDate,
+                      onDateSelected: (selectedDate) {
+                        setState(() {
+                          _selectedDate = selectedDate;
+                        });
+                      },
+                      onCompanyChanged: (newCompanyId) async {
+                        final updatedUser = user.copyWith(
+                          primaryCompanyId: newCompanyId,
+                        );
+                        await appProvider.updateUser(updatedUser);
+                        setState(() {}); // Refresh UI
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          SnackBar(
+                            content: Text(
+                                'Switched to ${userCompanies.firstWhere((c) => c.id == newCompanyId).name}'),
+                            backgroundColor: Colors.green,
+                          ),
+                        );
+                      },
+                    );
+                  },
+                ),
+                // Main Content
+                Expanded(
+                  child: IndexedStack(
+                    index: _selectedIndex,
+                    children: [
+                      _buildOverviewTab(userPoints, selectedDateTargets,
+                          user.id, appProvider),
+                      _buildTargetsTab(appProvider, allTargets),
+                      _buildBonusesTab(availableBonuses, redeemedBonuses,
+                          user.id, userPoints, appProvider),
+                      _buildReportsTab(
+                          allTargets, allTransactions, appProvider),
+                      _buildProfileTab(user, appProvider),
+                      const MessagingScreen(), // Messages tab
+                    ],
+                  ),
+                ),
+              ],
+            ),
+            bottomNavigationBar: Builder(
+              builder: (context) {
+                final items = _getBottomBarItems();
+                if (items.length < 2) {
+                  // Hide bottom bar entirely if fewer than 2 items are visible
+                  return const SizedBox.shrink();
+                }
+                return Semantics(
+                  identifier: AppSemantics.employeeNavigation,
+                  container: true,
+                  explicitChildNodes: true,
+                  label: AppSemantics.employeeNavigation,
+                  child: BottomNavigationBar(
+                    currentIndex: _getBottomNavIndex(_selectedIndex),
+                    onTap: (index) {
                       setState(() {
-                        _selectedDate = selectedDate;
+                        _selectedIndex = _getActualTabIndex(index);
                       });
                     },
-                    onCompanyChanged: (newCompanyId) async {
-                      final updatedUser = user.copyWith(
-                        primaryCompanyId: newCompanyId,
-                      );
-                      await appProvider.updateUser(updatedUser);
-                      setState(() {}); // Refresh UI
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        SnackBar(
-                          content: Text(
-                              'Switched to ${userCompanies.firstWhere((c) => c.id == newCompanyId).name}'),
-                          backgroundColor: Colors.green,
-                        ),
-                      );
-                    },
-                  );
-                },
-              ),
-              // Main Content
-              Expanded(
-                child: IndexedStack(
-                  index: _selectedIndex,
-                  children: [
-                    _buildOverviewTab(
-                        userPoints, selectedDateTargets, user.id, appProvider),
-                    _buildTargetsTab(appProvider, allTargets),
-                    _buildBonusesTab(availableBonuses, redeemedBonuses, user.id,
-                        userPoints, appProvider),
-                    _buildReportsTab(allTargets, allTransactions, appProvider),
-                    _buildProfileTab(user, appProvider),
-                    const MessagingScreen(), // Messages tab
-                  ],
-                ),
-              ),
-            ],
-          ),
-          bottomNavigationBar: Builder(
-            builder: (context) {
-              final items = _getBottomBarItems();
-              if (items.length < 2) {
-                // Hide bottom bar entirely if fewer than 2 items are visible
-                return const SizedBox.shrink();
-              }
-              return BottomNavigationBar(
-                currentIndex: _getBottomNavIndex(_selectedIndex),
-                onTap: (index) {
-                  setState(() {
-                    _selectedIndex = _getActualTabIndex(index);
-                  });
-                },
-                backgroundColor: Colors.white,
-                selectedItemColor: Colors.grey[800],
-                unselectedItemColor: Colors.grey[800],
-                selectedLabelStyle: const TextStyle(
-                  fontWeight: FontWeight.bold,
-                ),
-                unselectedLabelStyle: const TextStyle(
-                  fontWeight: FontWeight.normal,
-                  color: Colors.black,
-                ),
-                items: items,
-              );
-            },
+                    backgroundColor: Colors.white,
+                    selectedItemColor: Colors.grey[800],
+                    unselectedItemColor: Colors.grey[800],
+                    selectedLabelStyle: const TextStyle(
+                      fontWeight: FontWeight.bold,
+                    ),
+                    unselectedLabelStyle: const TextStyle(
+                      fontWeight: FontWeight.normal,
+                      color: Colors.black,
+                    ),
+                    items: items,
+                  ),
+                );
+              },
+            ),
           ),
         );
       },
@@ -1212,59 +1251,77 @@ class _EmployeeDashboardState extends State<EmployeeDashboard> {
                   Row(
                     mainAxisAlignment: MainAxisAlignment.spaceEvenly,
                     children: [
-                      ElevatedButton.icon(
-                        onPressed: () {
-                          final newDate =
-                              _selectedDate.subtract(const Duration(days: 1));
-                          setState(() {
-                            _selectedDate = newDate;
-                          });
-                          _saveSelectedDate(newDate);
-                        },
-                        icon: const Icon(Icons.chevron_left, size: 16),
-                        label: const Text('Previous'),
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: Colors.blue.shade100,
-                          foregroundColor: Colors.blue.shade700,
-                          padding: const EdgeInsets.symmetric(
-                              horizontal: 12, vertical: 8),
+                      Semantics(
+                        identifier: AppSemantics.previousDate,
+                        button: true,
+                        label: AppSemantics.previousDate,
+                        excludeSemantics: true,
+                        child: ElevatedButton.icon(
+                          onPressed: () {
+                            final newDate =
+                                _selectedDate.subtract(const Duration(days: 1));
+                            setState(() {
+                              _selectedDate = newDate;
+                            });
+                            _saveSelectedDate(newDate);
+                          },
+                          icon: const Icon(Icons.chevron_left, size: 16),
+                          label: const Text('Previous'),
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: Colors.blue.shade100,
+                            foregroundColor: Colors.blue.shade700,
+                            padding: const EdgeInsets.symmetric(
+                                horizontal: 12, vertical: 8),
+                          ),
                         ),
                       ),
-                      ElevatedButton(
-                        onPressed: () {
-                          final newDate = DateTime.now();
-                          setState(() {
-                            _selectedDate = newDate;
-                          });
-                          _saveSelectedDate(newDate);
-                        },
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: isToday
-                              ? Colors.blue.shade700
-                              : Colors.blue.shade100,
-                          foregroundColor:
-                              isToday ? Colors.white : Colors.blue.shade700,
-                          padding: const EdgeInsets.symmetric(
-                              horizontal: 16, vertical: 8),
+                      Semantics(
+                        identifier: AppSemantics.todayDate,
+                        button: true,
+                        label: AppSemantics.todayDate,
+                        excludeSemantics: true,
+                        child: ElevatedButton(
+                          onPressed: () {
+                            final newDate = DateTime.now();
+                            setState(() {
+                              _selectedDate = newDate;
+                            });
+                            _saveSelectedDate(newDate);
+                          },
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: isToday
+                                ? Colors.blue.shade700
+                                : Colors.blue.shade100,
+                            foregroundColor:
+                                isToday ? Colors.white : Colors.blue.shade700,
+                            padding: const EdgeInsets.symmetric(
+                                horizontal: 16, vertical: 8),
+                          ),
+                          child: const Text('Today'),
                         ),
-                        child: const Text('Today'),
                       ),
-                      ElevatedButton.icon(
-                        onPressed: () {
-                          final newDate =
-                              _selectedDate.add(const Duration(days: 1));
-                          setState(() {
-                            _selectedDate = newDate;
-                          });
-                          _saveSelectedDate(newDate);
-                        },
-                        icon: const Icon(Icons.chevron_right, size: 16),
-                        label: const Text('Next'),
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: Colors.blue.shade100,
-                          foregroundColor: Colors.blue.shade700,
-                          padding: const EdgeInsets.symmetric(
-                              horizontal: 12, vertical: 8),
+                      Semantics(
+                        identifier: AppSemantics.nextDate,
+                        button: true,
+                        label: AppSemantics.nextDate,
+                        excludeSemantics: true,
+                        child: ElevatedButton.icon(
+                          onPressed: () {
+                            final newDate =
+                                _selectedDate.add(const Duration(days: 1));
+                            setState(() {
+                              _selectedDate = newDate;
+                            });
+                            _saveSelectedDate(newDate);
+                          },
+                          icon: const Icon(Icons.chevron_right, size: 16),
+                          label: const Text('Next'),
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: Colors.blue.shade100,
+                            foregroundColor: Colors.blue.shade700,
+                            padding: const EdgeInsets.symmetric(
+                                horizontal: 12, vertical: 8),
+                          ),
                         ),
                       ),
                     ],
