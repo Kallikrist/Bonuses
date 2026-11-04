@@ -70,6 +70,7 @@
 3. ✅ **Services updated to use AppConfig:**
    - ✅ `supabase_service.dart` uses `AppConfig.supabaseUrl` and `AppConfig.supabaseAnonKey`
    - ✅ `stripe_service.dart` uses `AppConfig.stripePublishableKey` only; Stripe secret stays in the `stripe-secret` Edge Function
+   - ✅ Kling secret stays in the `kling-secret` Edge Function (`KLING_SECRET_KEY`); not a Flutter dart-define
    - ✅ `payment_service.dart` is mock/local only (no live keys)
    - ✅ No hardcoded live secrets; values come from `--dart-define` flags
 

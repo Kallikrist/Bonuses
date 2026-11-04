@@ -8,3 +8,9 @@ enabled = true
 # The Functions gateway still requires the project anon/publishable apikey.
 verify_jwt = false
 entrypoint = "./functions/stripe-secret/index.ts"
+
+[functions.kling-secret]
+enabled = true
+# Same local-auth constraint as stripe-secret. JWT gate is BON-12 (paused).
+verify_jwt = false
+entrypoint = "./functions/kling-secret/index.ts"
