@@ -1,0 +1,6 @@
+# Local release signing only. Copy to android/key.properties (gitignored).
+# CI does not use this file; it reads ANDROID_KEYSTORE_* GitHub Actions secrets.
+storePassword=replace-with-keystore-password
+keyPassword=replace-with-key-password
+keyAlias=upload
+storeFile=../upload-keystore.jks
