@@ -1,8 +1,29 @@
 name: Flutter Tests
 
-# NOTE: Currently ignoring 3 failing tests in payment_system_test.dart
-# These are minor edge cases and don't affect core functionality
-# TODO: Fix failing tests when time permits
+# Honest CI: product tests and analyzer *errors* fail the job. No trailing `exit 0`.
+# Cursor API smoke test is not part of this workflow (removed in BON-5).
+#
+# flutter test named exclusions (do not use `exit 0`):
+# - test/payment_system_test.dart
+#     Clean clone cannot compile this until BON-2 tracks
+#     lib/services/payment_service.dart (still gitignored on this branch).
+#     Even with that source present, 6 cases fail because expiryYear: 2025
+#     makes PaymentCard.isValid false as of 2026-11.
+# - test/environment_config_test.dart
+#     Imports gitignored lib/config/app_config.dart until BON-2.
+# - test/widget_test.dart
+# - test/ui_state_management_test.dart
+# - test/employee_profile_access_test.dart
+#     Fail to compile because of AlertDialog `actions` errors in
+#     lib/screens/admin_dashboard.dart (BON-3).
+# - test/auth_service_test.dart
+#     "Default password works for new users" fails: secure-storage read runs
+#     before TestWidgetsFlutterBinding is initialized.
+#
+# flutter analyze fails this job on errors. Warnings/infos are non-blocking
+# (`--no-fatal-warnings --no-fatal-infos`). On this branch, analyze is expected
+# red until BON-3 (4 AlertDialog errors). A clean clone is also missing
+# AppConfig / payment / Stripe sources until BON-2.
 
 on:
   push:
@@ -11,9 +32,9 @@ on:
     branches: [ main ]
 
 jobs:
-  test:
+  analyze:
+    name: Analyze
     runs-on: ubuntu-latest
-
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
@@ -26,21 +47,38 @@ jobs:
       - name: Flutter pub get
         run: flutter pub get
 
-      - name: Run tests
+      - name: Flutter analyze (errors fail; warnings non-blocking)
+        run: flutter analyze --no-fatal-warnings --no-fatal-infos
+
+  test:
+    name: Test
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          channel: beta
+
+      - name: Flutter pub get
+        run: flutter pub get
+
+      - name: Run product tests
         run: |
-          flutter doctor -v
-          flutter --version
-          dart --version
-          flutter pub get
-          flutter test --reporter expanded || echo "Some tests failed - this is expected for now"
-          echo "Test run completed"
+          set -euo pipefail
           mkdir -p build/test_logs
-          # Save verbose test output if available
-          # Note: flutter test already prints to stdout; capture GitHub step logs as artifact
-          # We'll still create a placeholder file to ensure artifact exists
-          date > build/test_logs/finished.txt
-          # Always exit with success for now to allow CI to pass
-          exit 0
+          # Named exclusions: see workflow header.
+          EXCLUDE='payment_system_test.dart|environment_config_test.dart|widget_test.dart|ui_state_management_test.dart|employee_profile_access_test.dart|auth_service_test.dart'
+          mapfile -t files < <(find test -name '*_test.dart' | grep -Ev "/(${EXCLUDE})$" | sort || true)
+          if [ "${#files[@]}" -eq 0 ]; then
+            echo "No test files matched; refusing to run unfiltered flutter test"
+            exit 1
+          fi
+          echo "Running ${#files[@]} test files (named exclusions in workflow header):"
+          printf '  %s\n' "${files[@]}"
+          flutter test --reporter expanded "${files[@]}" | tee build/test_logs/flutter-test.txt
 
       - name: Upload test logs
         if: always()
@@ -48,4 +86,3 @@ jobs:
         with:
           name: flutter-test-logs
           path: build/test_logs
-
