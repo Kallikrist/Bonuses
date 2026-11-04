@@ -49,6 +49,13 @@ const additionalSeededEmployees =
 
 const staleReadmeEmails = ['john@store.com', 'jane@store.com'];
 
+/// Mock/login leftovers that BON-22 removed. Broader than README (includes
+/// `mike@store.com`, which was never documented but lived in test fixtures).
+const staleTestLoginEmails = [
+  ...staleReadmeEmails,
+  'mike@store.com',
+];
+
 String _readRepoFile(String relativePath) {
   final candidates = [
     File(relativePath),
@@ -221,6 +228,87 @@ void main() {
         if (account.email == 'superadmin@platform.com') {
           expect(AuthService.currentUser?.role, UserRole.superAdmin);
         }
+      }
+    });
+
+    test('stale john@store.com cannot sign in against seed', () async {
+      for (final email in staleReadmeEmails) {
+        await AuthService.logout();
+        final success = await AuthService.login(email, 'password123');
+        expect(success, isFalse,
+            reason: 'seed must not authenticate stale $email');
+        expect(AuthService.currentUser, isNull);
+      }
+
+      final john =
+          await AuthService.login('john.doe@example.com', 'password123');
+      expect(john, isTrue);
+      expect(AuthService.currentUser?.email, 'john.doe@example.com');
+    });
+  });
+
+  group('tests do not log in with stale store.com emails', () {
+    test('fixtures and login calls use seed emails, not john@store.com', () {
+      final testRoot = Directory('test');
+      expect(testRoot.existsSync(), isTrue);
+
+      final dartFiles = testRoot
+          .listSync(recursive: true)
+          .whereType<File>()
+          .where((file) => file.path.endsWith('.dart'))
+          .toList();
+      expect(dartFiles, isNotEmpty);
+
+      for (final file in dartFiles) {
+        final relative = file.path.replaceFirst(RegExp(r'^(\./)?'), '');
+        if (relative.endsWith('demo_accounts_alignment_test.dart')) {
+          continue;
+        }
+        final source = file.readAsStringSync();
+        for (final email in staleTestLoginEmails) {
+          expect(
+            source.contains(email),
+            isFalse,
+            reason: '$relative still uses stale $email; use seed/README emails',
+          );
+        }
+      }
+    });
+
+    test('tracked tests do not contain stale employee store.com emails', () {
+      final listed = Process.runSync(
+        'git',
+        ['ls-files', 'test'],
+        workingDirectory: Directory.current.path,
+      );
+      expect(listed.exitCode, 0, reason: listed.stderr.toString());
+
+      final paths = listed.stdout
+          .toString()
+          .split('\n')
+          .map((line) => line.trim())
+          .where((line) => line.endsWith('.dart'))
+          .toList();
+      expect(paths, isNotEmpty);
+
+      for (final relative in paths) {
+        if (relative.endsWith('demo_accounts_alignment_test.dart')) {
+          continue;
+        }
+        final source = File(relative).readAsStringSync();
+        for (final email in staleTestLoginEmails) {
+          expect(
+            source.contains(email),
+            isFalse,
+            reason: '$relative still uses stale $email; use seed/README emails',
+          );
+        }
+        expect(
+          source.contains("login('john@store.com'") ||
+              source.contains('login("john@store.com"'),
+          isFalse,
+          reason: '$relative still logs in as john@store.com',
+        );
       }
     });
   });
