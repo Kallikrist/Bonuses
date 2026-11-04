@@ -12,7 +12,8 @@ import '../services/storage_service.dart';
 import '../widgets/profile_header_widget.dart';
 import '../widgets/target_card_widget.dart';
 import 'target_profile_screen.dart';
-import 'admin_dashboard.dart'; // Import for EmployeeProfileScreen and EmployeesListScreen
+import 'employee_profile_screen.dart';
+import 'employees_list_screen.dart';
 import 'messaging_screen.dart';
 import 'login_screen.dart';
 
