@@ -3,6 +3,7 @@ import 'package:flutter/foundation.dart';
 import 'package:provider/provider.dart';
 import 'package:intl/intl.dart';
 import '../utils/error_handler.dart';
+import '../utils/app_semantics.dart';
 import '../services/validation_service.dart';
 import 'target_profile_screen.dart';
 import 'import_targets_screen.dart';
@@ -238,112 +239,132 @@ class _AdminDashboardState extends State<AdminDashboard> {
         final allBonuses = appProvider.bonuses;
         final allTransactions = appProvider.pointsTransactions;
 
-        return Scaffold(
-          appBar: AppBar(
-            title: Text('Admin Dashboard'),
-            backgroundColor: Colors.transparent,
-            elevation: 0,
-            actions: [
-              IconButton(
-                icon: const Icon(Icons.settings),
-                onPressed: () {
-                  setState(() {
-                    _selectedIndex = 2;
-                    _cachedSelectedIndex = 2; // Update cache immediately
-                  });
-                  _saveSelectedTab(2); // Persist selected tab
-                },
-                tooltip: 'Settings',
+        return Semantics(
+          identifier: AppSemantics.adminDashboard,
+          container: true,
+          explicitChildNodes: true,
+          namesRoute: true,
+          label: AppSemantics.adminDashboard,
+          child: Scaffold(
+            appBar: AppBar(
+              title: Semantics(
+                header: true,
+                label: AppSemantics.adminDashboard,
+                child: const Text('Admin Dashboard'),
               ),
-            ],
-          ),
-          body: Column(
-            children: [
-              // Profile Header with Action Buttons
-              ProfileHeaderWidget(
-                userName: user.name,
-                userEmail: user.email,
-                // Profile navigation moved to bottom bar
-                onProfileTap: null,
-                // Apply header shortcut preferences
-                actionButtons: _getAdminActionButtons(context, appProvider)
-                    .where((b) => _headerShortcutPrefs[b.label] ?? true)
-                    .toList(),
-                salesTargets: allTargets,
-                selectedDate: _selectedDate,
-                onDateSelected: (selectedDate) {
-                  setState(() {
-                    _selectedDate = selectedDate;
-                  });
-                  _saveSelectedDate(selectedDate);
-                },
-              ),
-              // Subscription Status Banner
-              _buildSubscriptionStatusBanner(appProvider),
-              // Main Content
-              Expanded(
-                child: Builder(
-                  builder: (context) {
-                    // Use cached index if available to prevent reset on rebuild
-                    final effectiveIndex =
-                        _cachedSelectedIndex ?? _selectedIndex;
-                    print(
-                        'DEBUG: Building IndexedStack with index: $effectiveIndex (state: $_selectedIndex, cached: $_cachedSelectedIndex, Bonuses tab = 1)');
-                    return IndexedStack(
-                      key: const ValueKey(
-                          'admin_tabs'), // Stable key to preserve widget identity
-                      index: effectiveIndex,
-                      children: [
-                        _buildDashboardTab(selectedDateTargets, allTargets,
-                            allTransactions, appProvider, allBonuses),
-                        _buildBonusesTab(appProvider, allBonuses),
-                        _buildSettingsTab(appProvider, allTargets,
-                            allTransactions, allBonuses),
-                        const MessagingScreen(), // Messages tab
-                      ],
-                    );
+              backgroundColor: Colors.transparent,
+              elevation: 0,
+              actions: [
+                IconButton(
+                  icon: const Icon(
+                    Icons.settings,
+                    semanticLabel: AppSemantics.settings,
+                  ),
+                  onPressed: () {
+                    setState(() {
+                      _selectedIndex = 2;
+                      _cachedSelectedIndex = 2; // Update cache immediately
+                    });
+                    _saveSelectedTab(2); // Persist selected tab
+                  },
+                  tooltip: AppSemantics.settings,
+                ),
+              ],
+            ),
+            body: Column(
+              children: [
+                // Profile Header with Action Buttons
+                ProfileHeaderWidget(
+                  userName: user.name,
+                  userEmail: user.email,
+                  // Profile navigation moved to bottom bar
+                  onProfileTap: null,
+                  // Apply header shortcut preferences
+                  actionButtons: _getAdminActionButtons(context, appProvider)
+                      .where((b) => _headerShortcutPrefs[b.label] ?? true)
+                      .toList(),
+                  salesTargets: allTargets,
+                  selectedDate: _selectedDate,
+                  onDateSelected: (selectedDate) {
+                    setState(() {
+                      _selectedDate = selectedDate;
+                    });
+                    _saveSelectedDate(selectedDate);
                   },
                 ),
-              ),
-            ],
-          ),
-          floatingActionButton: _getFloatingActionButton(
-              context, appProvider, selectedDateTargets),
-          bottomNavigationBar: Builder(
-            builder: (context) {
-              final navItems = _buildVisibleNavItems();
-              if (navItems.length < 2) {
-                // Hide custom bottom bar if fewer than 2 items are visible
-                return const SizedBox.shrink();
-              }
-              return Container(
-                decoration: BoxDecoration(
-                  color: Colors.grey[100],
-                  boxShadow: [
-                    BoxShadow(
-                      color: Colors.black.withOpacity(0.1),
-                      blurRadius: 10,
-                      offset: const Offset(0, -2),
-                    ),
-                  ],
-                ),
-                child: SafeArea(
-                  child: Container(
-                    height: 80,
-                    padding:
-                        const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
-                    child: Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                      children: navItems
-                          .map((item) => Expanded(
-                                child: item,
-                              ))
-                          .toList(),
-                    ),
+                // Subscription Status Banner
+                _buildSubscriptionStatusBanner(appProvider),
+                // Main Content
+                Expanded(
+                  child: Builder(
+                    builder: (context) {
+                      // Use cached index if available to prevent reset on rebuild
+                      final effectiveIndex =
+                          _cachedSelectedIndex ?? _selectedIndex;
+                      print(
+                          'DEBUG: Building IndexedStack with index: $effectiveIndex (state: $_selectedIndex, cached: $_cachedSelectedIndex, Bonuses tab = 1)');
+                      return IndexedStack(
+                        key: const ValueKey(
+                            'admin_tabs'), // Stable key to preserve widget identity
+                        index: effectiveIndex,
+                        children: [
+                          _buildDashboardTab(selectedDateTargets, allTargets,
+                              allTransactions, appProvider, allBonuses),
+                          _buildBonusesTab(appProvider, allBonuses),
+                          _buildSettingsTab(appProvider, allTargets,
+                              allTransactions, allBonuses),
+                          const MessagingScreen(), // Messages tab
+                        ],
+                      );
+                    },
                   ),
                 ),
-              );
-            },
+              ],
+            ),
+            floatingActionButton: _getFloatingActionButton(
+                context, appProvider, selectedDateTargets),
+            bottomNavigationBar: Builder(
+              builder: (context) {
+                final navItems = _buildVisibleNavItems();
+                if (navItems.length < 2) {
+                  // Hide custom bottom bar if fewer than 2 items are visible
+                  return const SizedBox.shrink();
+                }
+                return Semantics(
+                  identifier: AppSemantics.adminNavigation,
+                  container: true,
+                  explicitChildNodes: true,
+                  label: AppSemantics.adminNavigation,
+                  child: Container(
+                    decoration: BoxDecoration(
+                      color: Colors.grey[100],
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.black.withOpacity(0.1),
+                          blurRadius: 10,
+                          offset: const Offset(0, -2),
+                        ),
+                      ],
+                    ),
+                    child: SafeArea(
+                      child: Container(
+                        height: 80,
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 8, vertical: 8),
+                        child: Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                          children: navItems
+                              .map((item) => Expanded(
+                                    child: item,
+                                  ))
+                              .toList(),
+                        ),
+                      ),
+                    ),
+                  ),
+                );
+              },
+            ),
           ),
         );
       },
@@ -3072,36 +3093,43 @@ class _AdminDashboardState extends State<AdminDashboard> {
   Widget _buildNavItem(int index, IconData icon, String label) {
     final effectiveIndex = _cachedSelectedIndex ?? _selectedIndex;
     final isSelected = effectiveIndex == index;
-    return GestureDetector(
-      onTap: () {
-        setState(() {
-          _selectedIndex = index;
-          _cachedSelectedIndex =
-              index; // Update cache immediately (synchronously)
-        });
-        _saveSelectedTab(
-            index); // Persist selected tab (async, but cache already set)
-      },
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(
-              icon,
-              color: isSelected ? Colors.blue[600] : Colors.grey[600],
-              size: 24,
-            ),
-            const SizedBox(height: 4),
-            Text(
-              label,
-              style: TextStyle(
+    return Semantics(
+      button: true,
+      selected: isSelected,
+      label: label,
+      excludeSemantics: true,
+      child: GestureDetector(
+        onTap: () {
+          setState(() {
+            _selectedIndex = index;
+            _cachedSelectedIndex =
+                index; // Update cache immediately (synchronously)
+          });
+          _saveSelectedTab(
+              index); // Persist selected tab (async, but cache already set)
+        },
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(
+                icon,
                 color: isSelected ? Colors.blue[600] : Colors.grey[600],
-                fontSize: 12,
-                fontWeight: isSelected ? FontWeight.w600 : FontWeight.normal,
+                size: 24,
+                semanticLabel: label,
               ),
-            ),
-          ],
+              const SizedBox(height: 4),
+              Text(
+                label,
+                style: TextStyle(
+                  color: isSelected ? Colors.blue[600] : Colors.grey[600],
+                  fontSize: 12,
+                  fontWeight: isSelected ? FontWeight.w600 : FontWeight.normal,
+                ),
+              ),
+            ],
+          ),
         ),
       ),
     );
@@ -3990,16 +4018,22 @@ class _AdminDashboardState extends State<AdminDashboard> {
   }
 
   Widget _buildDarkModeToggle(AppProvider appProvider) {
-    return Card(
-      margin: const EdgeInsets.only(bottom: 8),
-      child: ListTile(
-        leading: const Icon(Icons.dark_mode),
-        title: const Text('Dark Mode'),
-        subtitle: Text(appProvider.isDarkMode ? 'Enabled' : 'Disabled'),
-        trailing: Switch(
-          value: appProvider.isDarkMode,
-          onChanged: (value) => appProvider.toggleDarkMode(),
-          activeColor: Colors.blue[600],
+    return Semantics(
+      identifier: AppSemantics.darkMode,
+      toggled: appProvider.isDarkMode,
+      label: AppSemantics.darkMode,
+      child: Card(
+        margin: const EdgeInsets.only(bottom: 8),
+        child: ListTile(
+          leading:
+              const Icon(Icons.dark_mode, semanticLabel: AppSemantics.darkMode),
+          title: const Text('Dark Mode'),
+          subtitle: Text(appProvider.isDarkMode ? 'Enabled' : 'Disabled'),
+          trailing: Switch(
+            value: appProvider.isDarkMode,
+            onChanged: (value) => appProvider.toggleDarkMode(),
+            activeColor: Colors.blue[600],
+          ),
         ),
       ),
     );
@@ -4007,14 +4041,18 @@ class _AdminDashboardState extends State<AdminDashboard> {
 
   Widget _buildSettingsItem(
       IconData icon, String title, String subtitle, VoidCallback onTap) {
-    return Card(
-      margin: const EdgeInsets.only(bottom: 8),
-      child: ListTile(
-        leading: Icon(icon),
-        title: Text(title),
-        subtitle: Text(subtitle),
-        trailing: const Icon(Icons.arrow_forward_ios, size: 16),
-        onTap: onTap,
+    return Semantics(
+      button: true,
+      label: title,
+      child: Card(
+        margin: const EdgeInsets.only(bottom: 8),
+        child: ListTile(
+          leading: Icon(icon, semanticLabel: title),
+          title: Text(title),
+          subtitle: Text(subtitle),
+          trailing: const Icon(Icons.arrow_forward_ios, size: 16),
+          onTap: onTap,
+        ),
       ),
     );
   }
@@ -4675,8 +4713,8 @@ class _AdminDashboardState extends State<AdminDashboard> {
                   children: [
                     TextFormField(
                       controller: targetController,
-                      decoration:
-                          const InputDecoration(labelText: 'Target Amount (\$) *'),
+                      decoration: const InputDecoration(
+                          labelText: 'Target Amount (\$) *'),
                       keyboardType: TextInputType.number,
                       validator: (value) => ValidationService.validateNumeric(
                         value,
@@ -4685,51 +4723,56 @@ class _AdminDashboardState extends State<AdminDashboard> {
                         max: 10000000.0,
                       ),
                     ),
-                  const SizedBox(height: 16),
-                  DropdownButtonFormField<Workplace>(
-                    value: selectedWorkplace,
-                    decoration: const InputDecoration(labelText: 'Workplace *'),
-                    validator: (value) => value == null ? 'Please select a workplace' : null,
-                    items: appProvider.workplaces.map((workplace) {
-                      return DropdownMenuItem(
-                        value: workplace,
-                        child: Text(workplace.name),
-                      );
-                    }).toList(),
-                    onChanged: (workplace) =>
-                        setState(() => selectedWorkplace = workplace),
-                  ),
-                  const SizedBox(height: 16),
-                  DropdownButtonFormField<User>(
-                    value: selectedEmployee,
-                    decoration: const InputDecoration(labelText: 'Employee *'),
-                    validator: (value) => value == null ? 'Please select an employee' : null,
-                    items: employees.map((user) {
-                      return DropdownMenuItem(
-                        value: user,
-                        child: Text(user.name),
-                      );
-                    }).toList(),
-                    onChanged: (user) =>
-                        setState(() => selectedEmployee = user),
-                  ),
-                  const SizedBox(height: 16),
-                  ListTile(
-                    title: Text(
-                        'Date: ${DateFormat('yyyy-MM-dd').format(selectedDate)}'),
-                    trailing: const Icon(Icons.calendar_today),
-                    onTap: () async {
-                      final date = await showDatePicker(
-                        context: context,
-                        initialDate: selectedDate,
-                        firstDate: DateTime.now(),
-                        lastDate: DateTime.now().add(const Duration(days: 365)),
-                      );
-                      if (date != null) {
-                        setState(() => selectedDate = date);
-                      }
-                    },
-                  ),
+                    const SizedBox(height: 16),
+                    DropdownButtonFormField<Workplace>(
+                      value: selectedWorkplace,
+                      decoration:
+                          const InputDecoration(labelText: 'Workplace *'),
+                      validator: (value) =>
+                          value == null ? 'Please select a workplace' : null,
+                      items: appProvider.workplaces.map((workplace) {
+                        return DropdownMenuItem(
+                          value: workplace,
+                          child: Text(workplace.name),
+                        );
+                      }).toList(),
+                      onChanged: (workplace) =>
+                          setState(() => selectedWorkplace = workplace),
+                    ),
+                    const SizedBox(height: 16),
+                    DropdownButtonFormField<User>(
+                      value: selectedEmployee,
+                      decoration:
+                          const InputDecoration(labelText: 'Employee *'),
+                      validator: (value) =>
+                          value == null ? 'Please select an employee' : null,
+                      items: employees.map((user) {
+                        return DropdownMenuItem(
+                          value: user,
+                          child: Text(user.name),
+                        );
+                      }).toList(),
+                      onChanged: (user) =>
+                          setState(() => selectedEmployee = user),
+                    ),
+                    const SizedBox(height: 16),
+                    ListTile(
+                      title: Text(
+                          'Date: ${DateFormat('yyyy-MM-dd').format(selectedDate)}'),
+                      trailing: const Icon(Icons.calendar_today),
+                      onTap: () async {
+                        final date = await showDatePicker(
+                          context: context,
+                          initialDate: selectedDate,
+                          firstDate: DateTime.now(),
+                          lastDate:
+                              DateTime.now().add(const Duration(days: 365)),
+                        );
+                        if (date != null) {
+                          setState(() => selectedDate = date);
+                        }
+                      },
+                    ),
                   ],
                 ),
               ),
@@ -4746,10 +4789,10 @@ class _AdminDashboardState extends State<AdminDashboard> {
                   if (!formKey.validate()) {
                     return;
                   }
-                  
-                  if (selectedWorkplace != null &&
-                      selectedEmployee != null) {
-                    final amount = double.tryParse(targetController.text.trim());
+
+                  if (selectedWorkplace != null && selectedEmployee != null) {
+                    final amount =
+                        double.tryParse(targetController.text.trim());
                     if (amount == null || amount <= 0) {
                       ScaffoldMessenger.of(context).showSnackBar(
                         const SnackBar(
@@ -4953,8 +4996,8 @@ class _AdminDashboardState extends State<AdminDashboard> {
                         decoration: const InputDecoration(
                           labelText: 'Target Amount (\$) *',
                           border: OutlineInputBorder(),
-                          contentPadding:
-                              EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+                          contentPadding: EdgeInsets.symmetric(
+                              horizontal: 12, vertical: 12),
                           isDense: true,
                         ),
                         keyboardType: TextInputType.number,
@@ -4974,8 +5017,8 @@ class _AdminDashboardState extends State<AdminDashboard> {
                         decoration: const InputDecoration(
                           labelText: 'Actual Amount (\$) *',
                           border: OutlineInputBorder(),
-                          contentPadding:
-                              EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+                          contentPadding: EdgeInsets.symmetric(
+                              horizontal: 12, vertical: 12),
                           isDense: true,
                         ),
                         keyboardType: TextInputType.number,
@@ -4986,707 +5029,711 @@ class _AdminDashboardState extends State<AdminDashboard> {
                           max: 10000000.0,
                         ),
                       ),
-                  const SizedBox(height: 10),
+                      const SizedBox(height: 10),
 
-                  // Date Picker
-                  InkWell(
-                    onTap: () async {
-                      final date = await showDatePicker(
-                        context: context,
-                        initialDate: selectedDate,
-                        firstDate: DateTime(2020),
-                        lastDate: DateTime(2030),
-                      );
-                      if (date != null) {
-                        setState(() {
-                          selectedDate = date;
-                        });
-                      }
-                    },
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(
-                          horizontal: 12, vertical: 12),
-                      decoration: BoxDecoration(
-                        border: Border.all(color: Colors.grey),
-                        borderRadius: BorderRadius.circular(4),
-                      ),
-                      child: Row(
-                        children: [
-                          const Icon(Icons.calendar_today, size: 20),
-                          const SizedBox(width: 12),
-                          Expanded(
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                const Text(
-                                  'Target Date',
-                                  style: TextStyle(
-                                      fontSize: 12, color: Colors.grey),
-                                ),
-                                Text(
-                                  DateFormat('MMM dd, yyyy')
-                                      .format(selectedDate),
-                                  style: const TextStyle(fontSize: 14),
-                                ),
-                              ],
-                            ),
-                          ),
-                          const Icon(Icons.arrow_drop_down, size: 20),
-                        ],
-                      ),
-                    ),
-                  ),
-                  const SizedBox(height: 10),
-
-                  // Employee Selection
-                  FutureBuilder<List<User>>(
-                    future: appProvider.getUsers(),
-                    builder: (context, snapshot) {
-                      if (snapshot.hasData) {
-                        final employees = snapshot.data!
-                            .where((u) =>
-                                u.role == UserRole.employee ||
-                                u.role == UserRole.admin)
-                            .toList();
-                        return DropdownButtonFormField<String?>(
-                          value: selectedEmployeeId,
-                          style: const TextStyle(
-                              fontSize: 14, color: Colors.black87),
-                          decoration: const InputDecoration(
-                            labelText: 'Assigned Employee',
-                            labelStyle: TextStyle(color: Colors.black87),
-                            border: OutlineInputBorder(),
-                            contentPadding: EdgeInsets.symmetric(
-                                horizontal: 12, vertical: 12),
-                            isDense: true,
-                          ),
-                          items: [
-                            const DropdownMenuItem<String?>(
-                              value: null,
-                              child: Text('No Employee Assigned',
-                                  style: TextStyle(color: Colors.black87)),
-                            ),
-                            ...employees
-                                .map((employee) => DropdownMenuItem<String?>(
-                                      value: employee.id,
-                                      child: Text(employee.name,
-                                          style: const TextStyle(
-                                              color: Colors.black87)),
-                                    )),
-                          ],
-                          onChanged: (value) {
+                      // Date Picker
+                      InkWell(
+                        onTap: () async {
+                          final date = await showDatePicker(
+                            context: context,
+                            initialDate: selectedDate,
+                            firstDate: DateTime(2020),
+                            lastDate: DateTime(2030),
+                          );
+                          if (date != null) {
                             setState(() {
-                              selectedEmployeeId = value;
-                              print(
-                                  'DEBUG: Employee dropdown changed to: $value');
-                              // If no employee assigned, clear team members
-                              if (value == null) {
-                                selectedTeamMemberIds.clear();
-                                print(
-                                    'DEBUG: Cleared team members - no employee assigned');
-                              }
+                              selectedDate = date;
                             });
-                          },
-                        );
-                      }
-                      return const CircularProgressIndicator();
-                    },
-                  ),
-                  const SizedBox(height: 10),
-
-                  // Workplace Selection
-                  FutureBuilder<List<Workplace>>(
-                    future: appProvider.getWorkplaces(),
-                    builder: (context, snapshot) {
-                      if (snapshot.hasData) {
-                        final workplaces = snapshot.data!;
-                        return DropdownButtonFormField<String?>(
-                          value: selectedWorkplaceId,
-                          style: const TextStyle(
-                              fontSize: 14, color: Colors.black87),
-                          decoration: const InputDecoration(
-                            labelText: 'Assigned Workplace',
-                            labelStyle: TextStyle(color: Colors.black87),
-                            border: OutlineInputBorder(),
-                            contentPadding: EdgeInsets.symmetric(
-                                horizontal: 12, vertical: 12),
-                            isDense: true,
+                          }
+                        },
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 12, vertical: 12),
+                          decoration: BoxDecoration(
+                            border: Border.all(color: Colors.grey),
+                            borderRadius: BorderRadius.circular(4),
                           ),
-                          items: [
-                            const DropdownMenuItem<String?>(
-                              value: null,
-                              child: Text('No Workplace Assigned',
-                                  style: TextStyle(color: Colors.black87)),
-                            ),
-                            ...workplaces
-                                .map((workplace) => DropdownMenuItem<String?>(
-                                      value: workplace.id,
-                                      child: Text(workplace.name,
-                                          style: const TextStyle(
-                                              color: Colors.black87)),
-                                    )),
-                          ],
-                          onChanged: (value) {
-                            setState(() {
-                              selectedWorkplaceId = value;
-                            });
-                          },
-                        );
-                      }
-                      return const CircularProgressIndicator();
-                    },
-                  ),
-                  const SizedBox(height: 10),
+                          child: Row(
+                            children: [
+                              const Icon(Icons.calendar_today, size: 20),
+                              const SizedBox(width: 12),
+                              Expanded(
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    const Text(
+                                      'Target Date',
+                                      style: TextStyle(
+                                          fontSize: 12, color: Colors.grey),
+                                    ),
+                                    Text(
+                                      DateFormat('MMM dd, yyyy')
+                                          .format(selectedDate),
+                                      style: const TextStyle(fontSize: 14),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                              const Icon(Icons.arrow_drop_down, size: 20),
+                            ],
+                          ),
+                        ),
+                      ),
+                      const SizedBox(height: 10),
 
-                  // Team Members Selection
-                  FutureBuilder<List<User>>(
-                    future: appProvider.getUsers(),
-                    builder: (context, snapshot) {
-                      if (snapshot.hasData) {
-                        // Filter employees by the target's company and exclude the assigned employee
-                        var employees = snapshot.data!.where((u) {
-                          // Filter by role and exclude assigned employee
-                          if ((u.role != UserRole.employee &&
-                                  u.role != UserRole.admin) ||
-                              u.id == selectedEmployeeId) {
-                            return false;
-                          }
-                          // If target has no company, show all employees
-                          if (target.companyId == null ||
-                              target.companyId!.isEmpty) {
-                            return true;
-                          }
-                          // Otherwise, filter by company
-                          return u.primaryCompanyId == target.companyId ||
-                              u.companyIds.contains(target.companyId!);
-                        }).toList();
-
-                        // Fallback: if no employees found for company, show all employees (for debugging)
-                        if (employees.isEmpty &&
-                            target.companyId != null &&
-                            target.companyId!.isNotEmpty) {
-                          print(
-                              '⚠️ DEBUG: No employees found for company ${target.companyId}, showing all employees');
-                          employees = snapshot.data!
-                              .where((u) =>
-                                  (u.role == UserRole.employee ||
-                                      u.role == UserRole.admin) &&
-                                  u.id != selectedEmployeeId)
-                              .toList();
-                        }
-
-                        print(
-                            'DEBUG: Edit Target - Target company ID: ${target.companyId}');
-                        print(
-                            'DEBUG: Edit Target - Found ${employees.length} employees');
-                        print(
-                            'DEBUG: Edit Target - Employee names: ${employees.map((e) => e.name).toList()}');
-                        print(
-                            'DEBUG: Edit Target - Excluded assigned employee: $selectedEmployeeId');
-                        print(
-                            'DEBUG: Rendering ${employees.length} FilterChips for team members');
-                        // Filter employees by search query
-                        final searchQuery =
-                            teamMemberSearchController.text.toLowerCase();
-                        final filteredEmployees = searchQuery.isEmpty
-                            ? employees
-                            : employees
-                                .where((emp) =>
-                                    emp.name
-                                        .toLowerCase()
-                                        .contains(searchQuery) ||
-                                    emp.email
-                                        .toLowerCase()
-                                        .contains(searchQuery))
+                      // Employee Selection
+                      FutureBuilder<List<User>>(
+                        future: appProvider.getUsers(),
+                        builder: (context, snapshot) {
+                          if (snapshot.hasData) {
+                            final employees = snapshot.data!
+                                .where((u) =>
+                                    u.role == UserRole.employee ||
+                                    u.role == UserRole.admin)
                                 .toList();
-
-                        return Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Row(
-                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                              children: [
-                                const Text(
-                                  'Team Members (Optional)',
-                                  style: TextStyle(
-                                      fontWeight: FontWeight.bold,
-                                      fontSize: 13),
-                                ),
-                                Text(
-                                  '${filteredEmployees.length} of ${employees.length}',
-                                  style: TextStyle(
-                                    fontSize: 11,
-                                    color: Colors.grey[600],
-                                  ),
-                                ),
-                              ],
-                            ),
-                            const SizedBox(height: 6),
-                            // Search field
-                            TextField(
-                              controller: teamMemberSearchController,
-                              style: const TextStyle(fontSize: 13),
-                              decoration: InputDecoration(
-                                hintText: 'Search employees...',
-                                hintStyle: const TextStyle(fontSize: 13),
-                                prefixIcon: const Icon(Icons.search, size: 20),
-                                suffixIcon: searchQuery.isNotEmpty
-                                    ? IconButton(
-                                        icon: const Icon(Icons.clear, size: 20),
-                                        onPressed: () {
-                                          teamMemberSearchController.clear();
-                                          setState(() {});
-                                        },
-                                      )
-                                    : null,
-                                border: OutlineInputBorder(
-                                  borderRadius: BorderRadius.circular(8),
-                                ),
-                                contentPadding: const EdgeInsets.symmetric(
-                                  horizontal: 12,
-                                  vertical: 10,
-                                ),
+                            return DropdownButtonFormField<String?>(
+                              value: selectedEmployeeId,
+                              style: const TextStyle(
+                                  fontSize: 14, color: Colors.black87),
+                              decoration: const InputDecoration(
+                                labelText: 'Assigned Employee',
+                                labelStyle: TextStyle(color: Colors.black87),
+                                border: OutlineInputBorder(),
+                                contentPadding: EdgeInsets.symmetric(
+                                    horizontal: 12, vertical: 12),
                                 isDense: true,
                               ),
+                              items: [
+                                const DropdownMenuItem<String?>(
+                                  value: null,
+                                  child: Text('No Employee Assigned',
+                                      style: TextStyle(color: Colors.black87)),
+                                ),
+                                ...employees.map(
+                                    (employee) => DropdownMenuItem<String?>(
+                                          value: employee.id,
+                                          child: Text(employee.name,
+                                              style: const TextStyle(
+                                                  color: Colors.black87)),
+                                        )),
+                              ],
                               onChanged: (value) {
-                                setState(() {}); // Rebuild to filter list
+                                setState(() {
+                                  selectedEmployeeId = value;
+                                  print(
+                                      'DEBUG: Employee dropdown changed to: $value');
+                                  // If no employee assigned, clear team members
+                                  if (value == null) {
+                                    selectedTeamMemberIds.clear();
+                                    print(
+                                        'DEBUG: Cleared team members - no employee assigned');
+                                  }
+                                });
                               },
-                            ),
-                            const SizedBox(height: 8),
-                            // Scrollable list of employees with fixed height
-                            SizedBox(
-                              height: 180, // Reduced height to prevent overflow
-                              child: filteredEmployees.isEmpty
-                                  ? Center(
-                                      child: Padding(
-                                        padding: const EdgeInsets.all(16.0),
-                                        child: Text(
-                                          searchQuery.isEmpty
-                                              ? 'No employees available'
-                                              : 'No employees found matching "$searchQuery"',
-                                          style: TextStyle(
-                                            color: Colors.grey[600],
-                                            fontSize: 14,
-                                          ),
-                                        ),
+                            );
+                          }
+                          return const CircularProgressIndicator();
+                        },
+                      ),
+                      const SizedBox(height: 10),
+
+                      // Workplace Selection
+                      FutureBuilder<List<Workplace>>(
+                        future: appProvider.getWorkplaces(),
+                        builder: (context, snapshot) {
+                          if (snapshot.hasData) {
+                            final workplaces = snapshot.data!;
+                            return DropdownButtonFormField<String?>(
+                              value: selectedWorkplaceId,
+                              style: const TextStyle(
+                                  fontSize: 14, color: Colors.black87),
+                              decoration: const InputDecoration(
+                                labelText: 'Assigned Workplace',
+                                labelStyle: TextStyle(color: Colors.black87),
+                                border: OutlineInputBorder(),
+                                contentPadding: EdgeInsets.symmetric(
+                                    horizontal: 12, vertical: 12),
+                                isDense: true,
+                              ),
+                              items: [
+                                const DropdownMenuItem<String?>(
+                                  value: null,
+                                  child: Text('No Workplace Assigned',
+                                      style: TextStyle(color: Colors.black87)),
+                                ),
+                                ...workplaces.map(
+                                    (workplace) => DropdownMenuItem<String?>(
+                                          value: workplace.id,
+                                          child: Text(workplace.name,
+                                              style: const TextStyle(
+                                                  color: Colors.black87)),
+                                        )),
+                              ],
+                              onChanged: (value) {
+                                setState(() {
+                                  selectedWorkplaceId = value;
+                                });
+                              },
+                            );
+                          }
+                          return const CircularProgressIndicator();
+                        },
+                      ),
+                      const SizedBox(height: 10),
+
+                      // Team Members Selection
+                      FutureBuilder<List<User>>(
+                        future: appProvider.getUsers(),
+                        builder: (context, snapshot) {
+                          if (snapshot.hasData) {
+                            // Filter employees by the target's company and exclude the assigned employee
+                            var employees = snapshot.data!.where((u) {
+                              // Filter by role and exclude assigned employee
+                              if ((u.role != UserRole.employee &&
+                                      u.role != UserRole.admin) ||
+                                  u.id == selectedEmployeeId) {
+                                return false;
+                              }
+                              // If target has no company, show all employees
+                              if (target.companyId == null ||
+                                  target.companyId!.isEmpty) {
+                                return true;
+                              }
+                              // Otherwise, filter by company
+                              return u.primaryCompanyId == target.companyId ||
+                                  u.companyIds.contains(target.companyId!);
+                            }).toList();
+
+                            // Fallback: if no employees found for company, show all employees (for debugging)
+                            if (employees.isEmpty &&
+                                target.companyId != null &&
+                                target.companyId!.isNotEmpty) {
+                              print(
+                                  '⚠️ DEBUG: No employees found for company ${target.companyId}, showing all employees');
+                              employees = snapshot.data!
+                                  .where((u) =>
+                                      (u.role == UserRole.employee ||
+                                          u.role == UserRole.admin) &&
+                                      u.id != selectedEmployeeId)
+                                  .toList();
+                            }
+
+                            print(
+                                'DEBUG: Edit Target - Target company ID: ${target.companyId}');
+                            print(
+                                'DEBUG: Edit Target - Found ${employees.length} employees');
+                            print(
+                                'DEBUG: Edit Target - Employee names: ${employees.map((e) => e.name).toList()}');
+                            print(
+                                'DEBUG: Edit Target - Excluded assigned employee: $selectedEmployeeId');
+                            print(
+                                'DEBUG: Rendering ${employees.length} FilterChips for team members');
+                            // Filter employees by search query
+                            final searchQuery =
+                                teamMemberSearchController.text.toLowerCase();
+                            final filteredEmployees = searchQuery.isEmpty
+                                ? employees
+                                : employees
+                                    .where((emp) =>
+                                        emp.name
+                                            .toLowerCase()
+                                            .contains(searchQuery) ||
+                                        emp.email
+                                            .toLowerCase()
+                                            .contains(searchQuery))
+                                    .toList();
+
+                            return Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Row(
+                                  mainAxisAlignment:
+                                      MainAxisAlignment.spaceBetween,
+                                  children: [
+                                    const Text(
+                                      'Team Members (Optional)',
+                                      style: TextStyle(
+                                          fontWeight: FontWeight.bold,
+                                          fontSize: 13),
+                                    ),
+                                    Text(
+                                      '${filteredEmployees.length} of ${employees.length}',
+                                      style: TextStyle(
+                                        fontSize: 11,
+                                        color: Colors.grey[600],
                                       ),
-                                    )
-                                  : ListView.builder(
-                                      shrinkWrap: false,
-                                      itemCount: filteredEmployees.length,
-                                      itemBuilder: (context, index) {
-                                        final employee =
-                                            filteredEmployees[index];
-                                        final isSelected = selectedTeamMemberIds
-                                            .contains(employee.id);
-                                        return CheckboxListTile(
-                                          title: Text(
-                                            employee.name,
-                                            style:
-                                                const TextStyle(fontSize: 13),
-                                          ),
-                                          subtitle: Text(
-                                            employee.email,
-                                            style: TextStyle(
-                                              fontSize: 11,
-                                              color: Colors.grey[600],
+                                    ),
+                                  ],
+                                ),
+                                const SizedBox(height: 6),
+                                // Search field
+                                TextField(
+                                  controller: teamMemberSearchController,
+                                  style: const TextStyle(fontSize: 13),
+                                  decoration: InputDecoration(
+                                    hintText: 'Search employees...',
+                                    hintStyle: const TextStyle(fontSize: 13),
+                                    prefixIcon:
+                                        const Icon(Icons.search, size: 20),
+                                    suffixIcon: searchQuery.isNotEmpty
+                                        ? IconButton(
+                                            icon: const Icon(Icons.clear,
+                                                size: 20),
+                                            onPressed: () {
+                                              teamMemberSearchController
+                                                  .clear();
+                                              setState(() {});
+                                            },
+                                          )
+                                        : null,
+                                    border: OutlineInputBorder(
+                                      borderRadius: BorderRadius.circular(8),
+                                    ),
+                                    contentPadding: const EdgeInsets.symmetric(
+                                      horizontal: 12,
+                                      vertical: 10,
+                                    ),
+                                    isDense: true,
+                                  ),
+                                  onChanged: (value) {
+                                    setState(() {}); // Rebuild to filter list
+                                  },
+                                ),
+                                const SizedBox(height: 8),
+                                // Scrollable list of employees with fixed height
+                                SizedBox(
+                                  height:
+                                      180, // Reduced height to prevent overflow
+                                  child: filteredEmployees.isEmpty
+                                      ? Center(
+                                          child: Padding(
+                                            padding: const EdgeInsets.all(16.0),
+                                            child: Text(
+                                              searchQuery.isEmpty
+                                                  ? 'No employees available'
+                                                  : 'No employees found matching "$searchQuery"',
+                                              style: TextStyle(
+                                                color: Colors.grey[600],
+                                                fontSize: 14,
+                                              ),
                                             ),
                                           ),
-                                          value: isSelected,
-                                          onChanged: (selected) {
-                                            setState(() {
-                                              if (selected == true) {
-                                                if (!selectedTeamMemberIds
-                                                    .contains(employee.id)) {
-                                                  selectedTeamMemberIds
-                                                      .add(employee.id);
-                                                }
-                                              } else {
+                                        )
+                                      : ListView.builder(
+                                          shrinkWrap: false,
+                                          itemCount: filteredEmployees.length,
+                                          itemBuilder: (context, index) {
+                                            final employee =
+                                                filteredEmployees[index];
+                                            final isSelected =
                                                 selectedTeamMemberIds
-                                                    .remove(employee.id);
-                                              }
-                                              print(
-                                                  'DEBUG: Team members selected: $selectedTeamMemberIds');
-                                            });
+                                                    .contains(employee.id);
+                                            return CheckboxListTile(
+                                              title: Text(
+                                                employee.name,
+                                                style: const TextStyle(
+                                                    fontSize: 13),
+                                              ),
+                                              subtitle: Text(
+                                                employee.email,
+                                                style: TextStyle(
+                                                  fontSize: 11,
+                                                  color: Colors.grey[600],
+                                                ),
+                                              ),
+                                              value: isSelected,
+                                              onChanged: (selected) {
+                                                setState(() {
+                                                  if (selected == true) {
+                                                    if (!selectedTeamMemberIds
+                                                        .contains(
+                                                            employee.id)) {
+                                                      selectedTeamMemberIds
+                                                          .add(employee.id);
+                                                    }
+                                                  } else {
+                                                    selectedTeamMemberIds
+                                                        .remove(employee.id);
+                                                  }
+                                                  print(
+                                                      'DEBUG: Team members selected: $selectedTeamMemberIds');
+                                                });
+                                              },
+                                              dense: true,
+                                              visualDensity:
+                                                  VisualDensity.compact,
+                                              contentPadding:
+                                                  const EdgeInsets.symmetric(
+                                                horizontal: 8,
+                                                vertical: 2,
+                                              ),
+                                            );
                                           },
-                                          dense: true,
-                                          visualDensity: VisualDensity.compact,
-                                          contentPadding:
-                                              const EdgeInsets.symmetric(
-                                            horizontal: 8,
-                                            vertical: 2,
-                                          ),
-                                        );
-                                      },
-                                    ),
-                            ),
-                          ],
-                        );
-                      }
-                      return const CircularProgressIndicator();
-                    },
-                  ),
-                ],
+                                        ),
+                                ),
+                              ],
+                            );
+                          }
+                          return const CircularProgressIndicator();
+                        },
+                      ),
+                    ],
                   ),
                 ),
               ),
             ),
             actions: [
-                TextButton(
-                  onPressed: () {
-                    // Dispose controllers before closing
-                    targetAmountController.dispose();
-                    actualAmountController.dispose();
-                    teamMemberSearchController.dispose();
-                    Navigator.pop(context);
-                  },
-                  style: TextButton.styleFrom(
-                    padding:
-                        const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                    minimumSize: Size.zero,
-                    tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                  ),
-                  child: const Text('Cancel', style: TextStyle(fontSize: 13)),
+              TextButton(
+                onPressed: () {
+                  // Dispose controllers before closing
+                  targetAmountController.dispose();
+                  actualAmountController.dispose();
+                  teamMemberSearchController.dispose();
+                  Navigator.pop(context);
+                },
+                style: TextButton.styleFrom(
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                  minimumSize: Size.zero,
+                  tapTargetSize: MaterialTapTargetSize.shrinkWrap,
                 ),
-                TextButton(
-                  onPressed: () async {
-                    // Validate form first
-                    if (!formKey.currentState!.validate()) {
+                child: const Text('Cancel', style: TextStyle(fontSize: 13)),
+              ),
+              TextButton(
+                onPressed: () async {
+                  // Validate form first
+                  if (!formKey.currentState!.validate()) {
+                    return;
+                  }
+
+                  // Debounce: Prevent double submissions
+                  if (isSaving) {
+                    if (kDebugMode) {
+                      print(
+                          'DEBUG: Save already in progress, ignoring duplicate click');
+                    }
+                    return;
+                  }
+
+                  setState(() {
+                    isSaving = true;
+                  });
+
+                  try {
+                    final targetAmount =
+                        double.tryParse(targetAmountController.text.trim());
+                    final actualAmount =
+                        double.tryParse(actualAmountController.text.trim());
+
+                    if (targetAmount == null || targetAmount <= 0) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(
+                            content:
+                                Text('Please enter a valid target amount')),
+                      );
+                      setState(() {
+                        isSaving = false;
+                      });
                       return;
                     }
 
-                    // Debounce: Prevent double submissions
-                    if (isSaving) {
-                      if (kDebugMode) {
-                        print('DEBUG: Save already in progress, ignoring duplicate click');
-                      }
+                    if (actualAmount == null || actualAmount < 0) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(
+                            content:
+                                Text('Please enter a valid actual amount')),
+                      );
+                      setState(() {
+                        isSaving = false;
+                      });
                       return;
                     }
 
-                    setState(() {
-                      isSaving = true;
-                    });
+                    // Get employee and workplace names
+                    final users = await appProvider.getUsers();
+                    final workplaces = await appProvider.getWorkplaces();
 
-                    try {
-                      final targetAmount =
-                          double.tryParse(targetAmountController.text.trim());
-                      final actualAmount =
-                          double.tryParse(actualAmountController.text.trim());
+                    final assignedEmployee = users.firstWhere(
+                      (u) => u.id == selectedEmployeeId,
+                      orElse: () => User(
+                        id: '',
+                        name: '',
+                        email: '',
+                        role: UserRole.employee,
+                        createdAt: DateTime.now(),
+                      ),
+                    );
 
-                      if (targetAmount == null || targetAmount <= 0) {
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          const SnackBar(
-                              content:
-                                  Text('Please enter a valid target amount')),
-                        );
-                        setState(() {
-                          isSaving = false;
-                        });
-                        return;
-                      }
-
-                      if (actualAmount == null || actualAmount < 0) {
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          const SnackBar(
-                              content:
-                                  Text('Please enter a valid actual amount')),
-                        );
-                        setState(() {
-                          isSaving = false;
-                        });
-                        return;
-                      }
-
-                      // Get employee and workplace names
-                      final users = await appProvider.getUsers();
-                      final workplaces = await appProvider.getWorkplaces();
-
-                      final assignedEmployee = users.firstWhere(
-                        (u) => u.id == selectedEmployeeId,
-                        orElse: () => User(
+                    final assignedWorkplace = workplaces.firstWhere(
+                      (w) => w.id == selectedWorkplaceId,
+                      orElse: () => Workplace(
                           id: '',
                           name: '',
-                          email: '',
-                          role: UserRole.employee,
-                          createdAt: DateTime.now(),
+                          address: '',
+                          createdAt: DateTime.now()),
+                    );
+
+                    final teamMembers = users
+                        .where((u) => selectedTeamMemberIds.contains(u.id))
+                        .toList();
+
+                    // Remove duplicates from team member IDs
+                    final uniqueTeamMemberIds =
+                        selectedTeamMemberIds.toSet().toList();
+                    final uniqueTeamMembers = users
+                        .where((u) => uniqueTeamMemberIds.contains(u.id))
+                        .toList();
+
+                    print(
+                        'DEBUG: Updating target - employeeId: $selectedEmployeeId, workplaceId: $selectedWorkplaceId');
+                    print(
+                        'DEBUG: Updating target - team member IDs: $uniqueTeamMemberIds');
+
+                    // Create updated target with recalculated status
+                    final baseUpdatedTarget = target.copyWith(
+                      targetAmount: targetAmount,
+                      actualAmount: actualAmount,
+                      date: selectedDate,
+                      assignedEmployeeId: selectedEmployeeId,
+                      assignedEmployeeName: selectedEmployeeId != null
+                          ? assignedEmployee.name
+                          : null,
+                      assignedWorkplaceId: selectedWorkplaceId,
+                      assignedWorkplaceName: selectedWorkplaceId != null
+                          ? assignedWorkplace.name
+                          : null,
+                      collaborativeEmployeeIds: uniqueTeamMemberIds,
+                      collaborativeEmployeeNames:
+                          uniqueTeamMembers.map((u) => u.name).toList(),
+                    );
+
+                    // Smart status calculation logic
+                    final actualAmountChanged =
+                        actualAmount != target.actualAmount;
+                    final targetAmountChanged =
+                        targetAmount != target.targetAmount;
+
+                    SalesTarget updatedTarget;
+                    if (actualAmountChanged && actualAmount > 0) {
+                      // Only recalculate status when actual sales amount changes AND there's actual activity
+                      updatedTarget = baseUpdatedTarget.calculateResults();
+                    } else if (actualAmountChanged && actualAmount == 0) {
+                      // If sales are reset to 0, set back to pending (target not started)
+                      updatedTarget = baseUpdatedTarget.copyWith(
+                        status: TargetStatus.pending,
+                        isMet: false,
+                        pointsAwarded: 0,
+                      );
+                    } else {
+                      // Keep existing status if actual amount didn't change or other details changed
+                      // This prevents marking targets as "missed" just for changing target amount or other details
+                      updatedTarget = baseUpdatedTarget;
+                    }
+
+                    // If the target is met and has points, recalculate points using the rules
+                    if (updatedTarget.isMet && updatedTarget.actualAmount > 0) {
+                      final effectivePercent = (updatedTarget.actualAmount /
+                              updatedTarget.targetAmount) *
+                          100;
+                      final calculatedPoints = appProvider
+                          .getPointsForEffectivePercent(effectivePercent);
+
+                      // When admin directly sets a met target, mark it as approved
+                      final finalUpdatedTarget = updatedTarget.copyWith(
+                        pointsAwarded: calculatedPoints,
+                        status: TargetStatus.approved,
+                        isApproved: true,
+                        approvedBy: appProvider.currentUser?.id,
+                        approvedAt: DateTime.now(),
+                      );
+                      await appProvider.updateSalesTarget(finalUpdatedTarget);
+                    } else {
+                      // Update the target
+                      await appProvider.updateSalesTarget(updatedTarget);
+                    }
+
+                    // Verify the target was updated correctly
+                    final verifyTarget = appProvider.salesTargets
+                        .firstWhere((t) => t.id == target.id);
+                    print(
+                        'DEBUG: After update - target employeeId: ${verifyTarget.assignedEmployeeId}, employeeName: ${verifyTarget.assignedEmployeeName}');
+
+                    // Close dialog first before showing snackbar
+                    if (context.mounted) {
+                      Navigator.pop(context);
+                    }
+
+                    // Check for team member changes
+                    final originalTeamMembers =
+                        target.collaborativeEmployeeIds.toSet();
+                    final updatedTeamMembers =
+                        verifyTarget.collaborativeEmployeeIds.toSet();
+                    final teamMembersRemoved =
+                        originalTeamMembers.difference(updatedTeamMembers);
+                    final teamMembersAdded =
+                        updatedTeamMembers.difference(originalTeamMembers);
+                    final teamMembersChanged = teamMembersRemoved.isNotEmpty ||
+                        teamMembersAdded.isNotEmpty;
+
+                    // Get all users for name lookup
+                    final allUsers = await appProvider.getUsers();
+
+                    // Helper function to get user names from IDs
+                    String _getUserNames(Set<String> userIds) {
+                      final names = userIds.map((id) {
+                        final user = allUsers.firstWhere((u) => u.id == id,
+                            orElse: () => User(
+                                  id: id,
+                                  name: 'Unknown User',
+                                  email: '',
+                                  role: UserRole.employee,
+                                  primaryCompanyId: '',
+                                  companyIds: [],
+                                  companyRoles: {},
+                                  createdAt: DateTime.now(),
+                                ));
+                        return user.name;
+                      }).toList();
+                      return names.join(', ');
+                    }
+
+                    // Show appropriate feedback based on status change
+                    String message;
+                    Color backgroundColor = Colors.green;
+
+                    if (teamMembersChanged) {
+                      if (teamMembersRemoved.isNotEmpty &&
+                          teamMembersAdded.isNotEmpty) {
+                        final addedNames = _getUserNames(teamMembersAdded);
+                        final removedNames = _getUserNames(teamMembersRemoved);
+                        message =
+                            'Team members updated: Added $addedNames, Removed $removedNames - points adjusted';
+                      } else if (teamMembersRemoved.isNotEmpty) {
+                        final removedNames = _getUserNames(teamMembersRemoved);
+                        message =
+                            'Team member(s) removed: $removedNames - points withdrawn automatically';
+                      } else {
+                        final addedNames = _getUserNames(teamMembersAdded);
+                        message =
+                            'Team member(s) added: $addedNames - points awarded automatically';
+                      }
+                      backgroundColor = Colors.orange;
+                    } else if (!actualAmountChanged && !targetAmountChanged) {
+                      message = 'Target details updated (no status change)';
+                      backgroundColor = Colors.blue;
+                    } else if (targetAmountChanged && !actualAmountChanged) {
+                      message = 'Target amount updated (status preserved)';
+                      backgroundColor = Colors.blue;
+                    } else if (actualAmountChanged && actualAmount == 0) {
+                      message = 'Sales reset - target back to pending';
+                      backgroundColor = Colors.blue;
+                    } else if (actualAmountChanged &&
+                        updatedTarget.status == TargetStatus.missed) {
+                      message =
+                          'Sales updated and marked as missed (below target)';
+                      backgroundColor = Colors.orange;
+                    } else if (actualAmountChanged &&
+                        updatedTarget.status == TargetStatus.met) {
+                      message = 'Sales updated and marked as completed';
+                      backgroundColor = Colors.green;
+                    } else if (updatedTarget.status == TargetStatus.approved) {
+                      message = 'Target updated and approved';
+                      backgroundColor = Colors.green;
+                    } else {
+                      message = 'Target updated successfully';
+                      backgroundColor = Colors.green;
+                    }
+
+                    // Add points adjustment information
+                    final pointsDifference =
+                        updatedTarget.pointsAwarded - target.pointsAwarded;
+                    if (pointsDifference != 0) {
+                      if (pointsDifference > 0) {
+                        message +=
+                            '\n+${pointsDifference} points awarded to employees';
+                      } else {
+                        message +=
+                            '\n${pointsDifference.abs()} points withdrawn from employees';
+                        backgroundColor = Colors.orange;
+                      }
+                    }
+
+                    if (context.mounted) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(
+                          content: Text(message),
+                          backgroundColor: backgroundColor,
+                          duration: const Duration(seconds: 4),
                         ),
                       );
-
-                      final assignedWorkplace = workplaces.firstWhere(
-                        (w) => w.id == selectedWorkplaceId,
-                        orElse: () => Workplace(
-                            id: '',
-                            name: '',
-                            address: '',
-                            createdAt: DateTime.now()),
-                      );
-
-                      final teamMembers = users
-                          .where((u) => selectedTeamMemberIds.contains(u.id))
-                          .toList();
-
-                      // Remove duplicates from team member IDs
-                      final uniqueTeamMemberIds =
-                          selectedTeamMemberIds.toSet().toList();
-                      final uniqueTeamMembers = users
-                          .where((u) => uniqueTeamMemberIds.contains(u.id))
-                          .toList();
-
-                      print(
-                          'DEBUG: Updating target - employeeId: $selectedEmployeeId, workplaceId: $selectedWorkplaceId');
-                      print(
-                          'DEBUG: Updating target - team member IDs: $uniqueTeamMemberIds');
-
-                      // Create updated target with recalculated status
-                      final baseUpdatedTarget = target.copyWith(
-                        targetAmount: targetAmount,
-                        actualAmount: actualAmount,
-                        date: selectedDate,
-                        assignedEmployeeId: selectedEmployeeId,
-                        assignedEmployeeName: selectedEmployeeId != null
-                            ? assignedEmployee.name
-                            : null,
-                        assignedWorkplaceId: selectedWorkplaceId,
-                        assignedWorkplaceName: selectedWorkplaceId != null
-                            ? assignedWorkplace.name
-                            : null,
-                        collaborativeEmployeeIds: uniqueTeamMemberIds,
-                        collaborativeEmployeeNames:
-                            uniqueTeamMembers.map((u) => u.name).toList(),
-                      );
-
-                      // Smart status calculation logic
-                      final actualAmountChanged =
-                          actualAmount != target.actualAmount;
-                      final targetAmountChanged =
-                          targetAmount != target.targetAmount;
-
-                      SalesTarget updatedTarget;
-                      if (actualAmountChanged && actualAmount > 0) {
-                        // Only recalculate status when actual sales amount changes AND there's actual activity
-                        updatedTarget = baseUpdatedTarget.calculateResults();
-                      } else if (actualAmountChanged && actualAmount == 0) {
-                        // If sales are reset to 0, set back to pending (target not started)
-                        updatedTarget = baseUpdatedTarget.copyWith(
-                          status: TargetStatus.pending,
-                          isMet: false,
-                          pointsAwarded: 0,
-                        );
-                      } else {
-                        // Keep existing status if actual amount didn't change or other details changed
-                        // This prevents marking targets as "missed" just for changing target amount or other details
-                        updatedTarget = baseUpdatedTarget;
-                      }
-
-                      // If the target is met and has points, recalculate points using the rules
-                      if (updatedTarget.isMet &&
-                          updatedTarget.actualAmount > 0) {
-                        final effectivePercent = (updatedTarget.actualAmount /
-                                updatedTarget.targetAmount) *
-                            100;
-                        final calculatedPoints = appProvider
-                            .getPointsForEffectivePercent(effectivePercent);
-
-                        // When admin directly sets a met target, mark it as approved
-                        final finalUpdatedTarget = updatedTarget.copyWith(
-                          pointsAwarded: calculatedPoints,
-                          status: TargetStatus.approved,
-                          isApproved: true,
-                          approvedBy: appProvider.currentUser?.id,
-                          approvedAt: DateTime.now(),
-                        );
-                        await appProvider.updateSalesTarget(finalUpdatedTarget);
-                      } else {
-                        // Update the target
-                        await appProvider.updateSalesTarget(updatedTarget);
-                      }
-
-                      // Verify the target was updated correctly
-                      final verifyTarget = appProvider.salesTargets
-                          .firstWhere((t) => t.id == target.id);
-                      print(
-                          'DEBUG: After update - target employeeId: ${verifyTarget.assignedEmployeeId}, employeeName: ${verifyTarget.assignedEmployeeName}');
-
-                      // Close dialog first before showing snackbar
-                      if (context.mounted) {
-                        Navigator.pop(context);
-                      }
-
-                      // Check for team member changes
-                      final originalTeamMembers =
-                          target.collaborativeEmployeeIds.toSet();
-                      final updatedTeamMembers =
-                          verifyTarget.collaborativeEmployeeIds.toSet();
-                      final teamMembersRemoved =
-                          originalTeamMembers.difference(updatedTeamMembers);
-                      final teamMembersAdded =
-                          updatedTeamMembers.difference(originalTeamMembers);
-                      final teamMembersChanged =
-                          teamMembersRemoved.isNotEmpty ||
-                              teamMembersAdded.isNotEmpty;
-
-                      // Get all users for name lookup
-                      final allUsers = await appProvider.getUsers();
-
-                      // Helper function to get user names from IDs
-                      String _getUserNames(Set<String> userIds) {
-                        final names = userIds.map((id) {
-                          final user = allUsers.firstWhere((u) => u.id == id,
-                              orElse: () => User(
-                                    id: id,
-                                    name: 'Unknown User',
-                                    email: '',
-                                    role: UserRole.employee,
-                                    primaryCompanyId: '',
-                                    companyIds: [],
-                                    companyRoles: {},
-                                    createdAt: DateTime.now(),
-                                  ));
-                          return user.name;
-                        }).toList();
-                        return names.join(', ');
-                      }
-
-                      // Show appropriate feedback based on status change
-                      String message;
-                      Color backgroundColor = Colors.green;
-
-                      if (teamMembersChanged) {
-                        if (teamMembersRemoved.isNotEmpty &&
-                            teamMembersAdded.isNotEmpty) {
-                          final addedNames = _getUserNames(teamMembersAdded);
-                          final removedNames =
-                              _getUserNames(teamMembersRemoved);
-                          message =
-                              'Team members updated: Added $addedNames, Removed $removedNames - points adjusted';
-                        } else if (teamMembersRemoved.isNotEmpty) {
-                          final removedNames =
-                              _getUserNames(teamMembersRemoved);
-                          message =
-                              'Team member(s) removed: $removedNames - points withdrawn automatically';
-                        } else {
-                          final addedNames = _getUserNames(teamMembersAdded);
-                          message =
-                              'Team member(s) added: $addedNames - points awarded automatically';
-                        }
-                        backgroundColor = Colors.orange;
-                      } else if (!actualAmountChanged && !targetAmountChanged) {
-                        message = 'Target details updated (no status change)';
-                        backgroundColor = Colors.blue;
-                      } else if (targetAmountChanged && !actualAmountChanged) {
-                        message = 'Target amount updated (status preserved)';
-                        backgroundColor = Colors.blue;
-                      } else if (actualAmountChanged && actualAmount == 0) {
-                        message = 'Sales reset - target back to pending';
-                        backgroundColor = Colors.blue;
-                      } else if (actualAmountChanged &&
-                          updatedTarget.status == TargetStatus.missed) {
-                        message =
-                            'Sales updated and marked as missed (below target)';
-                        backgroundColor = Colors.orange;
-                      } else if (actualAmountChanged &&
-                          updatedTarget.status == TargetStatus.met) {
-                        message = 'Sales updated and marked as completed';
-                        backgroundColor = Colors.green;
-                      } else if (updatedTarget.status ==
-                          TargetStatus.approved) {
-                        message = 'Target updated and approved';
-                        backgroundColor = Colors.green;
-                      } else {
-                        message = 'Target updated successfully';
-                        backgroundColor = Colors.green;
-                      }
-
-                      // Add points adjustment information
-                      final pointsDifference =
-                          updatedTarget.pointsAwarded - target.pointsAwarded;
-                      if (pointsDifference != 0) {
-                        if (pointsDifference > 0) {
-                          message +=
-                              '\n+${pointsDifference} points awarded to employees';
-                        } else {
-                          message +=
-                              '\n${pointsDifference.abs()} points withdrawn from employees';
-                          backgroundColor = Colors.orange;
-                        }
-                      }
-
-                      if (context.mounted) {
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          SnackBar(
-                            content: Text(message),
-                            backgroundColor: backgroundColor,
-                            duration: const Duration(seconds: 4),
-                          ),
-                        );
-                      }
-                    } catch (e) {
-                      // Error occurred during update
-                      if (context.mounted) {
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          SnackBar(
-                            content: Text('Error updating target: $e'),
-                            backgroundColor: Colors.red,
-                            duration: const Duration(seconds: 4),
-                          ),
-                        );
-                      }
-                    } finally {
-                      // Dispose controllers after all operations are complete
-                      // Use a small delay to ensure all UI operations are done
-                      Future.delayed(const Duration(milliseconds: 100), () {
-                        try {
-                          targetAmountController.dispose();
-                        } catch (e) {
-                          // Already disposed, ignore
-                        }
-                        try {
-                          actualAmountController.dispose();
-                        } catch (e) {
-                          // Already disposed, ignore
-                        }
-                        try {
-                          teamMemberSearchController.dispose();
-                        } catch (e) {
-                          // Already disposed, ignore
-                        }
-                      });
                     }
-                  },
-                  style: TextButton.styleFrom(
-                    padding:
-                        const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                    minimumSize: Size.zero,
-                    tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                  ),
-                  child: isSaving
-                      ? const SizedBox(
-                          width: 14,
-                          height: 14,
-                          child: CircularProgressIndicator(
-                            strokeWidth: 2,
-                            valueColor:
-                                AlwaysStoppedAnimation<Color>(Colors.white),
-                          ),
-                        )
-                      : const Text('Update', style: TextStyle(fontSize: 13)),
+                  } catch (e) {
+                    // Error occurred during update
+                    if (context.mounted) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(
+                          content: Text('Error updating target: $e'),
+                          backgroundColor: Colors.red,
+                          duration: const Duration(seconds: 4),
+                        ),
+                      );
+                    }
+                  } finally {
+                    // Dispose controllers after all operations are complete
+                    // Use a small delay to ensure all UI operations are done
+                    Future.delayed(const Duration(milliseconds: 100), () {
+                      try {
+                        targetAmountController.dispose();
+                      } catch (e) {
+                        // Already disposed, ignore
+                      }
+                      try {
+                        actualAmountController.dispose();
+                      } catch (e) {
+                        // Already disposed, ignore
+                      }
+                      try {
+                        teamMemberSearchController.dispose();
+                      } catch (e) {
+                        // Already disposed, ignore
+                      }
+                    });
+                  }
+                },
+                style: TextButton.styleFrom(
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                  minimumSize: Size.zero,
+                  tapTargetSize: MaterialTapTargetSize.shrinkWrap,
                 ),
-                TextButton(
-                  onPressed: () {
-                    Navigator.pop(context);
-                    _showDeleteTargetDialog(context, target, appProvider);
-                  },
-                  style: TextButton.styleFrom(
-                    foregroundColor: Colors.red,
-                    padding:
-                        const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                    minimumSize: Size.zero,
-                    tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                  ),
-                  child: const Text('Delete Target',
-                      style: TextStyle(fontSize: 13)),
+                child: isSaving
+                    ? const SizedBox(
+                        width: 14,
+                        height: 14,
+                        child: CircularProgressIndicator(
+                          strokeWidth: 2,
+                          valueColor:
+                              AlwaysStoppedAnimation<Color>(Colors.white),
+                        ),
+                      )
+                    : const Text('Update', style: TextStyle(fontSize: 13)),
+              ),
+              TextButton(
+                onPressed: () {
+                  Navigator.pop(context);
+                  _showDeleteTargetDialog(context, target, appProvider);
+                },
+                style: TextButton.styleFrom(
+                  foregroundColor: Colors.red,
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                  minimumSize: Size.zero,
+                  tapTargetSize: MaterialTapTargetSize.shrinkWrap,
                 ),
+                child:
+                    const Text('Delete Target', style: TextStyle(fontSize: 13)),
+              ),
             ],
           ),
         );
@@ -6080,28 +6127,35 @@ class _AdminDashboardState extends State<AdminDashboard> {
       return null;
     }
 
-    return FloatingActionButton.extended(
-      onPressed: () async {
-        int approved = 0;
-        for (final t in approvableTargets) {
-          try {
-            final req = appProvider.approvalRequests.firstWhere((r) =>
-                r.targetId == t.id &&
-                r.type == ApprovalRequestType.salesSubmission &&
-                r.status == ApprovalStatus.pending);
-            await appProvider.approveRequest(req);
-            approved++;
-          } catch (_) {}
-        }
-        if (context.mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text('Approved $approved submission(s)')),
-          );
-        }
-      },
-      icon: const Icon(Icons.check_circle),
-      label: const Text('Approve All'),
-      backgroundColor: Colors.green,
+    return Semantics(
+      identifier: AppSemantics.approveAll,
+      button: true,
+      label: AppSemantics.approveAll,
+      excludeSemantics: true,
+      child: FloatingActionButton.extended(
+        onPressed: () async {
+          int approved = 0;
+          for (final t in approvableTargets) {
+            try {
+              final req = appProvider.approvalRequests.firstWhere((r) =>
+                  r.targetId == t.id &&
+                  r.type == ApprovalRequestType.salesSubmission &&
+                  r.status == ApprovalStatus.pending);
+              await appProvider.approveRequest(req);
+              approved++;
+            } catch (_) {}
+          }
+          if (context.mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(content: Text('Approved $approved submission(s)')),
+            );
+          }
+        },
+        icon: const Icon(Icons.check_circle,
+            semanticLabel: AppSemantics.approveAll),
+        label: const Text('Approve All'),
+        backgroundColor: Colors.green,
+      ),
     );
   }
 

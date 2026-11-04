@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../providers/app_provider.dart';
+import '../utils/app_semantics.dart';
 import '../models/user.dart';
 import '../models/company.dart';
 import '../models/subscription_tier.dart';
@@ -27,53 +28,71 @@ class _SuperAdminDashboardState extends State<SuperAdminDashboard> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(
-        title: const Text('Platform Administration'),
-        backgroundColor: Colors.deepPurple,
-        foregroundColor: Colors.white,
-        elevation: 0,
-        actions: [],
-      ),
-      body: IndexedStack(
-        index: _selectedIndex,
-        children: [
-          _buildOverviewTab(),
-          _buildCompaniesTab(),
-          _buildSubscriptionsTab(),
-          _buildAnalyticsTab(),
-          _buildSettingsTab(),
-        ],
-      ),
-      bottomNavigationBar: BottomNavigationBar(
-        currentIndex: _selectedIndex,
-        onTap: (index) => setState(() => _selectedIndex = index),
-        type: BottomNavigationBarType.fixed,
-        backgroundColor: Colors.white,
-        selectedItemColor: Colors.deepPurple,
-        unselectedItemColor: Colors.grey,
-        items: const [
-          BottomNavigationBarItem(
-            icon: Icon(Icons.dashboard),
-            label: 'Overview',
+    return Semantics(
+      identifier: AppSemantics.superAdminDashboard,
+      container: true,
+      explicitChildNodes: true,
+      namesRoute: true,
+      label: AppSemantics.superAdminDashboard,
+      child: Scaffold(
+        appBar: AppBar(
+          title: Semantics(
+            header: true,
+            label: AppSemantics.superAdminDashboard,
+            child: const Text('Platform Administration'),
           ),
-          BottomNavigationBarItem(
-            icon: Icon(Icons.business),
-            label: 'Companies',
+          backgroundColor: Colors.deepPurple,
+          foregroundColor: Colors.white,
+          elevation: 0,
+          actions: [],
+        ),
+        body: IndexedStack(
+          index: _selectedIndex,
+          children: [
+            _buildOverviewTab(),
+            _buildCompaniesTab(),
+            _buildSubscriptionsTab(),
+            _buildAnalyticsTab(),
+            _buildSettingsTab(),
+          ],
+        ),
+        bottomNavigationBar: Semantics(
+          identifier: AppSemantics.superAdminNavigation,
+          container: true,
+          explicitChildNodes: true,
+          label: AppSemantics.superAdminNavigation,
+          child: BottomNavigationBar(
+            currentIndex: _selectedIndex,
+            onTap: (index) => setState(() => _selectedIndex = index),
+            type: BottomNavigationBarType.fixed,
+            backgroundColor: Colors.white,
+            selectedItemColor: Colors.deepPurple,
+            unselectedItemColor: Colors.grey,
+            items: const [
+              BottomNavigationBarItem(
+                icon: Icon(Icons.dashboard, semanticLabel: 'Overview'),
+                label: 'Overview',
+              ),
+              BottomNavigationBarItem(
+                icon: Icon(Icons.business, semanticLabel: 'Companies'),
+                label: 'Companies',
+              ),
+              BottomNavigationBarItem(
+                icon: Icon(Icons.subscriptions, semanticLabel: 'Subscriptions'),
+                label: 'Subscriptions',
+              ),
+              BottomNavigationBarItem(
+                icon: Icon(Icons.analytics, semanticLabel: 'Analytics'),
+                label: 'Analytics',
+              ),
+              BottomNavigationBarItem(
+                icon:
+                    Icon(Icons.settings, semanticLabel: AppSemantics.settings),
+                label: 'Settings',
+              ),
+            ],
           ),
-          BottomNavigationBarItem(
-            icon: Icon(Icons.subscriptions),
-            label: 'Subscriptions',
-          ),
-          BottomNavigationBarItem(
-            icon: Icon(Icons.analytics),
-            label: 'Analytics',
-          ),
-          BottomNavigationBarItem(
-            icon: Icon(Icons.settings),
-            label: 'Settings',
-          ),
-        ],
+        ),
       ),
     );
   }
@@ -573,14 +592,20 @@ class _SuperAdminDashboardState extends State<SuperAdminDashboard> {
                   'Active Subscriptions',
                   style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
                 ),
-                ElevatedButton.icon(
-                  onPressed: () => _showCreateSubscriptionDialog(
-                      companies, tiers, appProvider),
-                  icon: const Icon(Icons.add),
-                  label: const Text('New Subscription'),
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: Colors.deepPurple,
-                    foregroundColor: Colors.white,
+                Semantics(
+                  identifier: AppSemantics.newSubscription,
+                  button: true,
+                  label: AppSemantics.newSubscription,
+                  excludeSemantics: true,
+                  child: ElevatedButton.icon(
+                    onPressed: () => _showCreateSubscriptionDialog(
+                        companies, tiers, appProvider),
+                    icon: const Icon(Icons.add),
+                    label: const Text('New Subscription'),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: Colors.deepPurple,
+                      foregroundColor: Colors.white,
+                    ),
                   ),
                 ),
               ],
@@ -2201,21 +2226,27 @@ class _SuperAdminDashboardState extends State<SuperAdminDashboard> {
                   const SizedBox(height: 16),
                   SizedBox(
                     width: double.infinity,
-                    child: ElevatedButton.icon(
-                      onPressed: () {
-                        Navigator.push(
-                          context,
-                          MaterialPageRoute(
-                            builder: (context) => const BankAccountsScreen(),
-                          ),
-                        );
-                      },
-                      icon: const Icon(Icons.account_balance),
-                      label: const Text('Manage Bank Accounts'),
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: Colors.blue[600],
-                        foregroundColor: Colors.white,
-                        padding: const EdgeInsets.symmetric(vertical: 12),
+                    child: Semantics(
+                      identifier: AppSemantics.manageBankAccounts,
+                      button: true,
+                      label: AppSemantics.manageBankAccounts,
+                      excludeSemantics: true,
+                      child: ElevatedButton.icon(
+                        onPressed: () {
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (context) => const BankAccountsScreen(),
+                            ),
+                          );
+                        },
+                        icon: const Icon(Icons.account_balance),
+                        label: const Text('Manage Bank Accounts'),
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: Colors.blue[600],
+                          foregroundColor: Colors.white,
+                          padding: const EdgeInsets.symmetric(vertical: 12),
+                        ),
                       ),
                     ),
                   ),
@@ -2261,17 +2292,23 @@ class _SuperAdminDashboardState extends State<SuperAdminDashboard> {
                   const SizedBox(height: 16),
                   SizedBox(
                     width: double.infinity,
-                    child: ElevatedButton.icon(
-                      onPressed: () async {
-                        final appProvider = context.read<AppProvider>();
-                        await appProvider.logout();
-                      },
-                      icon: const Icon(Icons.logout),
-                      label: const Text('Logout'),
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: Colors.red[600],
-                        foregroundColor: Colors.white,
-                        padding: const EdgeInsets.symmetric(vertical: 12),
+                    child: Semantics(
+                      identifier: AppSemantics.logout,
+                      button: true,
+                      label: AppSemantics.logout,
+                      excludeSemantics: true,
+                      child: ElevatedButton.icon(
+                        onPressed: () async {
+                          final appProvider = context.read<AppProvider>();
+                          await appProvider.logout();
+                        },
+                        icon: const Icon(Icons.logout),
+                        label: const Text('Logout'),
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: Colors.red[600],
+                          foregroundColor: Colors.white,
+                          padding: const EdgeInsets.symmetric(vertical: 12),
+                        ),
                       ),
                     ),
                   ),
@@ -2325,37 +2362,42 @@ class _SuperAdminDashboardState extends State<SuperAdminDashboard> {
 
   Widget _buildStatCard(
       String title, String value, IconData icon, Color color) {
-    return Card(
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              children: [
-                Icon(icon, color: color, size: 24),
-                const SizedBox(width: 8),
-                Expanded(
-                  child: Text(
-                    title,
-                    style: const TextStyle(
-                      fontSize: 14,
-                      fontWeight: FontWeight.w500,
+    return Semantics(
+      container: true,
+      label: title,
+      value: value,
+      child: Card(
+        child: Padding(
+          padding: const EdgeInsets.all(16),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  Icon(icon, color: color, size: 24, semanticLabel: title),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      title,
+                      style: const TextStyle(
+                        fontSize: 14,
+                        fontWeight: FontWeight.w500,
+                      ),
                     ),
                   ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 8),
-            Text(
-              value,
-              style: TextStyle(
-                fontSize: 24,
-                fontWeight: FontWeight.bold,
-                color: color,
+                ],
               ),
-            ),
-          ],
+              const SizedBox(height: 8),
+              Text(
+                value,
+                style: TextStyle(
+                  fontSize: 24,
+                  fontWeight: FontWeight.bold,
+                  color: color,
+                ),
+              ),
+            ],
+          ),
         ),
       ),
     );
