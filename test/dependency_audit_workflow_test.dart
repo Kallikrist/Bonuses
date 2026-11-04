@@ -105,8 +105,9 @@ void main() {
       expect(auditWorkflow, contains('upload-sarif: false'));
     });
 
-    test('uses Flutter beta and read-only contents by default', () {
-      expect(auditWorkflow, contains('channel: beta'));
+    test('uses Flutter 3.27.4 stable and read-only contents by default', () {
+      expect(auditWorkflow, contains('channel: stable'));
+      expect(auditWorkflow, contains("flutter-version: '3.27.4'"));
       expect(
         auditWorkflow,
         contains(RegExp(r'^permissions:\s*$', multiLine: true)),
