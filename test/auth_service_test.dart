@@ -278,15 +278,68 @@ void main() {
       expect(AuthService.currentUser!.role, UserRole.admin);
     });
 
-    test('Super admin email bypass works', () async {
-      // Test explicit email check for super admin
+    test('Super admin role bypasses company status, not email', () async {
       final success = await AuthService.login(
         'superadmin@platform.com',
         'superadmin123',
       );
 
       expect(success, true);
-      expect(AuthService.currentUser!.email, 'superadmin@platform.com');
+      expect(AuthService.currentUser!.role, UserRole.superAdmin);
+    });
+
+    test('super admin with a different email can log in without companies',
+        () async {
+      final other = User(
+        id: 'other_superadmin',
+        name: 'Other Super Admin',
+        email: 'platform.ops@example.com',
+        phoneNumber: '',
+        role: UserRole.superAdmin,
+        createdAt: DateTime.now(),
+        companyIds: [],
+        companyNames: [],
+        primaryCompanyId: '',
+        companyRoles: {},
+        companyPoints: {},
+      );
+      await StorageService.addUser(other);
+      await StorageService.savePassword('other_superadmin', 'password123');
+
+      final success = await AuthService.login(
+        'platform.ops@example.com',
+        'password123',
+      );
+      expect(success, true);
+      expect(AuthService.currentUser!.role, UserRole.superAdmin);
+    });
+
+    test('demo super-admin email does not skip the gate without the role',
+        () async {
+      final impostor = User(
+        id: 'impostor_employee',
+        name: 'Not Super Admin',
+        email: 'superadmin@platform.com',
+        phoneNumber: '',
+        role: UserRole.employee,
+        createdAt: DateTime.now(),
+        companyIds: [],
+        companyNames: [],
+        primaryCompanyId: '',
+        companyRoles: {},
+        companyPoints: {},
+      );
+      // Replace the seeded super-admin so this email is an employee.
+      await StorageService.deleteUser('superadmin_status_test');
+      await StorageService.addUser(impostor);
+      await StorageService.savePassword('impostor_employee', 'password123');
+
+      final success = await AuthService.login(
+        'superadmin@platform.com',
+        'password123',
+      );
+      expect(success, isFalse);
+      expect(AuthService.currentUser, isNull);
     });
   });
 

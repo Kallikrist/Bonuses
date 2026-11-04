@@ -16,6 +16,7 @@ import 'services/stripe_service.dart';
 import 'services/supabase_service.dart';
 import 'services/supabase_migration_service.dart';
 import 'utils/splash_company_name.dart';
+import 'utils/super_admin_routing.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -175,9 +176,8 @@ class _AppWrapperState extends State<AppWrapper> {
           return const LoginScreen();
         }
 
-        // For company status check, we'll use a FutureBuilder to handle async operations
-        if (appProvider.currentUser!.role != UserRole.superAdmin &&
-            appProvider.currentUser!.email != 'superadmin@platform.com') {
+        // Super-admin routing is role-only; other roles need an active company.
+        if (!skipsCompanyStatusCheck(appProvider.currentUser!)) {
           return FutureBuilder<List<Company>>(
             future: _getUserActiveCompanies(appProvider),
             builder: (context, snapshot) {
@@ -226,7 +226,7 @@ class _AppWrapperState extends State<AppWrapper> {
           );
         }
 
-        // Super admin or no company check needed
+        // Super admin (role only) — no company-status gate
         return _buildDashboardForUser(appProvider.currentUser!.role);
       },
     );
