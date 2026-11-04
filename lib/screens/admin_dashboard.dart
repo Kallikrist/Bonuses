@@ -30,6 +30,8 @@ import 'admin_subscription_screen.dart';
 import 'payment_cards_screen.dart';
 import 'financial_transactions_screen.dart';
 import '../models/company_subscription.dart';
+import '../config/app_config.dart';
+import '../utils/demo_billing.dart';
 
 class EmployeePerformance {
   final String employeeId;
@@ -5763,50 +5765,35 @@ class _AdminDashboardState extends State<AdminDashboard> {
   }
 
   Future<List<CompanySubscription>> _getSubscriptionsWithUpdate() async {
-    // Force update the Utilif subscription to ensure it's $1 past due
-    await StorageService.forceUpdateUtilifSubscription();
+    await StorageService.healDemoPastDueFixture();
     return await StorageService.getSubscriptions();
   }
 
   Widget _buildSubscriptionStatusBanner(AppProvider appProvider) {
     return FutureBuilder<List<CompanySubscription>>(
-      future: StorageService.getSubscriptions(),
+      future: _getSubscriptionsWithUpdate(),
       builder: (context, snapshot) {
-        print('DEBUG: Banner - Connection state: ${snapshot.connectionState}');
         if (snapshot.connectionState == ConnectionState.waiting) {
           return const SizedBox.shrink();
         }
 
         if (!snapshot.hasData || snapshot.data!.isEmpty) {
-          print('DEBUG: Banner - No subscription data available');
           return const SizedBox.shrink();
         }
 
         final subscriptions = snapshot.data!;
-        print('DEBUG: Banner - Found ${subscriptions.length} subscriptions');
         final currentCompanyId = appProvider.currentUser?.primaryCompanyId;
-        print('DEBUG: Banner - Current company ID: $currentCompanyId');
-        if (currentCompanyId == null) {
-          print('DEBUG: Banner - No current company ID');
+        if (!shouldShowPaymentRequiredBanner(
+          demoMode: AppConfig.demoMode,
+          companyId: currentCompanyId,
+          subscriptions: subscriptions,
+        )) {
           return const SizedBox.shrink();
         }
 
         final companySubscription = subscriptions.firstWhere(
           (sub) => sub.companyId == currentCompanyId,
-          orElse: () => subscriptions.first,
         );
-        print(
-            'DEBUG: Banner - Company subscription status: ${companySubscription.status}');
-        print(
-            'DEBUG: Banner - Company subscription price: \$${companySubscription.currentPrice}');
-
-        // Only show banner for past due subscriptions
-        if (companySubscription.status != SubscriptionStatus.pastDue) {
-          print('DEBUG: Banner - Subscription is not past due, hiding banner');
-          return const SizedBox.shrink();
-        }
-
-        print('DEBUG: Banner - Showing payment required banner');
 
         return Container(
           margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
@@ -5855,29 +5842,6 @@ class _AdminDashboardState extends State<AdminDashboard> {
                   minimumSize: const Size(0, 32),
                 ),
                 child: const Text('Pay Now', style: TextStyle(fontSize: 12)),
-              ),
-              const SizedBox(width: 4),
-              // Debug button to reset subscription for testing Apple Pay
-              ElevatedButton(
-                onPressed: () async {
-                  await StorageService.resetUtilifSubscriptionForTesting();
-                  setState(() {});
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(
-                      content:
-                          Text('Subscription reset to past due for testing'),
-                      backgroundColor: Colors.blue,
-                    ),
-                  );
-                },
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: Colors.blue[600],
-                  foregroundColor: Colors.white,
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
-                  minimumSize: const Size(0, 32),
-                ),
-                child: const Text('Reset', style: TextStyle(fontSize: 12)),
               ),
             ],
           ),
