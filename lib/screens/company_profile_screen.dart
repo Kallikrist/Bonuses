@@ -4,7 +4,8 @@ import '../providers/app_provider.dart';
 import '../models/company.dart';
 import '../models/workplace.dart';
 import '../models/user.dart';
-import 'admin_dashboard.dart'; // For StoreProfileScreen, EmployeeProfileScreen, and EmployeesListScreen
+import 'admin_dashboard.dart'; // For StoreProfileScreen
+import 'employees_list_screen.dart';
 
 class CompanyProfileScreen extends StatefulWidget {
   final Company company;

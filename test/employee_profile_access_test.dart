@@ -4,7 +4,8 @@ import 'package:provider/provider.dart';
 import 'package:bonuses/providers/app_provider.dart';
 import 'package:bonuses/models/user.dart';
 import 'package:bonuses/models/company.dart';
-import 'package:bonuses/screens/admin_dashboard.dart';
+import 'package:bonuses/screens/employee_profile_screen.dart';
+import 'package:bonuses/screens/employees_list_screen.dart';
 import 'package:bonuses/services/storage_service.dart';
 import 'test_helpers.dart';
 
