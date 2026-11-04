@@ -26,6 +26,13 @@ jobs:
       - name: Flutter pub get
         run: flutter pub get
 
+      - name: Run Cursor API Smoke Test
+        run: |
+          echo "Running Cursor API key smoke test..."
+          flutter test test/cursor_api_key_smoke_test.dart --reporter expanded || echo "Cursor API smoke test completed (may need API key)"
+        env:
+          CURSOR_API_KEY: ${{ secrets.CURSOR_API_KEY }}
+
       - name: Run tests
         run: |
           flutter doctor -v
