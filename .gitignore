@@ -70,8 +70,10 @@ firebase_options.dart
 supabase_config.dart
 # Note: lib/services/supabase_service.dart is NOT ignored - it uses AppConfig with env vars
 
-# Stripe key files (service source is tracked; keys come from AppConfig dart-defines)
+# Stripe key files (service source is tracked; publishable key via AppConfig dart-define)
 stripe_config.dart
+# Function secrets such as STRIPE_SECRET_KEY live in supabase/functions/.env
+# (`*.env` above already ignores that file).
 
 # Debug and test files with sensitive data
 lib/test_*.dart

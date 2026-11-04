@@ -2,8 +2,9 @@
 ///
 /// Credentials are never hardcoded. Provide them when running:
 /// `flutter run --dart-define=SUPABASE_URL=... --dart-define=SUPABASE_ANON_KEY=...`
-/// Optional Stripe (still mock in the services unless you implement live payments):
-/// `--dart-define=STRIPE_PUBLISHABLE_KEY=... --dart-define=STRIPE_SECRET_KEY=...`
+/// Optional Stripe publishable key (client-safe). The Stripe **secret** key
+/// must not be passed to the app; it lives in the `stripe-secret` Edge Function.
+/// `--dart-define=STRIPE_PUBLISHABLE_KEY=...`
 class AppConfig {
   AppConfig._();
 
@@ -19,11 +20,6 @@ class AppConfig {
 
   static const String stripePublishableKey = String.fromEnvironment(
     'STRIPE_PUBLISHABLE_KEY',
-    defaultValue: '',
-  );
-
-  static const String stripeSecretKey = String.fromEnvironment(
-    'STRIPE_SECRET_KEY',
     defaultValue: '',
   );
 
@@ -48,4 +44,8 @@ class AppConfig {
     }
     return true;
   }
+
+  /// Secret-key Stripe calls stay on the local mock path unless demo is off
+  /// and Supabase is configured. The Edge Function then holds `STRIPE_SECRET_KEY`.
+  static bool get useMockStripe => demoMode || !isSupabaseConfigured;
 }

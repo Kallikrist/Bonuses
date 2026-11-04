@@ -69,7 +69,7 @@
 
 3. ✅ **Services updated to use AppConfig:**
    - ✅ `supabase_service.dart` uses `AppConfig.supabaseUrl` and `AppConfig.supabaseAnonKey`
-   - ✅ `stripe_service.dart` uses `AppConfig.stripePublishableKey` / `AppConfig.stripeSecretKey`
+   - ✅ `stripe_service.dart` uses `AppConfig.stripePublishableKey` only; Stripe secret stays in the `stripe-secret` Edge Function
    - ✅ `payment_service.dart` is mock/local only (no live keys)
    - ✅ No hardcoded live secrets; values come from `--dart-define` flags
 
