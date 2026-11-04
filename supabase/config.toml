@@ -14,3 +14,10 @@ enabled = true
 # Same local-auth constraint as stripe-secret. JWT gate is BON-12 (paused).
 verify_jwt = false
 entrypoint = "./functions/kling-secret/index.ts"
+
+[functions.kling-webhook]
+enabled = true
+# Kling POSTs with X-Kling-Signature, not a Supabase user JWT.
+# Gateway still requires the project anon/publishable apikey (query or header).
+verify_jwt = false
+entrypoint = "./functions/kling-webhook/index.ts"
