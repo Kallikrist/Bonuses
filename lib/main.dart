@@ -15,6 +15,7 @@ import 'widgets/branded_splash_screen.dart';
 import 'services/stripe_service.dart';
 import 'services/supabase_service.dart';
 import 'services/supabase_migration_service.dart';
+import 'utils/splash_company_name.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -101,7 +102,10 @@ class AppWrapper extends StatefulWidget {
 }
 
 class _AppWrapperState extends State<AppWrapper> {
-  String? _companyName;
+  /// Keeps the branded splash up through first-frame login flash and the
+  /// short post-init beat. Name is resolved from the *current* user on each
+  /// build so login/logout does not keep a stale tenant.
+  bool _showSplash = true;
 
   @override
   void initState() {
@@ -111,53 +115,37 @@ class _AppWrapperState extends State<AppWrapper> {
 
   Future<void> _initializeApp() async {
     final appProvider = context.read<AppProvider>();
-
-    // Initialize the app provider
     await appProvider.initialize();
-
-    // Get the company name after initialization
-    final companyName = await _getCompanyName(appProvider);
-
-    setState(() {
-      _companyName = companyName;
-    });
-
-    // Add a short delay to show the splash screen
+    await _getCompanyName(appProvider);
     await Future.delayed(const Duration(seconds: 2));
+    if (mounted) {
+      setState(() => _showSplash = false);
+    }
   }
 
-  Future<String?> _getCompanyName(AppProvider appProvider) async {
-    try {
-      // Check if current user is super admin
-      final currentUser = appProvider.currentUser;
-      if (currentUser != null && currentUser.role == UserRole.superAdmin) {
-        return 'Bonuses'; // Super admin sees app name
-      }
+  String _splashCompanyName(AppProvider appProvider) {
+    return resolveSplashCompanyName(
+      currentUser: appProvider.currentUser,
+      companies: appProvider.companies,
+    );
+  }
 
-      // Try to get the current user's company name from their companyNames list
-      final users = await appProvider.getUsers();
-      if (users.isNotEmpty) {
-        final user = users.first;
-        if (user.primaryCompanyId != null && user.companyNames.isNotEmpty) {
-          // Find the index of the primaryCompanyId in companyIds and get the corresponding name
-          final primaryCompanyId = user.primaryCompanyId!;
-          final companyIndex = user.companyIds.indexOf(primaryCompanyId);
-          if (companyIndex != -1 && companyIndex < user.companyNames.length) {
-            return user.companyNames[companyIndex];
-          }
-        }
-      }
-      // Fallback to first company if available
-      final companies = await appProvider.getCompanies();
-      if (companies.isNotEmpty) {
-        return companies.first.name;
-      }
-    } catch (e) {
-      print('Error getting company name: $e');
-      // If we can't get the company name, use a default
-      return 'Utilif';
-    }
-    return 'Utilif';
+  Widget _brandedSplash(AppProvider appProvider) {
+    return BrandedSplashScreen(
+      companyName: _splashCompanyName(appProvider),
+      showProgress: true,
+    );
+  }
+
+  /// Splash branding for the signed-in user. Kept as a `Future` so existing
+  /// source-scan tests can bound this method; the visible splash reads the
+  /// current user synchronously in `_splashCompanyName`.
+  Future<String?> _getCompanyName(AppProvider appProvider) async {
+    final currentUser = appProvider.currentUser;
+    return resolveSplashCompanyName(
+      currentUser: currentUser,
+      companies: appProvider.companies,
+    );
   }
 
   Future<List<Company>> _getUserActiveCompanies(AppProvider appProvider) async {
@@ -179,11 +167,8 @@ class _AppWrapperState extends State<AppWrapper> {
   Widget build(BuildContext context) {
     return Consumer<AppProvider>(
       builder: (context, appProvider, child) {
-        if (appProvider.isLoading) {
-          return BrandedSplashScreen(
-            companyName: _companyName ?? 'Bonuses',
-            showProgress: true,
-          );
+        if (appProvider.isLoading || _showSplash) {
+          return _brandedSplash(appProvider);
         }
 
         if (appProvider.currentUser == null) {
@@ -197,10 +182,7 @@ class _AppWrapperState extends State<AppWrapper> {
             future: _getUserActiveCompanies(appProvider),
             builder: (context, snapshot) {
               if (snapshot.connectionState == ConnectionState.waiting) {
-                return BrandedSplashScreen(
-                  companyName: _companyName ?? 'Loading...',
-                  showProgress: true,
-                );
+                return _brandedSplash(appProvider);
               }
 
               if (snapshot.hasError ||

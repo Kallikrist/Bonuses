@@ -124,11 +124,11 @@ void main() {
 
     test('Employee can log in successfully with correct credentials', () async {
       // Test successful employee login
-      final success = await appProvider.login('john@store.com', 'password123');
+      final success = await appProvider.login('john.doe@example.com', 'password123');
 
       expect(success, isTrue);
       expect(appProvider.currentUser, isNotNull);
-      expect(appProvider.currentUser?.email, equals('john@store.com'));
+      expect(appProvider.currentUser?.email, equals('john.doe@example.com'));
       expect(appProvider.currentUser?.name, equals('John Doe'));
       expect(appProvider.isAdmin, isFalse);
       expect(appProvider.isEmployee, isTrue);
@@ -136,11 +136,11 @@ void main() {
 
     test('Employee can log in with different employee credentials', () async {
       // Test successful login with another employee
-      final success = await appProvider.login('jane@store.com', 'password123');
+      final success = await appProvider.login('jane.smith@example.com', 'password123');
 
       expect(success, isTrue);
       expect(appProvider.currentUser, isNotNull);
-      expect(appProvider.currentUser?.email, equals('jane@store.com'));
+      expect(appProvider.currentUser?.email, equals('jane.smith@example.com'));
       expect(appProvider.currentUser?.name, equals('Jane Smith'));
       expect(appProvider.isAdmin, isFalse);
       expect(appProvider.isEmployee, isTrue);
@@ -149,7 +149,7 @@ void main() {
     test('Employee login with invalid password fails', () async {
       // Test failed login with wrong password
       final success =
-          await appProvider.login('john@store.com', 'wrongpassword');
+          await appProvider.login('john.doe@example.com', 'wrongpassword');
 
       expect(success, isFalse);
       expect(appProvider.currentUser, isNull);
@@ -171,10 +171,10 @@ void main() {
     test('Employee can logout successfully when logged in', () async {
       // First login successfully as employee
       final loginSuccess =
-          await appProvider.login('john@store.com', 'password123');
+          await appProvider.login('john.doe@example.com', 'password123');
       expect(loginSuccess, isTrue);
       expect(appProvider.currentUser, isNotNull);
-      expect(appProvider.currentUser?.email, equals('john@store.com'));
+      expect(appProvider.currentUser?.email, equals('john.doe@example.com'));
       expect(appProvider.currentUser?.name, equals('John Doe'));
       expect(appProvider.isAdmin, isFalse);
       expect(appProvider.isEmployee, isTrue);
@@ -189,7 +189,7 @@ void main() {
     test('Employee can logout successfully', () async {
       // First login successfully
       final loginSuccess =
-          await appProvider.login('john@store.com', 'password123');
+          await appProvider.login('john.doe@example.com', 'password123');
       expect(loginSuccess, isTrue);
       expect(appProvider.currentUser, isNotNull);
       expect(appProvider.isEmployee, isTrue);
@@ -203,7 +203,7 @@ void main() {
 
     test('Employee user has correct workplace information', () async {
       // Login as employee
-      final success = await appProvider.login('john@store.com', 'password123');
+      final success = await appProvider.login('john.doe@example.com', 'password123');
       expect(success, isTrue);
 
       final user = appProvider.currentUser;
@@ -216,18 +216,18 @@ void main() {
 
     test('Multiple employees can login with different credentials', () async {
       // Login as first employee
-      final success1 = await appProvider.login('john@store.com', 'password123');
+      final success1 = await appProvider.login('john.doe@example.com', 'password123');
       expect(success1, isTrue);
-      expect(appProvider.currentUser?.email, equals('john@store.com'));
+      expect(appProvider.currentUser?.email, equals('john.doe@example.com'));
 
       // Logout
       await appProvider.logout();
       expect(appProvider.currentUser, isNull);
 
       // Login as second employee
-      final success2 = await appProvider.login('jane@store.com', 'password123');
+      final success2 = await appProvider.login('jane.smith@example.com', 'password123');
       expect(success2, isTrue);
-      expect(appProvider.currentUser?.email, equals('jane@store.com'));
+      expect(appProvider.currentUser?.email, equals('jane.smith@example.com'));
       expect(appProvider.currentUser?.name, equals('Jane Smith'));
     });
   });

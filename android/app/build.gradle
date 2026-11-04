@@ -5,6 +5,25 @@ plugins {
     id "dev.flutter.flutter-gradle-plugin"
 }
 
+def keystoreProperties = new Properties()
+def keystorePropertiesFile = rootProject.file("key.properties")
+if (keystorePropertiesFile.exists()) {
+    keystoreProperties.load(new FileInputStream(keystorePropertiesFile))
+}
+
+def envStorePath = System.getenv("ANDROID_KEYSTORE_PATH")
+def releaseStoreFile = null
+if (envStorePath != null && !envStorePath.isEmpty()) {
+    releaseStoreFile = file(envStorePath)
+    if (!releaseStoreFile.exists()) {
+        throw new GradleException("ANDROID_KEYSTORE_PATH is set but the file does not exist: ${envStorePath}")
+    }
+} else if (keystoreProperties["storeFile"] != null) {
+    releaseStoreFile = file(keystoreProperties["storeFile"])
+}
+
+def useReleaseKeystore = releaseStoreFile != null && releaseStoreFile.exists()
+
 android {
     namespace = "com.bonuses.app.bonuses"
     compileSdk = 35
@@ -30,11 +49,26 @@ android {
         versionName = flutter.versionName
     }
 
+    signingConfigs {
+        release {
+            if (useReleaseKeystore) {
+                keyAlias = System.getenv("ANDROID_KEY_ALIAS") ?: keystoreProperties["keyAlias"]
+                keyPassword = System.getenv("ANDROID_KEY_PASSWORD") ?: keystoreProperties["keyPassword"]
+                storeFile = releaseStoreFile
+                storePassword = System.getenv("ANDROID_KEYSTORE_PASSWORD") ?: keystoreProperties["storePassword"]
+            }
+        }
+    }
+
     buildTypes {
         release {
-            // TODO: Add your own signing config for the release build.
-            // Signing with the debug keys for now, so `flutter run --release` works.
-            signingConfig = signingConfigs.debug
+            if (useReleaseKeystore) {
+                signingConfig = signingConfigs.release
+            } else {
+                // Local `flutter run --release` still works without a keystore.
+                // CI must set ANDROID_KEYSTORE_PATH so App Distribution is not debug-signed.
+                signingConfig = signingConfigs.debug
+            }
         }
     }
 }

@@ -1,2 +1,4 @@
 #include? "Pods/Target Support Files/Pods-Runner/Pods-Runner.release.xcconfig"
 #include "Generated.xcconfig"
+// Written by CI (ios/Flutter/CodeSign.ci.xcconfig). Absent for local builds.
+#include? "CodeSign.ci.xcconfig"

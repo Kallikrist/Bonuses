@@ -1,0 +1,73 @@
+# BON-17: weekly dependency freshness + advisory scan.
+# Separate from product tests (.github/workflows/flutter-tests.yml) and
+# from any TestFlight/distribution workflow. No secrets.
+#
+# flutter pub outdated is a report (non-zero only if the command crashes).
+# Advisories fail the job: pub client output, dart pub audit when present,
+# and OSV on pubspec.lock.
+
+name: Weekly dependency and security audit
+
+on:
+  schedule:
+    - cron: '0 6 * * 1' # Monday 06:00 UTC
+  workflow_dispatch:
+  pull_request:
+    paths:
+      - 'pubspec.yaml'
+      - 'pubspec.lock'
+      - 'scripts/dependency_audit.sh'
+      - '.github/dependabot.yml'
+      - '.github/workflows/dependency-audit.yml'
+  push:
+    branches: [main]
+    paths:
+      - 'pubspec.yaml'
+      - 'pubspec.lock'
+      - 'scripts/dependency_audit.sh'
+      - '.github/dependabot.yml'
+      - '.github/workflows/dependency-audit.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  pub-audit:
+    name: Pub outdated and advisories
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          flutter-version: '3.27.4'
+
+      - name: Flutter pub outdated and pub advisories
+        run: ./scripts/dependency_audit.sh
+
+      - name: Upload pub audit logs
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: pub-audit-logs
+          path: build/audit
+          if-no-files-found: warn
+
+  osv-scan:
+    name: OSV advisory scan
+    uses: google/osv-scanner-action/.github/workflows/osv-scanner-reusable.yml@v2.7.0
+    permissions:
+      # Callee job declares these. SARIF upload is off; write is unused.
+      actions: read
+      contents: read
+      security-events: write
+    with:
+      scan-args: |-
+        --lockfile=pubspec.lock
+      # Code Scanning / GHAS is not required. Fail the job on vulns
+      # via the Actions log instead of uploading SARIF.
+      upload-sarif: false
+      fail-on-vuln: true

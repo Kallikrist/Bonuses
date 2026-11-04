@@ -6,6 +6,7 @@ import 'dart:io';
 import '../providers/app_provider.dart';
 import '../models/user.dart';
 import '../models/company.dart';
+import '../services/imported_employee_login.dart';
 
 class ImportEmployeesScreen extends StatefulWidget {
   final AppProvider appProvider;
@@ -185,6 +186,9 @@ class _ImportEmployeesScreenState extends State<ImportEmployeesScreen> {
 
         // If user exists
         if (existingUser.id.isNotEmpty) {
+          // Repair previously imported staff who were created without a password.
+          await ensureImportedEmployeePassword(existingUser.id);
+
           // Check if already in this company
           if (_selectedCompanyId != null &&
               existingUser.companyIds.contains(_selectedCompanyId)) {
@@ -228,6 +232,7 @@ class _ImportEmployeesScreenState extends State<ImportEmployeesScreen> {
         );
 
         await widget.appProvider.addUser(newEmployee);
+        await ensureImportedEmployeePassword(newEmployee.id);
 
         // Add initial points if any
         final points = data['points'] as int;
@@ -258,6 +263,9 @@ class _ImportEmployeesScreenState extends State<ImportEmployeesScreen> {
         }
         if (skipped > 0) {
           message += ' ($skipped skipped - already in this company)';
+        }
+        if (imported > 0) {
+          message += '. Default password: $kImportedEmployeeDefaultPassword';
         }
 
         ScaffoldMessenger.of(context).showSnackBar(
@@ -339,7 +347,7 @@ class _ImportEmployeesScreenState extends State<ImportEmployeesScreen> {
                           Text(
                             '• First row should contain headers\n'
                             '• Employees with existing emails will be skipped\n'
-                            '• Default password will be "changeme123"',
+                            '• New employees can log in with their email and default password "$kImportedEmployeeDefaultPassword"',
                             style: TextStyle(
                               fontSize: 12,
                               color: Colors.grey[700],
@@ -523,8 +531,8 @@ class _ImportEmployeesScreenState extends State<ImportEmployeesScreen> {
                               child: SingleChildScrollView(
                                 scrollDirection: Axis.horizontal,
                                 child: DataTable(
-                                  headingRowColor: WidgetStateProperty.all(
-                                      Colors.grey[100]),
+                                  headingRowColor:
+                                      WidgetStateProperty.all(Colors.grey[100]),
                                   columns: const [
                                     DataColumn(
                                         label: Text('Name',
