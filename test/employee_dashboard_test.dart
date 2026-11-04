@@ -30,6 +30,9 @@ void main() {
     bool withBonus = true,
   }) async {
     await StorageService.clearAllData();
+    // clearAllData does not reset per-user selected date or dark mode.
+    await StorageService.clearSelectedDate('ed_employee');
+    await StorageService.setDarkMode(false);
 
     company = Company(
       id: 'ed_company',
@@ -224,6 +227,28 @@ void main() {
       expect(find.text('Settings & Analytics').hitTestable(), findsOneWidget);
       expect(find.text('Personal Settings').hitTestable(), findsOneWidget);
     });
+
+    testWidgets('header shortcuts include Calendar and Messages',
+        (tester) async {
+      await pumpDashboard(tester);
+
+      expect(find.text('Calendar').hitTestable(), findsOneWidget);
+      expect(find.text('Messages').hitTestable(), findsOneWidget);
+      // Messages lives in the header; default bottom bar hides it.
+      expect(navIcon(Icons.message), findsNothing);
+    });
+
+    testWidgets('Profile tab shows the employee profile', (tester) async {
+      await pumpDashboard(tester);
+
+      await tester.tap(navIcon(Icons.person));
+      await tester.pump();
+
+      expect(navIndex(tester), 4);
+      expect(find.text('Personal Information').hitTestable(), findsOneWidget);
+      expect(find.text('pat.dashboard@test.com').hitTestable(), findsWidgets);
+      expect(find.text('Full Name').hitTestable(), findsOneWidget);
+    });
   });
 
   group('EmployeeDashboard overview and targets', () {
@@ -263,6 +288,28 @@ void main() {
           find.text('Targets for Selected Date').hitTestable(), findsOneWidget);
       expect(find.text('No sales targets for selected date').hitTestable(),
           findsOneWidget);
+    });
+
+    testWidgets('Submit Sales dialog can be opened and cancelled',
+        (tester) async {
+      await seed();
+      await pumpDashboard(tester);
+
+      expect(find.text('Submit Sales').hitTestable(), findsOneWidget);
+      expect(find.text('Add Team').hitTestable(), findsOneWidget);
+
+      await tester.tap(find.text('Submit Sales').hitTestable());
+      await tester.pump();
+
+      expect(find.widgetWithText(AlertDialog, 'Submit Sales'), findsOneWidget);
+      expect(find.text('Your Actual Sales (\$)'), findsOneWidget);
+      expect(find.widgetWithText(TextButton, 'Cancel'), findsOneWidget);
+
+      await tester.tap(find.widgetWithText(TextButton, 'Cancel'));
+      await tester.pump();
+
+      expect(find.widgetWithText(AlertDialog, 'Submit Sales'), findsNothing);
+      expect(find.text('Employee Dashboard'), findsOneWidget);
     });
 
     testWidgets('Targets tab lists the assigned target card', (tester) async {
@@ -368,6 +415,28 @@ void main() {
       expect(find.text('Are you sure you want to logout?'), findsNothing);
       expect(find.text('Employee Dashboard'), findsOneWidget);
       expect(appProvider.currentUser, isNotNull);
+    });
+
+    testWidgets('Dark Mode switch enables dark mode', (tester) async {
+      await pumpDashboard(tester);
+      await tester.tap(find.byTooltip('Settings'));
+      await tester.pump();
+
+      expect(appProvider.isDarkMode, isFalse);
+      expect(find.text('Disabled').hitTestable(), findsOneWidget);
+
+      final darkModeRow = find.ancestor(
+        of: find.text('Dark Mode'),
+        matching: find.byType(Row),
+      );
+      await tester.tap(find.descendant(
+        of: darkModeRow,
+        matching: find.byType(Switch),
+      ));
+      await tester.pump();
+
+      expect(appProvider.isDarkMode, isTrue);
+      expect(find.text('Enabled').hitTestable(), findsOneWidget);
     });
   });
 }
