@@ -30,8 +30,9 @@
 ### ✅ SECURITY MEASURES IMPLEMENTED:
 
 1. **Updated `.gitignore`:**
-   - Added protection for environment files
-   - Added protection for API key files
+   - Added protection for environment files (`.env`, `*.env`)
+   - Added protection for secret dumps (`lib/secrets/`, `*_config.dart` key files)
+   - Compile-critical source is tracked: `lib/config/app_config.dart`, `stripe_service.dart`, `payment_service.dart`
    - Added protection for debug/test files
    - Added protection for logs
 
@@ -52,9 +53,9 @@
    git status
    git diff --cached
    
-   # Ensure sensitive files are ignored
-   git check-ignore lib/services/supabase_service.dart
-   git check-ignore lib/services/supabase_service.dart
+   # .env must stay ignored; compile-critical source must NOT be ignored
+   git check-ignore .env
+   git check-ignore lib/config/app_config.dart lib/services/stripe_service.dart lib/services/payment_service.dart
    ```
 
 2. **Set up environment variables:**
@@ -67,33 +68,37 @@
    ```
 
 3. ✅ **Services updated to use AppConfig:**
-   - ✅ `supabase_service.dart` now uses `AppConfig.supabaseUrl` and `AppConfig.supabaseAnonKey`
-   - ✅ No hardcoded values remain
-   - ✅ Environment variables required via `--dart-define` flags
+   - ✅ `supabase_service.dart` uses `AppConfig.supabaseUrl` and `AppConfig.supabaseAnonKey`
+   - ✅ `stripe_service.dart` uses `AppConfig.stripePublishableKey` / `AppConfig.stripeSecretKey`
+   - ✅ `payment_service.dart` is mock/local only (no live keys)
+   - ✅ No hardcoded live secrets; values come from `--dart-define` flags
 
 ### 🔍 VERIFICATION COMMANDS:
 
 ```bash
 # Check for any remaining hardcoded API keys
-grep -r "AIzaSy" lib/ --exclude-dir=config
-grep -r "eyJhbGci" lib/ --exclude-dir=config
-grep -r "sk_" lib/ --exclude-dir=config
+grep -r "AIzaSy" lib/
+grep -r "eyJhbGci" lib/
+grep -rE "sk_live_|pk_live_" lib/
+grep -rE "sk_test_[0-9a-zA-Z]{16,}|pk_test_[0-9a-zA-Z]{16,}" lib/
 
-# Check what files are being tracked by git
-git ls-files | grep -E "(supabase_service|\.env)"
+# Compile-critical source must be tracked; .env must not
+git ls-files lib/config/app_config.dart lib/services/stripe_service.dart lib/services/payment_service.dart lib/services/supabase_service.dart
+git ls-files | grep -E "\.env$"
 
-# Verify .gitignore is working
-git check-ignore lib/services/supabase_service.dart
+# .env ignored; app_config / payment services not ignored
+git check-ignore .env
+git check-ignore lib/config/app_config.dart lib/services/stripe_service.dart lib/services/payment_service.dart
 ```
 
-### ✅ CURRENT STATUS (Updated: 2024-11-04):
+### ✅ CURRENT STATUS (Updated: 2026-11-04):
 
 **All critical security issues have been addressed:**
 - ✅ API keys moved to environment variables (no hardcoded secrets)
-- ✅ `.gitignore` properly configured
+- ✅ `.gitignore` ignores `.env` and secret dumps; `app_config.dart` / payment services are tracked
 - ✅ `env.example` created as template
-- ✅ `AppConfig` uses environment variables only
-- ✅ All sensitive data properly protected
+- ✅ `AppConfig` uses `--dart-define` / `fromEnvironment` empty defaults only
+- ✅ Live secrets stay out of git; compile-critical source is tracked
 
 **⚠️ REMINDER - Always verify before pushing:**
 1. Run `git status` to see what will be committed
