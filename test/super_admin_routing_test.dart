@@ -72,11 +72,58 @@ void main() {
     test('company-status gate does not special-case superadmin email', () {
       final mainSource = _read('lib/main.dart');
       final authSource = _read('lib/services/auth_service.dart');
+      final helperSource = _read('lib/utils/super_admin_routing.dart');
 
       expect(mainSource, contains('skipsCompanyStatusCheck'));
       expect(authSource, contains('skipsCompanyStatusCheck'));
-      expect(mainSource, isNot(contains("email != 'superadmin@platform.com'")));
-      expect(authSource, isNot(contains("email != 'superadmin@platform.com'")));
+      expect(
+        helperSource,
+        contains(
+          'bool skipsCompanyStatusCheck(User user) => user.role == UserRole.superAdmin;',
+        ),
+      );
+      expect(helperSource, isNot(contains('user.email')));
+
+      for (final source in [mainSource, authSource]) {
+        expect(source, isNot(contains("email != 'superadmin@platform.com'")));
+        expect(source, isNot(contains("email == 'superadmin@platform.com'")));
+      }
+    });
+
+    test('role-gate tests are included in product CI', () {
+      final workflow = _read('.github/workflows/flutter-tests.yml');
+      final excludeMatch = RegExp(r"EXCLUDE='([^']+)'").firstMatch(workflow);
+      expect(excludeMatch, isNotNull);
+      expect(
+        excludeMatch!.group(1),
+        isNot(contains('super_admin_routing_test.dart')),
+        reason: 'auth_service_test.dart is CI-excluded; this file must run',
+      );
+    });
+
+    test('tracked lib dart has no email != superadmin company-status gate', () {
+      final listed = Process.runSync(
+        'git',
+        ['ls-files', 'lib'],
+        workingDirectory: Directory.current.path,
+      );
+      expect(listed.exitCode, 0, reason: listed.stderr.toString());
+      final paths = listed.stdout
+          .toString()
+          .split('\n')
+          .map((line) => line.trim())
+          .where((line) => line.endsWith('.dart'))
+          .toList();
+      expect(paths, isNotEmpty);
+
+      for (final relative in paths) {
+        final source = File(relative).readAsStringSync();
+        expect(
+          source.contains("email != 'superadmin@platform.com'"),
+          isFalse,
+          reason: '$relative still special-cases the demo super-admin email',
+        );
+      }
     });
   });
 }
