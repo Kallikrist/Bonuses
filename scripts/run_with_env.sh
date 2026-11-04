@@ -35,10 +35,15 @@ if [ ! -z "$DEBUG_MODE" ]; then
     DART_DEFINES="$DART_DEFINES --dart-define=DEBUG_MODE=$DEBUG_MODE"
 fi
 
-# Publishable key only. Never pass STRIPE_SECRET_KEY, KLING_SECRET_KEY, or
-# KLING_WEBHOOK_SECRET into the app.
+# Publishable / public ids only. Never pass STRIPE_SECRET_KEY, KLING_SECRET_KEY,
+# or KLING_WEBHOOK_SECRET into the app.
 if [ ! -z "$STRIPE_PUBLISHABLE_KEY" ]; then
     DART_DEFINES="$DART_DEFINES --dart-define=STRIPE_PUBLISHABLE_KEY=$STRIPE_PUBLISHABLE_KEY"
+fi
+
+# Public Kling product UUID only. Never dart-define Kling secrets.
+if [ ! -z "$KLING_STORE_PRODUCT_ID" ]; then
+    DART_DEFINES="$DART_DEFINES --dart-define=KLING_STORE_PRODUCT_ID=$KLING_STORE_PRODUCT_ID"
 fi
 
 # Run Flutter app

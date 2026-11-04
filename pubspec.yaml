@@ -69,6 +69,9 @@ dependencies:
   
   # HTTP client for API calls
   http: ^1.6.0
+
+  # Hosted Kling checkout / billing portal fallback (overlay is web JS)
+  url_launcher: ^6.3.1
   
   # Using Supabase instead of Firebase for database and authentication
 

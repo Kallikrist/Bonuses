@@ -2,7 +2,7 @@
 
 Living list for taking Bonuses from this checkout to a store-ready build. **Keep this file in sync with the code.** When you change Stripe, auth, env, login/demo accounts, or store identifiers, update the matching row and the “Verified against” line.
 
-**Verified against:** `origin/main` `fe7f88d` (2026-11-04).  
+**Verified against:** `cursor/kling-checkout-overlay-cdfa` on `cursor/kling-webhook-handler-4ed1` `8b745fe` (2026-11-04).  
 **Version in `pubspec.yaml`:** `1.0.0+1`.  
 **Payments:** stay mock until launch. Do **not** set `DEMO_MODE=false` as a product cutover. Do **not** delete user or company data.
 
@@ -22,7 +22,7 @@ Status in this file:
 ## Hard rules
 
 - **Do not enable live Stripe.** `AppConfig.demoMode` defaults to `true`. `AppConfig.useMockStripe` is true when demo is on **or** Supabase is not configured. Leave that default until every Stripe and auth row below is Done.
-- **Do not enable live Kling.** `kling-secret` is test-mode only (`sk_test_`). `kling-webhook` accepts `environment: test` only. Flutter is not wired (BON-42). Do not set `sk_live_` or treat a successful function deploy as a product cutover.
+- **Do not enable live Kling.** `kling-secret` is test-mode only (`sk_test_`). `kling-webhook` accepts `environment: test` only. Flutter checkout/portal is wired but **demo-gated** (`AppConfig.useMockKling`). Do not set `sk_live_` or treat a successful function deploy as a product cutover.
 - **Do not delete data.** Do not mass-wipe SharedPreferences or drop Supabase tables as part of launch prep. Logged-out login no longer has “Reset Demo Data”.
 - **Do not commit secrets.** `.env`, `*.env`, `STRIPE_SECRET_KEY`, `KLING_SECRET_KEY`, and `KLING_WEBHOOK_SECRET` stay out of git and out of Flutter `--dart-define`.
 - **Owner-only** (even after review/CI): live payments, secret rotation, and any data deletion.
@@ -57,16 +57,16 @@ Until that flip, a successful checkout in the app is **mock money**.
 
 ## 1b. Kling (second provider; mock until launch)
 
-**Do not flip.** Server-only Edge Function so Icelandic card subscriptions can launch later without a rewrite. Stripe stays as-is. Payments in the app stay mock.
+**Do not flip.** Icelandic card subscriptions via Kling stay mock in the app until launch. Stripe stays as-is.
 
 | Item | Status | Current code |
 | --- | --- | --- |
 | Edge Function source | Done | `supabase/functions/kling-secret/index.ts`. Path A: checkout session (embedded overlay), billing portal, subscriptions API. `payment_method_type` / `collection_method` forced to `card`. ISK integers as-is (no x100) |
 | Secret key not in the Flutter app | Done | `KLING_SECRET_KEY` is `Deno.env` only. `env.example` tells you not to dart-define it. Placeholder: `supabase/functions/.env.example` |
 | Test-mode only | Done | POST refuses a missing key or any key that is not `sk_test_`. Live keys (`sk_live_`) return 500 and do not call Kling |
-| Flutter client | Not started | BON-42. No `kling-secret` / `kling-webhook` invoke in `lib/` |
+| Flutter client | Done (demo-gated) | `KlingService` invokes `kling-secret` for `createCheckoutSession` / `createBillingPortalSession` the same way Stripe invokes `stripe-secret`. Overlay is `kling.js` on web (`Kling.init` + `checkout({ sessionId })`); billing portal uses the session `url`. `AppConfig.useMockKling` is true while `DEMO_MODE` is on or Supabase is missing. Card only. ISK integers as-is. No `KLING_SECRET_KEY` / `KLING_WEBHOOK_SECRET` in `lib/` |
 | Webhook handler | Done | `supabase/functions/kling-webhook/index.ts` verifies `X-Kling-Signature`, handles `subscription.activated` / `payment_intent.captured` / `subscription.renewed` / `subscription.canceled` (status-checked), idempotent on event id. Test-mode only. ISK as-is |
-| Function deploy + secrets | Owner | `KLING_SECRET_KEY` (`sk_test_` only) and `KLING_WEBHOOK_SECRET` (from Kling webhook `config.secret`). Project `hkpkznslzkgnijoahggn`. Apply `supabase/migrations/20261104233000_kling_webhook.sql`. Do not treat deploy as launch |
+| Function deploy + secrets | Owner | `KLING_SECRET_KEY` (`sk_test_` only) and `KLING_WEBHOOK_SECRET` (from Kling webhook `config.secret`). Project `hkpkznslzkgnijoahggn`. Apply `supabase/migrations/20261104233000_kling_webhook.sql`. Create a test-mode subscription product and optionally dart-define `KLING_STORE_PRODUCT_ID` (public UUID). Do not treat deploy as launch |
 
 ---
 
@@ -95,13 +95,13 @@ Do not treat `SupabaseService.signIn` as “Auth is done.” The product login p
 
 | Item | Status | Current code |
 | --- | --- | --- |
-| Template | Done | `env.example`: `SUPABASE_URL`, `SUPABASE_ANON_KEY`, optional `STRIPE_PUBLISHABLE_KEY`, `DEMO_MODE`, `DEBUG_MODE`. Stripe and Kling secret keys called out as function-only |
-| Local run helper | Done | `./scripts/run_with_env.sh` passes URL, anon key, optional demo/debug/publishable key. Never `--dart-define` Stripe or Kling secrets |
-| Compile-time config | Done | `lib/config/app_config.dart` (`String.fromEnvironment` / `bool.fromEnvironment`). Tracked; empty defaults; no live secrets |
+| Template | Done | `env.example`: `SUPABASE_URL`, `SUPABASE_ANON_KEY`, optional `STRIPE_PUBLISHABLE_KEY`, optional public `KLING_STORE_PRODUCT_ID`, `DEMO_MODE`, `DEBUG_MODE`. Stripe and Kling secret keys called out as function-only |
+| Local run helper | Done | `./scripts/run_with_env.sh` passes URL, anon key, optional demo/debug/publishable key / `KLING_STORE_PRODUCT_ID`. Never `--dart-define` Stripe or Kling secrets |
+| Compile-time config | Done | `lib/config/app_config.dart` (`String.fromEnvironment` / `bool.fromEnvironment`). Tracked; empty defaults; no live secrets. `useMockKling` mirrors `useMockStripe` |
 | `.env` ignored | Done | `.gitignore` has `.env`, `.env.local`, `.env.production`, `.env.staging`, `*.env` |
 | Stripe / Kling secrets ignored | Done | `supabase/functions/.env` matches `*.env`. Do not add it to git |
 | CI does not inject product secrets | Done | `.github/workflows/flutter-tests.yml` analyze + test only; no `SUPABASE_*` / Stripe secrets |
-| Production build dart-defines | Not started | `SETUP_ENVIRONMENT_VARIABLES.md` shows the flags; there is no release workflow that applies them. `DEBUG_MODE` / `DEMO_MODE` dart-defines are unused except `useMockStripe` (login debug chrome is **not** gated) |
+| Production build dart-defines | Not started | `SETUP_ENVIRONMENT_VARIABLES.md` shows the flags; there is no release workflow that applies them. `DEBUG_MODE` / `DEMO_MODE` dart-defines are unused except `useMockStripe` / `useMockKling` (login debug chrome is **not** gated) |
 | `SETUP_ENVIRONMENT_VARIABLES.md` lists publishable key | Not started | That guide still omits `STRIPE_PUBLISHABLE_KEY` (present in `env.example`) |
 
 Required dart-defines for a real (still-mock-payments) device build:

@@ -1,11 +1,13 @@
 import 'package:flutter/material.dart';
-import 'package:provider/provider.dart';
 import 'package:intl/intl.dart';
+import '../config/app_config.dart';
 import '../providers/app_provider.dart';
 import '../models/company_subscription.dart';
 import '../models/subscription_tier.dart';
 import '../models/payment_record.dart';
 import '../services/storage_service.dart';
+import '../utils/demo_billing.dart';
+import '../widgets/kling_billing_card.dart';
 import 'payment_form_screen.dart';
 
 class AdminSubscriptionScreen extends StatefulWidget {
@@ -65,12 +67,17 @@ class _AdminSubscriptionScreenState extends State<AdminSubscriptionScreen> {
             return _buildNoSubscription(allTiers);
           }
 
+          final klingCard = _klingBillingCard();
           return SingleChildScrollView(
             padding: const EdgeInsets.all(16),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 _buildCurrentPlanCard(subscription, tier),
+                if (klingCard != null) ...[
+                  const SizedBox(height: 24),
+                  klingCard,
+                ],
                 const SizedBox(height: 24),
                 _buildPlanFeatures(tier),
                 const SizedBox(height: 24),
@@ -115,9 +122,24 @@ class _AdminSubscriptionScreenState extends State<AdminSubscriptionScreen> {
     };
   }
 
+  Widget? _klingBillingCard() {
+    final user = widget.appProvider.currentUser;
+    final companyId = user?.primaryCompanyId;
+    if (user == null || companyId == null || companyId.isEmpty) {
+      return null;
+    }
+    return KlingBillingCard(
+      companyId: companyId,
+      customerEmail: user.email,
+      customerName: user.name,
+      customerPhone: user.phoneNumber,
+    );
+  }
+
   Widget _buildNoSubscription(List<SubscriptionTier> allTiers) {
+    final klingCard = _klingBillingCard();
     return Center(
-      child: Padding(
+      child: SingleChildScrollView(
         padding: const EdgeInsets.all(24),
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
@@ -135,7 +157,12 @@ class _AdminSubscriptionScreenState extends State<AdminSubscriptionScreen> {
               textAlign: TextAlign.center,
               style: TextStyle(fontSize: 16, color: Colors.grey[600]),
             ),
-            const SizedBox(height: 32),
+            const SizedBox(height: 24),
+            if (klingCard != null) ...[
+              klingCard,
+              const SizedBox(height: 24),
+            ],
+            const SizedBox(height: 8),
             const Text(
               'Available Plans:',
               style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
@@ -672,7 +699,11 @@ class _AdminSubscriptionScreenState extends State<AdminSubscriptionScreen> {
                   DateFormat('MMMM dd, yyyy').format(subscription.trialEndsAt!),
                 ),
               const Divider(height: 24),
-              if (subscription.status == SubscriptionStatus.pastDue) ...[
+              if (shouldShowPaymentRequiredBanner(
+                demoMode: AppConfig.demoMode,
+                companyId: subscription.companyId,
+                subscriptions: [subscription],
+              )) ...[
                 Container(
                   width: double.infinity,
                   padding: const EdgeInsets.all(12),

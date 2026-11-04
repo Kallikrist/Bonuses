@@ -176,7 +176,7 @@ void main() {
       );
     });
 
-    test('does not change kling-secret actions or Stripe, and has no Flutter client',
+    test('does not change kling-secret actions or Stripe; Flutter does not invoke webhook',
         () {
       expect(secretSource, contains('createCheckoutSession'));
       expect(secretSource, contains('createBillingPortalSession'));
@@ -195,8 +195,10 @@ void main() {
       expect(dartFiles, isNotEmpty);
       for (final file in dartFiles) {
         final text = file.readAsStringSync();
-        expect(text, isNot(contains('kling-webhook')), reason: file.path);
-        expect(text, isNot(contains('kling-secret')), reason: file.path);
+        expect(text, isNot(contains("invoke('kling-webhook')")),
+            reason: file.path);
+        expect(text, isNot(contains("_functionName = 'kling-webhook'")),
+            reason: file.path);
         expect(
           text,
           isNot(contains("fromEnvironment('KLING_WEBHOOK_SECRET'")),

@@ -115,7 +115,8 @@ void main() {
       );
     });
 
-    test('does not change stripe-secret or add a Flutter Kling client', () {
+    test('does not change stripe-secret; Flutter may invoke kling-secret without secrets',
+        () {
       expect(
         stripeFunctionSource,
         contains('Deno.env.get("STRIPE_SECRET_KEY")'),
@@ -129,9 +130,12 @@ void main() {
           .where((file) => file.path.endsWith('.dart'))
           .toList();
       expect(dartFiles, isNotEmpty);
+      var sawKlingInvoke = false;
       for (final file in dartFiles) {
         final text = file.readAsStringSync();
-        expect(text, isNot(contains('kling-secret')), reason: file.path);
+        if (text.contains('kling-secret')) {
+          sawKlingInvoke = true;
+        }
         expect(
           text,
           isNot(contains("fromEnvironment('KLING_SECRET_KEY'")),
@@ -148,6 +152,8 @@ void main() {
           reason: file.path,
         );
       }
+      expect(sawKlingInvoke, isTrue,
+          reason: 'BON-42 Flutter client must invoke kling-secret');
     });
   });
 }

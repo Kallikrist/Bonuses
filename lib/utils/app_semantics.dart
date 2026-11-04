@@ -34,4 +34,14 @@ abstract final class AppSemantics {
   static const nextDate = 'Next';
   static const newSubscription = 'New Subscription';
   static const manageBankAccounts = 'Manage Bank Accounts';
+
+  static const klingBilling = 'Kling billing';
+  static const klingSubscribe = 'Subscribe with Kling';
+  static const klingManageBilling = 'Manage Kling billing';
+  static const klingCheckoutOverlay = 'Kling checkout overlay';
+  static const klingCheckoutPay = 'Pay with card';
+  static const klingCheckoutCancel = 'Cancel checkout';
+  static const klingPortal = 'Kling billing portal';
+  static const klingPortalClose = 'Close billing portal';
+  static const klingDemoNotice = 'Kling demo mode, no live charges';
 }

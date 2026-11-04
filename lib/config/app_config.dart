@@ -23,6 +23,13 @@ class AppConfig {
     defaultValue: '',
   );
 
+  /// Public Kling store subscription product UUID (dashboard id, not a secret).
+  /// Required only when [useMockKling] is false. Never a `sk_` key.
+  static const String klingStoreProductId = String.fromEnvironment(
+    'KLING_STORE_PRODUCT_ID',
+    defaultValue: '',
+  );
+
   static const bool demoMode = bool.fromEnvironment(
     'DEMO_MODE',
     defaultValue: true,
@@ -48,4 +55,9 @@ class AppConfig {
   /// Secret-key Stripe calls stay on the local mock path unless demo is off
   /// and Supabase is configured. The Edge Function then holds `STRIPE_SECRET_KEY`.
   static bool get useMockStripe => demoMode || !isSupabaseConfigured;
+
+  /// Secret-key Kling calls stay on the local mock path unless demo is off
+  /// and Supabase is configured. The Edge Function then holds `KLING_SECRET_KEY`.
+  /// DEMO_MODE remains true until launch — this does not enable live charges.
+  static bool get useMockKling => demoMode || !isSupabaseConfigured;
 }
