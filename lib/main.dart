@@ -15,6 +15,7 @@ import 'widgets/branded_splash_screen.dart';
 import 'services/stripe_service.dart';
 import 'services/supabase_service.dart';
 import 'services/supabase_migration_service.dart';
+import 'utils/splash_company_name.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -128,36 +129,19 @@ class _AppWrapperState extends State<AppWrapper> {
 
   Future<String?> _getCompanyName(AppProvider appProvider) async {
     try {
-      // Check if current user is super admin
       final currentUser = appProvider.currentUser;
-      if (currentUser != null && currentUser.role == UserRole.superAdmin) {
-        return 'Bonuses'; // Super admin sees app name
+      List<Company> companies = const [];
+      if (currentUser != null && currentUser.role != UserRole.superAdmin) {
+        companies = await appProvider.getCompanies();
       }
-
-      // Try to get the current user's company name from their companyNames list
-      final users = await appProvider.getUsers();
-      if (users.isNotEmpty) {
-        final user = users.first;
-        if (user.primaryCompanyId != null && user.companyNames.isNotEmpty) {
-          // Find the index of the primaryCompanyId in companyIds and get the corresponding name
-          final primaryCompanyId = user.primaryCompanyId!;
-          final companyIndex = user.companyIds.indexOf(primaryCompanyId);
-          if (companyIndex != -1 && companyIndex < user.companyNames.length) {
-            return user.companyNames[companyIndex];
-          }
-        }
-      }
-      // Fallback to first company if available
-      final companies = await appProvider.getCompanies();
-      if (companies.isNotEmpty) {
-        return companies.first.name;
-      }
+      return resolveSplashCompanyName(
+        currentUser: currentUser,
+        companies: companies,
+      );
     } catch (e) {
       print('Error getting company name: $e');
-      // If we can't get the company name, use a default
-      return 'Utilif';
+      return 'Bonuses';
     }
-    return 'Utilif';
   }
 
   Future<List<Company>> _getUserActiveCompanies(AppProvider appProvider) async {
