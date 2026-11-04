@@ -12,8 +12,8 @@ import 'package:bonuses/services/auth_service.dart';
 import 'package:bonuses/services/password_service.dart';
 import 'package:bonuses/services/storage_service.dart';
 
-/// Canonical demo accounts shown on the login screen and in README
-/// "Login-screen accounts". Must match `initializeSampleData()`.
+/// Canonical demo accounts documented in README and seeded by
+/// `initializeSampleData()`. BON-29 removed them from the logged-out login UI.
 const loginScreenAccounts = <({String email, String password, String name})>[
   (email: 'admin@store.com', password: 'password123', name: 'Store Manager'),
   (
@@ -30,7 +30,7 @@ const loginScreenAccounts = <({String email, String password, String name})>[
 ];
 
 /// Extra users seeded by `initializeSampleData()` and listed in README
-/// "Additional seeded employees". Not required on the login Demo Accounts box.
+/// "Additional seeded employees". Not shown on the logged-out login screen.
 const additionalSeededEmployees =
     <({String email, String password, String name})>[
   (
@@ -134,16 +134,23 @@ void main() {
     });
   });
 
-  group('Login screen demo copy', () {
-    test('source lists the same four login-screen accounts', () {
-      for (final account in loginScreenAccounts) {
-        expect(loginScreenSource, contains(account.email));
-        expect(loginScreenSource,
-            contains('${account.email} / ${account.password}'));
+  group('Login screen does not show demo copy', () {
+    test('source does not list seeded emails or passwords', () {
+      expect(loginScreenSource, isNot(contains('Demo Accounts:')));
+      for (final account in [
+        ...loginScreenAccounts,
+        ...additionalSeededEmployees,
+      ]) {
+        expect(loginScreenSource, isNot(contains(account.email)),
+            reason:
+                'logged-out login must not embed demo email ${account.email}');
+        expect(loginScreenSource, isNot(contains(account.password)),
+            reason:
+                'logged-out login must not embed demo password for ${account.email}');
       }
     });
 
-    testWidgets('Demo Accounts box shows canonical login emails',
+    testWidgets('logged-out screen has no Demo Accounts box or passwords',
         (tester) async {
       await tester.pumpWidget(
         ChangeNotifierProvider(
@@ -153,13 +160,16 @@ void main() {
       );
       await tester.pump();
 
-      expect(find.text('Demo Accounts:'), findsOneWidget);
+      expect(find.text('Login'), findsOneWidget);
+      expect(find.text('Create Company'), findsOneWidget);
+      expect(find.text('Demo Accounts:'), findsNothing);
       for (final account in loginScreenAccounts) {
-        expect(find.textContaining(account.email), findsWidgets,
-            reason: 'Login Demo Accounts box should show ${account.email}');
-        expect(find.textContaining(account.password), findsWidgets,
+        expect(find.textContaining(account.email), findsNothing,
             reason:
-                'Login Demo Accounts box should show password for ${account.email}');
+                'Login must not show demo email ${account.email} on the logged-out screen');
+        expect(find.textContaining(account.password), findsNothing,
+            reason:
+                'Login must not show demo password for ${account.email} on the logged-out screen');
       }
       for (final email in staleReadmeEmails) {
         expect(find.textContaining(email), findsNothing);
@@ -192,7 +202,7 @@ void main() {
       }
     });
 
-    test('seeded passwords match README and login copy', () async {
+    test('seeded passwords match README', () async {
       final users = await StorageService.getUsers();
       for (final account in [
         ...loginScreenAccounts,
