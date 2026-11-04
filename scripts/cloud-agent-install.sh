@@ -3,8 +3,15 @@
 # Installs Dart packages and recreates gitignored sources required to compile.
 set -euo pipefail
 
-ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-cd "$ROOT"
+# Stay in the checkout when this script is invoked from the snapshot copy
+# at /opt/cursor. Resolve the repo root only when the current directory is
+# not already the Flutter project.
+if [[ -f "${PWD}/pubspec.yaml" ]]; then
+  ROOT="${PWD}"
+else
+  ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+  cd "$ROOT"
+fi
 
 export PATH="/opt/flutter/bin:${PATH}"
 
