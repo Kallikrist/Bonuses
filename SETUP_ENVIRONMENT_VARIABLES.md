@@ -1,4 +1,4 @@
-JWT-based API keys # Environment Variables Setup Guide
+# Environment Variables Setup Guide
 
 ## Overview
 
