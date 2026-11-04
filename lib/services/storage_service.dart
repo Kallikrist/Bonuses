@@ -890,7 +890,10 @@ class StorageService {
     }
   }
 
-  // Initialize with sample data
+  // Canonical demo logins (keep README.md and login_screen.dart in sync; do not change these passwords here):
+  // admin@store.com / password123, admin@utilif.com / utilif123,
+  // john.doe@example.com / password123, jane.smith@example.com / password123,
+  // superadmin@platform.com / password123
   static Future<void> initializeSampleData() async {
     print('DEBUG: Demo Data - Starting initialization...');
     // Create demo company first

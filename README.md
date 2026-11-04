@@ -44,21 +44,19 @@ A comprehensive Flutter application for managing employee bonuses and rewards ba
 
 ## Demo Accounts
 
-The app comes with pre-configured demo accounts:
+These match `StorageService.initializeSampleData()` and the login screen Demo Accounts box.
 
-### Admin Account:
-- **Email**: admin@store.com
-- **Password**: password123
-- **Role**: Store Manager (Admin)
+### Login-screen accounts
+- **Admin Store**: `admin@store.com` / `password123` — Store Manager
+- **Admin Utilif**: `admin@utilif.com` / `utilif123` — Utilif Administrator
+- **Employee**: `john.doe@example.com` / `password123` — John Doe
+- **Super Admin**: `superadmin@platform.com` / `password123` — Platform Administrator
 
-### Employee Accounts:
-- **Email**: john@store.com
-- **Password**: password123
-- **Role**: Employee
-
-- **Email**: jane@store.com
-- **Password**: password123
-- **Role**: Employee
+### Additional seeded employees
+- `jane.smith@example.com` / `password123` — Jane Smith
+- `mike.johnson@example.com` / `password123` — Mike Johnson
+- `Karl@Utilif.is` / `password123` — Karl Kristjánsson
+- `kallikrist@test.is` / `demo123` — Kalli Krist (TestCompany1)
 
 ## Points Calculation
 
@@ -135,41 +133,22 @@ For detailed setup instructions, see [SETUP_ENVIRONMENT_VARIABLES.md](SETUP_ENVI
    flutter run
    ```
 
+4. **Sign in** with a [Demo Account](#demo-accounts) (`admin@store.com`, `admin@utilif.com`, `john.doe@example.com`, or `superadmin@platform.com`). Those emails are seeded by `initializeSampleData()` and shown on the login screen.
+
 ## Project Structure
 
 ```
 lib/
-├── models/                    # Data models
-│   ├── user.dart             # User with multi-company support
-│   ├── sales_target.dart     # Sales targets with team collaboration
-│   ├── points_transaction.dart # Points history with audit trail
-│   ├── bonus.dart            # Bonus catalog items
-│   ├── company.dart          # Company management
-│   ├── workplace.dart        # Workplace/location management
-│   ├── message.dart          # Messaging system
-│   ├── approval_request.dart # Approval workflow
-│   └── points_rules.dart     # Points calculation rules
-├── screens/                   # UI screens
-│   ├── login_screen.dart
-│   ├── onboarding_screen.dart
-│   ├── employee_dashboard.dart
-│   ├── admin_dashboard.dart
-│   ├── target_profile_screen.dart
-│   ├── messaging_screen.dart
-│   ├── import_bonuses_screen.dart
-│   └── companies_list_screen.dart
-├── widgets/                   # Reusable UI components
-│   ├── profile_header_widget.dart
-│   ├── target_card_widget.dart
-│   ├── calendar_widget.dart
-│   └── branded_splash_screen.dart
-├── services/                  # Business logic
-│   ├── storage_service.dart  # Data persistence with migrations
-│   └── auth_service.dart     # Authentication
-├── providers/                 # State management
-│   └── app_provider.dart     # Central app state with Provider
-└── main.dart                  # App entry point with splash screen
+├── models/                    # Domain models (user, company, targets, points, bonuses, payments, subscriptions, …)
+├── screens/                   # Role dashboards (employee, admin, super-admin) plus onboarding, messaging, imports, payments
+├── widgets/                   # Splash, calendar, profile header, target card/dialog
+├── services/                  # Local storage/auth, Supabase dual-write, validation, notifications, passwords, rate limit
+├── providers/                 # AppProvider state
+├── utils/                     # Error handling
+└── main.dart                  # Supabase/Stripe init, MaterialApp, role routing
 ```
+
+Auth for the running app is local (`AuthService` + `StorageService`). Persistence is SharedPreferences with a best-effort Supabase dual-write. Payment UI lives under `screens/`; Stripe service sources are local/mock. There is no Firebase.
 
 ## Technologies Used
 
