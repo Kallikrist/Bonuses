@@ -122,6 +122,9 @@ class AppProvider with ChangeNotifier {
       } else {
         print('DEBUG: All demo users exist');
       }
+      // Existing demo installs persist the $1 Utilif pastDue Apple Pay fixture
+      // even when sample data is not re-seeded. Heal that record in place.
+      await StorageService.healDemoPastDueFixture();
       await _loadData();
     } finally {
       // Defer the final notifyListeners until after first frame to

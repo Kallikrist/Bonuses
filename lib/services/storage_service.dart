@@ -19,6 +19,7 @@ import '../models/financial_transaction.dart';
 import '../models/bank_account.dart';
 import 'password_service.dart';
 import 'secure_storage_service.dart';
+import '../utils/demo_billing.dart';
 
 class StorageService {
   static const String _usersKey = 'users';
@@ -1345,50 +1346,11 @@ class StorageService {
       await saveBonuses(sampleBonuses);
     }
 
-    // Initialize demo subscriptions if they don't exist
+    // Initialize demo subscriptions if they don't exist. Demo tenants stay
+    // in good standing — do not seed the leftover $1 Utilif pastDue fixture.
     final subscriptions = await getSubscriptions();
     print(
         'DEBUG: Demo Data - Found ${subscriptions.length} existing subscriptions');
-
-    // Check if we need to create/update the Utilif subscription
-    final utilifSubscription =
-        subscriptions.where((s) => s.companyId == demoCompanyId).firstOrNull;
-    if (utilifSubscription == null ||
-        utilifSubscription.status != SubscriptionStatus.pastDue ||
-        utilifSubscription.currentPrice != 1.0) {
-      print('DEBUG: Demo Data - Need to create/update Utilif subscription');
-
-      // Remove existing Utilif subscription if it exists
-      final filteredSubscriptions =
-          subscriptions.where((s) => s.companyId != demoCompanyId).toList();
-      await saveSubscriptions(filteredSubscriptions);
-
-      // Create new Utilif subscription
-      final now = DateTime.now();
-      final utilifSub = CompanySubscription(
-        id: 'sub_$demoCompanyId',
-        companyId: demoCompanyId,
-        tierId: 'tier_basic',
-        startDate: now.subtract(const Duration(days: 5)), // Started 5 days ago
-        status: SubscriptionStatus.pastDue,
-        paymentMethod: PaymentMethod.creditCard,
-        billingInterval: BillingInterval.monthly,
-        nextBillingDate:
-            now.add(const Duration(days: 25)), // Next billing in 25 days
-        currentPrice: 1.0,
-        gracePeriodDays: 7,
-        createdAt: now.subtract(const Duration(days: 5)),
-        updatedAt: now,
-      );
-
-      filteredSubscriptions.add(utilifSub);
-      await saveSubscriptions(filteredSubscriptions);
-      print(
-          'DEBUG: Demo Data - Created/updated Utilif subscription: status=${utilifSub.status}, price=\$${utilifSub.currentPrice}');
-    } else {
-      print(
-          'DEBUG: Demo Data - Utilif subscription already correct: status=${utilifSubscription.status}, price=\$${utilifSubscription.currentPrice}');
-    }
 
     if (subscriptions.isEmpty) {
       // Get all companies for creating subscriptions
@@ -1397,35 +1359,24 @@ class StorageService {
 
       for (final company in allCompanies) {
         // Create a subscription for each company
-        final tier = company.id == demoCompanyId
-            ? 'tier_professional' // Utilif gets professional
-            : 'tier_starter'; // Other companies get starter
+        final isUtilif = company.id == demoCompanyId;
+        final tier = isUtilif ? kDemoUtilifTierId : 'tier_starter';
 
         final now = DateTime.now();
-        // Special case for Utilif - create a $1 subscription with pending payment
-        final isUtilif = company.id == demoCompanyId;
         print(
             'DEBUG: Demo Data - Creating subscription for company ${company.id} (isUtilif: $isUtilif)');
         final subscription = CompanySubscription(
           id: 'sub_${company.id}',
           companyId: company.id,
-          tierId: isUtilif ? 'tier_basic' : tier,
-          startDate: isUtilif
-              ? now.subtract(const Duration(days: 5)) // Started 5 days ago
-              : now.subtract(const Duration(days: 30)), // Started 30 days ago
-          status:
-              isUtilif ? SubscriptionStatus.pastDue : SubscriptionStatus.active,
+          tierId: tier,
+          startDate: now.subtract(const Duration(days: 30)),
+          status: SubscriptionStatus.active,
           paymentMethod: PaymentMethod.creditCard,
           billingInterval: BillingInterval.monthly,
-          nextBillingDate: isUtilif
-              ? now.add(const Duration(days: 25)) // Next billing in 25 days
-              : now.add(const Duration(days: 30)), // Next billing in 30 days
-          currentPrice:
-              isUtilif ? 1.0 : (tier == 'tier_professional' ? 99 : 29),
+          nextBillingDate: now.add(const Duration(days: 30)),
+          currentPrice: isUtilif ? kDemoUtilifActivePrice : 29,
           gracePeriodDays: 7,
-          createdAt: isUtilif
-              ? now.subtract(const Duration(days: 5))
-              : now.subtract(const Duration(days: 30)),
+          createdAt: now.subtract(const Duration(days: 30)),
           updatedAt: now,
         );
         print(
@@ -1470,6 +1421,30 @@ class StorageService {
           print(
               'DEBUG: Demo Data - Added ${demoPayments.length} demo payment records');
         }
+      }
+    } else {
+      // Existing local data: convert the $1 Utilif Apple Pay fixture to active
+      // without deleting other billing records.
+      await healDemoPastDueFixture();
+      final afterHeal = await getSubscriptions();
+      if (!afterHeal.any((s) => s.companyId == demoCompanyId)) {
+        final now = DateTime.now();
+        final utilifSub = CompanySubscription(
+          id: 'sub_$demoCompanyId',
+          companyId: demoCompanyId,
+          tierId: kDemoUtilifTierId,
+          startDate: now.subtract(const Duration(days: 30)),
+          status: SubscriptionStatus.active,
+          paymentMethod: PaymentMethod.creditCard,
+          billingInterval: BillingInterval.monthly,
+          nextBillingDate: now.add(const Duration(days: 30)),
+          currentPrice: kDemoUtilifActivePrice,
+          gracePeriodDays: 7,
+          createdAt: now.subtract(const Duration(days: 30)),
+          updatedAt: now,
+        );
+        await saveSubscriptions([...afterHeal, utilifSub]);
+        print('DEBUG: Demo Data - Added missing active Utilif subscription');
       }
     }
   }
@@ -1859,7 +1834,33 @@ class StorageService {
     }
   }
 
-  // Force update Utilif subscription to $1 past due
+  /// Convert the leftover $1 Utilif Apple Pay test fixture to an active demo
+  /// subscription. Does not delete records or touch any other company's billing.
+  static Future<void> healDemoPastDueFixture() async {
+    final subscriptions = await getSubscriptions();
+    var changed = false;
+    final updated = <CompanySubscription>[];
+    for (final subscription in subscriptions) {
+      if (isDemoApplePayPastDueFixture(subscription)) {
+        changed = true;
+        updated.add(subscription.copyWith(
+          status: SubscriptionStatus.active,
+          currentPrice: kDemoUtilifActivePrice,
+          tierId: kDemoUtilifTierId,
+          updatedAt: DateTime.now(),
+        ));
+      } else {
+        updated.add(subscription);
+      }
+    }
+    if (changed) {
+      await saveSubscriptions(updated);
+      print(
+          'DEBUG: Heal - Converted Utilif \$1 pastDue fixture to active demo subscription');
+    }
+  }
+
+  // Opt-in Apple Pay test helper. Not called on dashboard load or seed.
   static Future<void> forceUpdateUtilifSubscription() async {
     const demoCompanyId = 'demo_company_utilif';
     print('DEBUG: Force Update - Starting Utilif subscription update...');
