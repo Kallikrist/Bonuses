@@ -5,8 +5,9 @@ import 'storage_service.dart';
 
 /// Service for handling payment card and transaction processing.
 ///
-/// Processing is mock/local only. Live Stripe is out of scope; if keys are
-/// needed later, use `AppConfig` `--dart-define` values from `env.example`.
+/// Processing is mock/local only. Live Stripe is out of scope. The app may
+/// hold a Stripe publishable key via `AppConfig`; the secret stays in the
+/// `stripe-secret` Edge Function.
 class PaymentService {
   /// Add a new payment card for a company
   static Future<PaymentCard?> addPaymentCard({

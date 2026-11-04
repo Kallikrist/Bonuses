@@ -35,6 +35,11 @@ if [ ! -z "$DEBUG_MODE" ]; then
     DART_DEFINES="$DART_DEFINES --dart-define=DEBUG_MODE=$DEBUG_MODE"
 fi
 
+# Publishable key only. Never pass STRIPE_SECRET_KEY into the app.
+if [ ! -z "$STRIPE_PUBLISHABLE_KEY" ]; then
+    DART_DEFINES="$DART_DEFINES --dart-define=STRIPE_PUBLISHABLE_KEY=$STRIPE_PUBLISHABLE_KEY"
+fi
+
 # Run Flutter app
 if [ -z "$1" ]; then
     echo "🚀 Running Flutter app with environment variables..."

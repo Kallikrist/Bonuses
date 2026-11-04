@@ -1,0 +1,9 @@
+# Linked to project ref hkpkznslzkgnijoahggn.
+project_id = "hkpkznslzkgnijoahggn"
+
+[functions.stripe-secret]
+enabled = true
+# App auth is local, not Supabase Auth, so callers have no user JWT.
+# The Functions gateway still requires the project anon/publishable apikey.
+verify_jwt = false
+entrypoint = "./functions/stripe-secret/index.ts"

@@ -1,15 +1,17 @@
 import 'package:flutter_stripe/flutter_stripe.dart';
-import 'package:http/http.dart' as http;
-import 'dart:convert';
+import 'package:supabase_flutter/supabase_flutter.dart';
 import 'dart:io';
 import '../config/app_config.dart';
+import 'supabase_service.dart';
 
+/// Stripe client helpers.
+///
+/// The app may hold the **publishable** key only. Secret-key Stripe API calls
+/// go through the `stripe-secret` Supabase Edge Function. DEMO_MODE (default)
+/// and missing Supabase config keep the existing mock payment path.
 class StripeService {
-  // Keys come from --dart-define via AppConfig (see env.example). Empty
-  // defaults keep mock mode; this file does not implement live Stripe.
   static const String _publishableKey = AppConfig.stripePublishableKey;
-  static const String _secretKey = AppConfig.stripeSecretKey;
-  static const String _baseUrl = 'https://api.stripe.com/v1';
+  static const String _functionName = 'stripe-secret';
 
   // Initialize Stripe (Mock for demo)
   static Future<void> initialize() async {
@@ -98,29 +100,37 @@ class StripeService {
     }
   }
 
-  // Create payment intent for $1 subscription (Mock for demo)
+  // Create payment intent for $1 subscription (mock unless live path is on)
   static Future<Map<String, dynamic>> createPaymentIntent({
     required String companyId,
     required double amount,
     required String currency,
     required String description,
   }) async {
-    // Mock payment intent for demo purposes
-    await Future.delayed(const Duration(seconds: 1)); // Simulate network delay
+    if (AppConfig.useMockStripe) {
+      await Future.delayed(const Duration(seconds: 1)); // Simulate network delay
 
-    return {
-      'id': 'pi_mock_${DateTime.now().millisecondsSinceEpoch}',
-      'client_secret':
-          'pi_mock_${DateTime.now().millisecondsSinceEpoch}_secret_mock',
-      'amount': (amount * 100).toInt(),
-      'currency': currency.toLowerCase(),
-      'status': 'requires_payment_method',
+      return {
+        'id': 'pi_mock_${DateTime.now().millisecondsSinceEpoch}',
+        'client_secret':
+            'pi_mock_${DateTime.now().millisecondsSinceEpoch}_secret_mock',
+        'amount': (amount * 100).toInt(),
+        'currency': currency.toLowerCase(),
+        'status': 'requires_payment_method',
+        'description': description,
+        'metadata': {
+          'company_id': companyId,
+          'subscription_type': 'monthly',
+        },
+      };
+    }
+
+    return _invokeSecretAction('createPaymentIntent', {
+      'companyId': companyId,
+      'amount': amount,
+      'currency': currency,
       'description': description,
-      'metadata': {
-        'company_id': companyId,
-        'subscription_type': 'monthly',
-      },
-    };
+    });
   }
 
   // Process payment with card (Mock for demo)
@@ -201,28 +211,20 @@ class StripeService {
     required String name,
     String? phone,
   }) async {
-    try {
-      final response = await http.post(
-        Uri.parse('$_baseUrl/customers'),
-        headers: {
-          'Authorization': 'Bearer $_secretKey',
-          'Content-Type': 'application/x-www-form-urlencoded',
-        },
-        body: {
-          'email': email,
-          'name': name,
-          if (phone != null) 'phone': phone,
-        },
-      );
-
-      if (response.statusCode == 200) {
-        return jsonDecode(response.body);
-      } else {
-        throw Exception('Failed to create customer: ${response.body}');
-      }
-    } catch (e) {
-      throw Exception('Error creating customer: $e');
+    if (AppConfig.useMockStripe) {
+      return {
+        'id': 'cus_mock_${DateTime.now().millisecondsSinceEpoch}',
+        'email': email,
+        'name': name,
+        if (phone != null) 'phone': phone,
+      };
     }
+
+    return _invokeSecretAction('createCustomer', {
+      'email': email,
+      'name': name,
+      if (phone != null) 'phone': phone,
+    });
   }
 
   // Create subscription for recurring billing
@@ -231,73 +233,84 @@ class StripeService {
     required String priceId,
     required String paymentMethodId,
   }) async {
-    try {
-      final response = await http.post(
-        Uri.parse('$_baseUrl/subscriptions'),
-        headers: {
-          'Authorization': 'Bearer $_secretKey',
-          'Content-Type': 'application/x-www-form-urlencoded',
-        },
-        body: {
-          'customer': customerId,
-          'items[0][price]': priceId,
-          'default_payment_method': paymentMethodId,
-          'expand[]': 'latest_invoice.payment_intent',
-        },
-      );
-
-      if (response.statusCode == 200) {
-        return jsonDecode(response.body);
-      } else {
-        throw Exception('Failed to create subscription: ${response.body}');
-      }
-    } catch (e) {
-      throw Exception('Error creating subscription: $e');
+    if (AppConfig.useMockStripe) {
+      return {
+        'id': 'sub_mock_${DateTime.now().millisecondsSinceEpoch}',
+        'customer': customerId,
+        'status': 'active',
+      };
     }
+
+    return _invokeSecretAction('createSubscription', {
+      'customerId': customerId,
+      'priceId': priceId,
+      'paymentMethodId': paymentMethodId,
+    });
   }
 
   // Get payment methods for a customer
   static Future<List<Map<String, dynamic>>> getPaymentMethods({
     required String customerId,
   }) async {
-    try {
-      final response = await http.get(
-        Uri.parse('$_baseUrl/payment_methods?customer=$customerId&type=card'),
-        headers: {
-          'Authorization': 'Bearer $_secretKey',
-        },
-      );
-
-      if (response.statusCode == 200) {
-        final data = jsonDecode(response.body);
-        return List<Map<String, dynamic>>.from(data['data']);
-      } else {
-        throw Exception('Failed to get payment methods: ${response.body}');
-      }
-    } catch (e) {
-      throw Exception('Error getting payment methods: $e');
+    if (AppConfig.useMockStripe) {
+      return const [];
     }
+
+    final result = await _invokeSecretAction('getPaymentMethods', {
+      'customerId': customerId,
+    });
+    final data = result['data'];
+    if (data is List) {
+      return data
+          .whereType<Map>()
+          .map((item) => Map<String, dynamic>.from(item))
+          .toList();
+    }
+    return const [];
   }
 
   // Cancel subscription
   static Future<Map<String, dynamic>> cancelSubscription({
     required String subscriptionId,
   }) async {
+    if (AppConfig.useMockStripe) {
+      return {
+        'id': subscriptionId,
+        'status': 'canceled',
+      };
+    }
+
+    return _invokeSecretAction('cancelSubscription', {
+      'subscriptionId': subscriptionId,
+    });
+  }
+
+  /// Calls the `stripe-secret` Edge Function. Never sends a Stripe secret.
+  static Future<Map<String, dynamic>> _invokeSecretAction(
+    String action,
+    Map<String, dynamic> payload,
+  ) async {
     try {
-      final response = await http.delete(
-        Uri.parse('$_baseUrl/subscriptions/$subscriptionId'),
-        headers: {
-          'Authorization': 'Bearer $_secretKey',
+      final response = await SupabaseService.client.functions.invoke(
+        _functionName,
+        body: {
+          'action': action,
+          'payload': payload,
         },
       );
-
-      if (response.statusCode == 200) {
-        return jsonDecode(response.body);
-      } else {
-        throw Exception('Failed to cancel subscription: ${response.body}');
+      final data = response.data;
+      if (data is Map) {
+        final map = Map<String, dynamic>.from(data);
+        if (map['error'] != null) {
+          throw Exception('Stripe function error: ${map['error']}');
+        }
+        return map;
       }
-    } catch (e) {
-      throw Exception('Error canceling subscription: $e');
+      throw Exception('Unexpected stripe-secret response');
+    } on FunctionException catch (e) {
+      throw Exception(
+        'Stripe function failed (${e.status}): ${e.details ?? e.reasonPhrase}',
+      );
     }
   }
 

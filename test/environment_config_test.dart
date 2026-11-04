@@ -12,22 +12,16 @@ void main() {
         expect(AppConfig.supabaseUrl, isEmpty);
         expect(AppConfig.supabaseAnonKey, isEmpty);
         expect(AppConfig.stripePublishableKey, isEmpty);
-        expect(AppConfig.stripeSecretKey, isEmpty);
       });
 
       test('Stripe AppConfig defaults are empty (no live keys)', () {
         expect(AppConfig.stripePublishableKey, isEmpty);
-        expect(AppConfig.stripeSecretKey, isEmpty);
         expect(AppConfig.stripePublishableKey, isNot(contains('pk_live_')));
-        expect(AppConfig.stripeSecretKey, isNot(contains('sk_live_')));
         expect(
           AppConfig.stripePublishableKey,
           isNot(equals('pk_test_your_stripe_publishable_key_here')),
         );
-        expect(
-          AppConfig.stripeSecretKey,
-          isNot(equals('sk_test_your_stripe_secret_key_here')),
-        );
+        expect(AppConfig.useMockStripe, isTrue);
       });
 
       test('isSupabaseConfigured should return false for empty values', () {
