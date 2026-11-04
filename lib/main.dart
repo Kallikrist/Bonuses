@@ -15,7 +15,6 @@ import 'widgets/branded_splash_screen.dart';
 import 'services/stripe_service.dart';
 import 'services/supabase_service.dart';
 import 'services/supabase_migration_service.dart';
-import 'test_supabase_connection.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -86,9 +85,6 @@ class BonusesApp extends StatelessWidget {
             themeMode:
                 appProvider.isDarkMode ? ThemeMode.dark : ThemeMode.light,
             home: const AppWrapper(),
-            routes: {
-              '/supabase-test': (context) => const TestSupabaseScreen(),
-            },
             debugShowCheckedModeBanner: false,
           );
         },
