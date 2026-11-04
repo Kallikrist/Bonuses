@@ -18,7 +18,7 @@ void main() {
       final johnUser = User(
         id: 'john1',
         name: 'John Doe',
-        email: 'john@store.com',
+        email: 'john.doe@example.com',
         phoneNumber: '+1 (555) 123-4567',
         role: UserRole.employee,
         createdAt: DateTime.now(),
@@ -48,7 +48,7 @@ void main() {
       // Test 1: John should NOT be able to log in when company is suspended
       print('=== Test 1: John login with suspended company ===');
       final loginResult1 =
-          await AuthService.login('john@store.com', 'password123');
+          await AuthService.login('john.doe@example.com', 'password123');
       expect(loginResult1, false,
           reason: 'John should not be able to log in with suspended company');
       print('✓ John correctly blocked from logging in with suspended company');
@@ -62,7 +62,7 @@ void main() {
       // Test 3: John should now be able to log in
       print('\n=== Test 3: John login after company activation ===');
       final loginResult2 =
-          await AuthService.login('john@store.com', 'password123');
+          await AuthService.login('john.doe@example.com', 'password123');
       expect(loginResult2, true,
           reason: 'John should be able to log in after company activation');
       print('✓ John successfully logged in after company activation');
@@ -70,7 +70,7 @@ void main() {
       // Verify current user is John
       final currentUser = AuthService.currentUser;
       expect(currentUser, isNotNull);
-      expect(currentUser!.email, 'john@store.com');
+      expect(currentUser!.email, 'john.doe@example.com');
       expect(currentUser.name, 'John Doe');
       print('✓ Current user is John Doe');
 

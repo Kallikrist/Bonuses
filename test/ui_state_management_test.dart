@@ -125,7 +125,7 @@ void main() {
 
         // Should show initial employee data
         expect(find.textContaining('John Doe'), findsOneWidget);
-        expect(find.textContaining('jane@store.com'), findsOneWidget);
+        expect(find.textContaining('jane.smith@example.com'), findsOneWidget);
 
         // Update an employee
         final users = await appProvider.getUsers();

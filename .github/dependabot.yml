@@ -1,0 +1,29 @@
+# BON-17: weekly dependency updates.
+#
+# Dependabot (not Renovate): native GitHub, no GitHub App, no
+# RENOVATE_TOKEN, no registries/secrets in git. `pub` is a GA
+# ecosystem (version 2). This repo already uses GitHub Actions, so
+# github-actions updates ride along on the same weekly cadence.
+#
+# Version PRs are separate from TestFlight/distribution CI and from
+# the product test workflow (.github/workflows/flutter-tests.yml).
+
+version: 2
+updates:
+  - package-ecosystem: "pub"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+      time: "08:00"
+      timezone: "UTC"
+    open-pull-requests-limit: 5
+
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+      time: "08:00"
+      timezone: "UTC"
+    open-pull-requests-limit: 5

@@ -117,3 +117,10 @@ Desktop.ini
 *.bak
 *.swp
 *.tmp
+
+# Signing material — CI uses GitHub Actions secrets, never files in git
+*.p12
+*.mobileprovision
+*.jks
+*.keystore
+AuthKey_*.p8
