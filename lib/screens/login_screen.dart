@@ -4,17 +4,8 @@ import 'package:provider/provider.dart';
 import '../utils/error_handler.dart';
 import '../providers/app_provider.dart';
 import 'onboarding_screen.dart';
-import '../services/supabase_service.dart';
-import '../services/storage_service.dart';
-import '../services/password_service.dart';
 import '../services/auth_service.dart';
 import '../services/validation_service.dart';
-import '../models/user.dart';
-import '../models/company.dart';
-import '../models/bonus.dart';
-import '../models/sales_target.dart';
-import '../models/points_transaction.dart';
-import '../models/workplace.dart';
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
@@ -28,6 +19,7 @@ class _LoginScreenState extends State<LoginScreen> {
   final _emailController = TextEditingController();
   final _passwordController = TextEditingController();
   bool _isLoading = false;
+  bool _obscurePassword = true;
 
   @override
   void dispose() {
@@ -50,36 +42,31 @@ class _LoginScreenState extends State<LoginScreen> {
           );
 
       if (!success && mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Invalid email or password'),
-            backgroundColor: Colors.red,
-          ),
+        _showLoginMessage(
+          'Invalid email or password',
+          Theme.of(context).colorScheme.error,
+          Theme.of(context).colorScheme.onError,
         );
       }
     } on RateLimitException catch (e) {
-      // Handle rate limit errors with specific messaging
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(e.message),
-            backgroundColor: Colors.orange,
-            duration: const Duration(seconds: 5),
-          ),
+        _showLoginMessage(
+          e.message,
+          Theme.of(context).colorScheme.tertiary,
+          Theme.of(context).colorScheme.onTertiary,
+          duration: const Duration(seconds: 5),
         );
       }
     } catch (e) {
-      // Handle other errors
-      if (mounted && !(e is RateLimitException)) {
+      if (mounted && e is! RateLimitException) {
         if (kDebugMode) {
           print('DEBUG: Login error: $e');
         }
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(ErrorHandler.getSanitizedMessage(e,
-                defaultMessage: 'Login failed. Please try again.')),
-            backgroundColor: Colors.red,
-          ),
+        _showLoginMessage(
+          ErrorHandler.getSanitizedMessage(e,
+              defaultMessage: 'Login failed. Please try again.'),
+          Theme.of(context).colorScheme.error,
+          Theme.of(context).colorScheme.onError,
         );
       }
     } finally {
@@ -91,8 +78,175 @@ class _LoginScreenState extends State<LoginScreen> {
     }
   }
 
+  void _showLoginMessage(
+    String message,
+    Color background,
+    Color foreground, {
+    Duration duration = const Duration(seconds: 4),
+  }) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(message, style: TextStyle(color: foreground)),
+        backgroundColor: background,
+        duration: duration,
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    final textTheme = Theme.of(context).textTheme;
+    final isDark = context.watch<AppProvider>().isDarkMode;
+
+    final loginCard = Card(
+      elevation: 8,
+      color: colorScheme.surface,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(16),
+        side: BorderSide(color: colorScheme.outlineVariant),
+      ),
+      child: Padding(
+        padding: const EdgeInsets.all(32.0),
+        child: AutofillGroup(
+          child: Form(
+            key: _formKey,
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(
+                  Icons.emoji_events,
+                  size: 64,
+                  color: colorScheme.primary,
+                ),
+                const SizedBox(height: 16),
+                Text(
+                  'Bonuses App',
+                  textAlign: TextAlign.center,
+                  style: textTheme.headlineMedium?.copyWith(
+                    fontWeight: FontWeight.bold,
+                    color: colorScheme.primary,
+                  ),
+                ),
+                const SizedBox(height: 8),
+                Text(
+                  'Track sales targets and earn points!',
+                  textAlign: TextAlign.center,
+                  style: textTheme.bodyMedium?.copyWith(
+                    color: colorScheme.onSurfaceVariant,
+                  ),
+                ),
+                const SizedBox(height: 32),
+                TextFormField(
+                  controller: _emailController,
+                  keyboardType: TextInputType.emailAddress,
+                  textInputAction: TextInputAction.next,
+                  autofillHints: const [AutofillHints.email],
+                  autocorrect: false,
+                  enableSuggestions: false,
+                  textCapitalization: TextCapitalization.none,
+                  maxLength: ValidationService.maxEmailLength,
+                  decoration: const InputDecoration(
+                    labelText: 'Email',
+                    prefixIcon: Icon(Icons.email),
+                    border: OutlineInputBorder(),
+                    counterText: '',
+                  ),
+                  validator: ValidationService.validateEmail,
+                ),
+                const SizedBox(height: 16),
+                TextFormField(
+                  controller: _passwordController,
+                  obscureText: _obscurePassword,
+                  textInputAction: TextInputAction.done,
+                  autofillHints: const [AutofillHints.password],
+                  onFieldSubmitted: (_) {
+                    if (!_isLoading) _login();
+                  },
+                  maxLength: ValidationService.maxPasswordLength,
+                  decoration: InputDecoration(
+                    labelText: 'Password',
+                    prefixIcon: const Icon(Icons.lock),
+                    border: const OutlineInputBorder(),
+                    counterText: '',
+                    suffixIcon: IconButton(
+                      tooltip:
+                          _obscurePassword ? 'Show password' : 'Hide password',
+                      onPressed: () {
+                        setState(() {
+                          _obscurePassword = !_obscurePassword;
+                        });
+                      },
+                      icon: Icon(
+                        _obscurePassword
+                            ? Icons.visibility_outlined
+                            : Icons.visibility_off_outlined,
+                      ),
+                    ),
+                  ),
+                  validator: (value) => ValidationService.validatePassword(
+                      value,
+                      isNewPassword: false),
+                ),
+                const SizedBox(height: 24),
+                SizedBox(
+                  width: double.infinity,
+                  height: 48,
+                  child: ElevatedButton(
+                    onPressed: _isLoading ? null : _login,
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: colorScheme.primary,
+                      foregroundColor: colorScheme.onPrimary,
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                    ),
+                    child: _isLoading
+                        ? SizedBox(
+                            width: 22,
+                            height: 22,
+                            child: CircularProgressIndicator(
+                              strokeWidth: 2,
+                              color: colorScheme.onPrimary,
+                            ),
+                          )
+                        : const Text('Login'),
+                  ),
+                ),
+                const SizedBox(height: 16),
+                Wrap(
+                  alignment: WrapAlignment.center,
+                  crossAxisAlignment: WrapCrossAlignment.center,
+                  spacing: 4,
+                  children: [
+                    Text(
+                      'Don\'t have an account?',
+                      style: TextStyle(
+                        color: colorScheme.onSurfaceVariant,
+                      ),
+                    ),
+                    TextButton(
+                      onPressed: () {
+                        Navigator.of(context).push(
+                          MaterialPageRoute(
+                            builder: (context) => const OnboardingScreen(),
+                          ),
+                        );
+                      },
+                      style: TextButton.styleFrom(
+                        foregroundColor: colorScheme.primary,
+                      ),
+                      child: const Text('Create Company'),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+
     return Scaffold(
       body: Container(
         decoration: BoxDecoration(
@@ -100,949 +254,52 @@ class _LoginScreenState extends State<LoginScreen> {
             begin: Alignment.topCenter,
             end: Alignment.bottomCenter,
             colors: [
-              Theme.of(context).colorScheme.primary,
-              Theme.of(context).colorScheme.primaryContainer,
+              colorScheme.primary,
+              colorScheme.primaryContainer,
             ],
           ),
         ),
         child: SafeArea(
-          child: Center(
-            child: SingleChildScrollView(
-              padding: const EdgeInsets.all(24.0),
-              child: Card(
-                elevation: 8,
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(16),
-                ),
-                child: Padding(
-                  padding: const EdgeInsets.all(32.0),
-                  child: Form(
-                    key: _formKey,
-                    child: Column(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Icon(
-                          Icons.emoji_events,
-                          size: 64,
-                          color: Theme.of(context).colorScheme.primary,
-                        ),
-                        const SizedBox(height: 16),
-                        Text(
-                          'Bonuses App',
-                          style: Theme.of(context)
-                              .textTheme
-                              .headlineMedium
-                              ?.copyWith(
-                                fontWeight: FontWeight.bold,
-                                color: Theme.of(context).colorScheme.primary,
-                              ),
-                        ),
-                        const SizedBox(height: 8),
-                        Text(
-                          'Track sales targets and earn points!',
-                          style:
-                              Theme.of(context).textTheme.bodyMedium?.copyWith(
-                                    color: Colors.grey[600],
-                                  ),
-                        ),
-                        const SizedBox(height: 32),
-                        TextFormField(
-                          controller: _emailController,
-                          keyboardType: TextInputType.emailAddress,
-                          maxLength: ValidationService.maxEmailLength,
-                          decoration: const InputDecoration(
-                            labelText: 'Email',
-                            prefixIcon: Icon(Icons.email),
-                            border: OutlineInputBorder(),
-                            counterText: '', // Hide counter for cleaner UI
-                          ),
-                          validator: ValidationService.validateEmail,
-                        ),
-                        const SizedBox(height: 16),
-                        TextFormField(
-                          controller: _passwordController,
-                          obscureText: true,
-                          maxLength: ValidationService.maxPasswordLength,
-                          decoration: const InputDecoration(
-                            labelText: 'Password',
-                            prefixIcon: Icon(Icons.lock),
-                            border: OutlineInputBorder(),
-                            counterText: '', // Hide counter for cleaner UI
-                          ),
-                          validator: (value) =>
-                              ValidationService.validatePassword(value,
-                                  isNewPassword: false),
-                        ),
-                        const SizedBox(height: 24),
-                        SizedBox(
-                          width: double.infinity,
-                          height: 48,
-                          child: ElevatedButton(
-                            onPressed: _isLoading ? null : _login,
-                            style: ElevatedButton.styleFrom(
-                              shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(8),
-                              ),
-                            ),
-                            child: _isLoading
-                                ? const CircularProgressIndicator(
-                                    color: Colors.white)
-                                : const Text('Login'),
-                          ),
-                        ),
-                        const SizedBox(height: 16),
-                        Wrap(
-                          alignment: WrapAlignment.center,
-                          children: [
-                            Text(
-                              'Don\'t have an account?',
-                              style: TextStyle(color: Colors.grey[600]),
-                            ),
-                            TextButton(
-                              onPressed: () {
-                                Navigator.of(context).push(
-                                  MaterialPageRoute(
-                                    builder: (context) =>
-                                        const OnboardingScreen(),
-                                  ),
-                                );
-                              },
-                              child: const Text('Create Company'),
-                            ),
-                          ],
-                        ),
-                        const SizedBox(height: 16),
-                        Container(
-                          padding: const EdgeInsets.all(16),
-                          decoration: BoxDecoration(
-                            color: Colors.blue[50],
-                            borderRadius: BorderRadius.circular(8),
-                            border: Border.all(color: Colors.blue[200]!),
-                          ),
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              Text(
-                                'Demo Accounts:',
-                                style: TextStyle(
-                                  fontWeight: FontWeight.bold,
-                                  color: Colors.blue[800],
-                                ),
-                              ),
-                              const SizedBox(height: 8),
-                              Flexible(
-                                child: Text(
-                                  'Admin Store: admin@store.com / password123\nAdmin Utilif: admin@utilif.com / utilif123\nEmployee: john.doe@example.com / password123\nSuper Admin: superadmin@platform.com / password123',
-                                  style: TextStyle(color: Colors.blue[700]),
-                                  softWrap: true,
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                        const SizedBox(height: 16),
-                        // Reset Demo Data Button
-                        ElevatedButton(
-                          onPressed: _resetDemoData,
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor: Colors.orange,
-                            foregroundColor: Colors.white,
-                          ),
-                          child: const Text('🔄 Reset Demo Data'),
-                        ),
-                        const SizedBox(height: 16),
-                        // Test Supabase Integration Button
-                        ElevatedButton(
-                          onPressed: _testSupabaseIntegration,
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor: Colors.purple,
-                            foregroundColor: Colors.white,
-                          ),
-                          child: const Text('🧪 Test Supabase Integration'),
-                        ),
-                        const SizedBox(height: 8),
-                        // Debug Users Button
-                        ElevatedButton(
-                          onPressed: _debugUsers,
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor: Colors.blue,
-                            foregroundColor: Colors.white,
-                          ),
-                          child: const Text('👥 Debug Users'),
-                        ),
-                        const SizedBox(height: 8),
-                        // Test Create Jon2 Employee Button
-                        ElevatedButton(
-                          onPressed: _testCreateJon2Employee,
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor: Colors.green,
-                            foregroundColor: Colors.white,
-                          ),
-                          child: const Text('🧪 Test Create Jon2 Employee'),
-                        ),
-                        const SizedBox(height: 8),
-                        // Test Create Bonus Button
-                        ElevatedButton(
-                          onPressed: _testCreateBonus,
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor: Colors.orange,
-                            foregroundColor: Colors.white,
-                          ),
-                          child: const Text('🧪 Test Create Bonus'),
-                        ),
-
-                        // Comprehensive Database Test Button
-                        ElevatedButton(
-                          onPressed: _runComprehensiveDatabaseTest,
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor: Colors.purple,
-                            foregroundColor: Colors.white,
-                          ),
-                          child: const Text('🔬 Comprehensive DB Test'),
-                        ),
-                        const SizedBox(height: 8),
-                        // Check Password Status Button
-                        ElevatedButton(
-                          onPressed: _checkPasswordStatus,
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor: Colors.teal,
-                            foregroundColor: Colors.white,
-                          ),
-                          child: const Text('🔍 Check Password Status'),
-                        ),
-                        const SizedBox(height: 8),
-                        // Password Reset Utility Button
-                        ElevatedButton(
-                          onPressed: _resetPasswordForUser,
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor: Colors.red,
-                            foregroundColor: Colors.white,
-                          ),
-                          child: const Text('🔑 Reset Password for User'),
-                        ),
-                      ],
-                    ),
+          child: Column(
+            children: [
+              Align(
+                alignment: Alignment.centerRight,
+                child: IconButton(
+                  tooltip: isDark ? 'Light mode' : 'Dark mode',
+                  onPressed: () => context.read<AppProvider>().toggleDarkMode(),
+                  icon: Icon(
+                    isDark
+                        ? Icons.light_mode_outlined
+                        : Icons.dark_mode_outlined,
+                    color: colorScheme.onPrimary,
                   ),
                 ),
               ),
-            ),
+              Expanded(
+                child: LayoutBuilder(
+                  builder: (context, constraints) {
+                    return SingleChildScrollView(
+                      padding: const EdgeInsets.fromLTRB(24, 0, 24, 24),
+                      child: ConstrainedBox(
+                        constraints: BoxConstraints(
+                          minHeight: (constraints.maxHeight - 24)
+                              .clamp(0.0, double.infinity),
+                        ),
+                        child: Center(
+                          child: ConstrainedBox(
+                            constraints: const BoxConstraints(maxWidth: 420),
+                            child: loginCard,
+                          ),
+                        ),
+                      ),
+                    );
+                  },
+                ),
+              ),
+            ],
           ),
         ),
       ),
     );
-  }
-
-  Future<void> _resetDemoData() async {
-    try {
-      showDialog(
-        context: context,
-        barrierDismissible: false,
-        builder: (context) => const AlertDialog(
-          content: Row(
-            children: [
-              CircularProgressIndicator(),
-              SizedBox(width: 16),
-              Text('Resetting demo data...'),
-            ],
-          ),
-        ),
-      );
-
-      // Clear all data and reinitialize
-      await StorageService.clearAllData();
-      await StorageService.initializeSampleData();
-
-      Navigator.of(context).pop(); // Close loading dialog
-
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('✅ Demo data reset successfully! Try logging in now.'),
-          backgroundColor: Colors.green,
-        ),
-      );
-    } catch (e) {
-      Navigator.of(context).pop(); // Close loading dialog
-
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('❌ Failed to reset demo data: $e'),
-          backgroundColor: Colors.red,
-        ),
-      );
-    }
-  }
-
-  Future<void> _debugUsers() async {
-    try {
-      final users = await StorageService.getUsers();
-      String debugInfo = 'Current Users (${users.length}):\n\n';
-
-      for (final user in users) {
-        final hasPassword = await StorageService.getPassword(user.id) != null;
-        // Sanitize user ID - show only first 6 chars for debugging
-        final sanitizedId =
-            user.id.length > 6 ? '${user.id.substring(0, 6)}...' : '***';
-        debugInfo += '${user.email}:\n';
-        debugInfo += '  ID: $sanitizedId\n';
-        debugInfo += '  Name: ${user.name}\n';
-        debugInfo += '  Role: ${user.role}\n';
-        debugInfo += '  Password: ${hasPassword ? "*** (set)" : "Not set"}\n';
-        debugInfo += '  Companies: ${user.companyNames.join(", ")}\n\n';
-      }
-
-      showDialog(
-        context: context,
-        builder: (context) => AlertDialog(
-          title: const Text('Current Users'),
-          content: SingleChildScrollView(
-            child: Text(debugInfo),
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.of(context).pop(),
-              child: const Text('OK'),
-            ),
-          ],
-        ),
-      );
-    } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('❌ Debug failed: $e'),
-          backgroundColor: Colors.red,
-        ),
-      );
-    }
-  }
-
-  Future<void> _testSupabaseIntegration() async {
-    try {
-      showDialog(
-        context: context,
-        barrierDismissible: false,
-        builder: (context) => const AlertDialog(
-          content: Row(
-            children: [
-              CircularProgressIndicator(),
-              SizedBox(width: 16),
-              Text('Testing Supabase integration...'),
-            ],
-          ),
-        ),
-      );
-
-      // Test user creation
-      final timestamp = DateTime.now().millisecondsSinceEpoch;
-      final testUser = User(
-        id: 'test_user_$timestamp',
-        email: 'test_$timestamp@example.com',
-        name: 'Test User $timestamp',
-        role: UserRole.admin,
-        companyIds: ['test_company_$timestamp'],
-        companyNames: ['Test Company $timestamp'],
-        companyPoints: {},
-        companyRoles: {},
-        createdAt: DateTime.now(),
-      );
-
-      await SupabaseService.createUser(testUser);
-      print('✅ Test user created in Supabase: ${testUser.email}');
-
-      // Test company creation
-      final testCompany = Company(
-        id: 'test_company_$timestamp',
-        name: 'Test Company $timestamp',
-        address: '123 Test St',
-        adminUserId: testUser.id,
-        contactEmail: 'admin_$timestamp@test.com',
-        contactPhone: '123-456-7890',
-        createdAt: DateTime.now(),
-      );
-
-      await SupabaseService.createCompany(testCompany);
-      print('✅ Test company created in Supabase: ${testCompany.name}');
-
-      Navigator.of(context).pop(); // Close loading dialog
-
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('✅ Supabase test passed! Check logs for details.'),
-          backgroundColor: Colors.green,
-        ),
-      );
-    } catch (e) {
-      Navigator.of(context).pop(); // Close loading dialog
-
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('❌ Supabase test failed: $e'),
-          backgroundColor: Colors.red,
-        ),
-      );
-    }
-  }
-
-  Future<void> _testCreateJon2Employee() async {
-    try {
-      showDialog(
-        context: context,
-        barrierDismissible: false,
-        builder: (context) => const AlertDialog(
-          content: Row(
-            children: [
-              CircularProgressIndicator(),
-              SizedBox(width: 16),
-              Text('Creating Jon2 employee...'),
-            ],
-          ),
-        ),
-      );
-
-      // Create Jon2 employee
-      final timestamp = DateTime.now().millisecondsSinceEpoch;
-      final jon2User = User(
-        id: 'jon2_$timestamp',
-        email: 'jon2@example.com',
-        name: 'Jon2',
-        phoneNumber: '123-456-7890',
-        role: UserRole.employee,
-        companyIds: ['demo_company_utilif'], // Use existing company
-        companyNames: ['Utilif'],
-        companyPoints: {},
-        companyRoles: {},
-        primaryCompanyId: 'demo_company_utilif',
-        totalPoints: 0,
-        createdAt: DateTime.now(),
-      );
-
-      // Create user in Supabase
-      await SupabaseService.createUser(jon2User);
-      print('✅ Jon2 user created in Supabase: ${jon2User.email}');
-
-      // Also create in local storage for immediate access
-      await StorageService.addUser(jon2User);
-      await StorageService.savePassword(jon2User.id, 'password123');
-      print('✅ Jon2 user created in local storage: ${jon2User.email}');
-
-      Navigator.of(context).pop(); // Close loading dialog
-
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text(
-              '✅ Jon2 employee created successfully! Check the employee list.'),
-          backgroundColor: Colors.green,
-        ),
-      );
-    } catch (e) {
-      Navigator.of(context).pop(); // Close loading dialog
-
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('❌ Failed to create Jon2 employee: $e'),
-          backgroundColor: Colors.red,
-        ),
-      );
-    }
-  }
-
-  Future<void> _testCreateBonus() async {
-    try {
-      showDialog(
-        context: context,
-        barrierDismissible: false,
-        builder: (context) => const AlertDialog(
-          content: Row(
-            children: [
-              CircularProgressIndicator(),
-              SizedBox(width: 16),
-              Text('Creating test bonus...'),
-            ],
-          ),
-        ),
-      );
-
-      // Create test bonus with minimal required fields
-      final timestamp = DateTime.now().millisecondsSinceEpoch;
-      final randomSuffix = (timestamp % 10000).toString(); // Add random suffix
-      final testBonus = Bonus(
-        id: 'test_bonus_${timestamp}_$randomSuffix', // Make ID more unique
-        name: 'Test Bonus Elko',
-        description: 'Test bonus created via button',
-        pointsRequired: 100,
-        status: BonusStatus.available,
-        createdAt: DateTime.now(),
-        companyId: 'demo_company_utilif', // Use existing company
-      );
-
-      // Create bonus in Supabase
-      print('DEBUG: Attempting to create bonus in Supabase...');
-      print('DEBUG: Bonus data: ${testBonus.toJson()}');
-
-      // Try raw JSON approach first
-      final rawData = {
-        'id':
-            'test_bonus_raw_${timestamp}_$randomSuffix', // Make ID more unique
-        'title': 'Test Bonus Raw',
-        'description': 'Test bonus created with raw JSON',
-        'points_required': 100, // Use int, not double
-        'company_id': 'demo_company_utilif',
-      };
-
-      print('DEBUG: Raw data: $rawData');
-      await SupabaseService.createBonusRaw(rawData);
-      print('✅ Raw bonus created in Supabase');
-
-      // Also try the model approach
-      await SupabaseService.createBonus(testBonus);
-      print('✅ Test bonus created in Supabase: ${testBonus.name}');
-
-      // Also create in local storage for immediate access
-      print('DEBUG: Attempting to create bonus in local storage...');
-      await StorageService.addBonus(testBonus);
-      print('✅ Test bonus created in local storage: ${testBonus.name}');
-
-      Navigator.of(context).pop(); // Close loading dialog
-
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text(
-              '✅ Test bonus created successfully! Check the bonuses list.'),
-          backgroundColor: Colors.green,
-        ),
-      );
-    } catch (e) {
-      Navigator.of(context).pop(); // Close loading dialog
-
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('❌ Failed to create test bonus: $e'),
-          backgroundColor: Colors.red,
-        ),
-      );
-    }
-  }
-
-  Future<void> _runComprehensiveDatabaseTest() async {
-    try {
-      showDialog(
-        context: context,
-        barrierDismissible: false,
-        builder: (context) => const AlertDialog(
-          content: Row(
-            children: [
-              CircularProgressIndicator(),
-              SizedBox(width: 16),
-              Text('Running comprehensive database tests...'),
-            ],
-          ),
-        ),
-      );
-
-      final timestamp = DateTime.now().millisecondsSinceEpoch;
-      final randomSuffix = (timestamp % 10000).toString();
-      final testPrefix = 'test_${timestamp}_$randomSuffix';
-
-      print('🔬 Starting Comprehensive Database Test...');
-      print('🔬 Test Prefix: $testPrefix');
-
-      List<String> testResults = [];
-
-      // Test 1: User Creation
-      try {
-        print('🔬 Test 1: Creating test user...');
-        final testUser = User(
-          id: '${testPrefix}_user',
-          name: 'Test User $randomSuffix',
-          email: 'testuser$randomSuffix@test.com',
-          role: UserRole.employee,
-          createdAt: DateTime.now(),
-          phoneNumber: '+1234567890',
-          primaryCompanyId: '${testPrefix}_company',
-          workplaceIds: ['${testPrefix}_workplace'],
-          workplaceNames: ['Test Workplace'],
-          totalPoints: 0,
-          companyPoints: {},
-          companyRoles: {},
-        );
-
-        await StorageService.addUser(testUser);
-        testResults.add('✅ User Creation: SUCCESS');
-        print('✅ User created successfully');
-      } catch (e) {
-        testResults.add('❌ User Creation: FAILED - $e');
-        print('❌ User creation failed: $e');
-      }
-
-      // Test 2: Company Creation
-      try {
-        print('🔬 Test 2: Creating test company...');
-        final testCompany = Company(
-          id: '${testPrefix}_company',
-          name: 'Test Company $randomSuffix',
-          adminUserId: '${testPrefix}_user',
-          createdAt: DateTime.now(),
-          contactEmail: 'admin$randomSuffix@testcompany.com',
-          contactPhone: '+1234567890',
-          address: '123 Test Street, Test City',
-          employeeCount: '1',
-        );
-
-        await StorageService.addCompany(testCompany);
-        testResults.add('✅ Company Creation: SUCCESS');
-        print('✅ Company created successfully');
-      } catch (e) {
-        testResults.add('❌ Company Creation: FAILED - $e');
-        print('❌ Company creation failed: $e');
-      }
-
-      // Test 3: Workplace Creation
-      try {
-        print('🔬 Test 3: Creating test workplace...');
-        final testWorkplace = Workplace(
-          id: '${testPrefix}_workplace',
-          name: 'Test Workplace $randomSuffix',
-          address: '456 Test Avenue, Test City',
-          createdAt: DateTime.now(),
-          companyId: '${testPrefix}_company',
-        );
-
-        await StorageService.addWorkplace(testWorkplace);
-        testResults.add('✅ Workplace Creation: SUCCESS');
-        print('✅ Workplace created successfully');
-      } catch (e) {
-        testResults.add('❌ Workplace Creation: FAILED - $e');
-        print('❌ Workplace creation failed: $e');
-      }
-
-      // Test 4: Bonus Creation
-      try {
-        print('🔬 Test 4: Creating test bonus...');
-        final testBonus = Bonus(
-          id: '${testPrefix}_bonus',
-          name: 'Test Bonus $randomSuffix',
-          description: 'Test bonus for database testing',
-          pointsRequired: 50,
-          status: BonusStatus.available,
-          createdAt: DateTime.now(),
-          companyId: '${testPrefix}_company',
-        );
-
-        await StorageService.addBonus(testBonus);
-        testResults.add('✅ Bonus Creation: SUCCESS');
-        print('✅ Bonus created successfully');
-      } catch (e) {
-        testResults.add('❌ Bonus Creation: FAILED - $e');
-        print('❌ Bonus creation failed: $e');
-      }
-
-      // Test 5: Sales Target Creation
-      try {
-        print('🔬 Test 5: Creating test sales target...');
-        final testTarget = SalesTarget(
-          id: '${testPrefix}_target',
-          date: DateTime.now(),
-          targetAmount: 1000.0,
-          createdAt: DateTime.now(),
-          createdBy: '${testPrefix}_user',
-          assignedEmployeeId: '${testPrefix}_user',
-          assignedEmployeeName: 'Test User $randomSuffix',
-          assignedWorkplaceId: '${testPrefix}_workplace',
-          assignedWorkplaceName: 'Test Workplace $randomSuffix',
-          companyId: '${testPrefix}_company',
-          status: TargetStatus.pending,
-        );
-
-        await StorageService.addSalesTarget(testTarget);
-        testResults.add('✅ Sales Target Creation: SUCCESS');
-        print('✅ Sales target created successfully');
-      } catch (e) {
-        testResults.add('❌ Sales Target Creation: FAILED - $e');
-        print('❌ Sales target creation failed: $e');
-      }
-
-      // Test 6: Points Transaction Creation
-      try {
-        print('🔬 Test 6: Creating test points transaction...');
-        final testTransaction = PointsTransaction(
-          id: '${testPrefix}_transaction',
-          userId: '${testPrefix}_user',
-          points: 25,
-          type: PointsTransactionType.earned,
-          description: 'Test points transaction for database testing',
-          date: DateTime.now(),
-          companyId: '${testPrefix}_company',
-        );
-
-        await StorageService.addPointsTransaction(testTransaction);
-        testResults.add('✅ Points Transaction Creation: SUCCESS');
-        print('✅ Points transaction created successfully');
-      } catch (e) {
-        testResults.add('❌ Points Transaction Creation: FAILED - $e');
-        print('❌ Points transaction creation failed: $e');
-      }
-
-      // Test 7: Data Retrieval Test
-      try {
-        print('🔬 Test 7: Testing data retrieval...');
-        final users = await StorageService.getUsers();
-        final companies = await StorageService.getCompanies();
-        final bonuses = await StorageService.getBonuses();
-        final targets = await StorageService.getSalesTargets();
-        final transactions = await StorageService.getPointsTransactions();
-        final workplaces = await StorageService.getWorkplaces();
-
-        print('🔬 Retrieved data counts:');
-        print('  - Users: ${users.length}');
-        print('  - Companies: ${companies.length}');
-        print('  - Bonuses: ${bonuses.length}');
-        print('  - Sales Targets: ${targets.length}');
-        print('  - Points Transactions: ${transactions.length}');
-        print('  - Workplaces: ${workplaces.length}');
-
-        testResults.add('✅ Data Retrieval: SUCCESS');
-        print('✅ Data retrieval successful');
-      } catch (e) {
-        testResults.add('❌ Data Retrieval: FAILED - $e');
-        print('❌ Data retrieval failed: $e');
-      }
-
-      Navigator.of(context).pop(); // Close loading dialog
-
-      // Show results
-      showDialog(
-        context: context,
-        builder: (context) => AlertDialog(
-          title: const Text('🔬 Database Test Results'),
-          content: SingleChildScrollView(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              mainAxisSize: MainAxisSize.min,
-              children: testResults
-                  .map((result) => Padding(
-                        padding: const EdgeInsets.symmetric(vertical: 2),
-                        child: Text(result),
-                      ))
-                  .toList(),
-            ),
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.of(context).pop(),
-              child: const Text('Close'),
-            ),
-          ],
-        ),
-      );
-
-      print('🔬 Comprehensive Database Test Completed');
-    } catch (e) {
-      Navigator.of(context).pop(); // Close loading dialog
-
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('❌ Database test failed: $e'),
-          backgroundColor: Colors.red,
-        ),
-      );
-    }
-  }
-
-  Future<void> _checkPasswordStatus() async {
-    try {
-      // Show dialog to get email
-      final emailController = TextEditingController();
-
-      final result = await showDialog<bool>(
-        context: context,
-        builder: (context) => AlertDialog(
-          title: const Text('Check Password Status'),
-          content: TextField(
-            controller: emailController,
-            decoration: const InputDecoration(
-              labelText: 'Email',
-              hintText: 'Enter user email (e.g., this@this.is)',
-            ),
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.of(context).pop(false),
-              child: const Text('Cancel'),
-            ),
-            ElevatedButton(
-              onPressed: () {
-                if (emailController.text.isNotEmpty) {
-                  Navigator.of(context).pop(true);
-                }
-              },
-              child: const Text('Check'),
-            ),
-          ],
-        ),
-      );
-
-      if (result != true) return;
-
-      final email = emailController.text.trim();
-
-      if (email.isEmpty) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Please enter an email'),
-            backgroundColor: Colors.red,
-          ),
-        );
-        return;
-      }
-
-      // Find user by email
-      final users = await StorageService.getUsers();
-      final user = users.firstWhere(
-        (u) => u.email.toLowerCase() == email.toLowerCase(),
-        orElse: () => throw Exception('User not found'),
-      );
-
-      // Get password status
-      final storedPassword = await StorageService.getPassword(user.id);
-      final hasPassword = storedPassword != null;
-      final isHashed =
-          hasPassword && !PasswordService.isPlaintext(storedPassword);
-
-      String statusMessage = 'Password Status for ${user.email}:\n\n';
-      if (!hasPassword) {
-        statusMessage += '❌ No password set\n';
-        statusMessage += 'The user has no password stored.\n';
-        statusMessage += 'Use "Reset Password" to set a new password.';
-      } else if (isHashed) {
-        statusMessage += '✅ Password is set and hashed\n';
-        statusMessage += 'Password format: Hashed (secure)\n';
-        statusMessage += 'Note: Original password cannot be recovered.\n';
-        statusMessage += 'Use "Reset Password" to set a new password.';
-      } else {
-        statusMessage += '⚠️ Password is set but in plaintext\n';
-        statusMessage += 'Password format: Plaintext (insecure)\n';
-        statusMessage += 'Password will be hashed on next login.\n';
-        statusMessage += 'Use "Reset Password" to set a new secure password.';
-      }
-
-      showDialog(
-        context: context,
-        builder: (context) => AlertDialog(
-          title: const Text('Password Status'),
-          content: SingleChildScrollView(
-            child: Text(statusMessage),
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.of(context).pop(),
-              child: const Text('OK'),
-            ),
-          ],
-        ),
-      );
-
-      print('🔍 Password status checked for user: ${user.email}');
-    } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('❌ Failed to check password: $e'),
-          backgroundColor: Colors.red,
-        ),
-      );
-    }
-  }
-
-  Future<void> _resetPasswordForUser() async {
-    try {
-      // Show dialog to get email and new password
-      final emailController = TextEditingController();
-      final passwordController = TextEditingController();
-
-      final result = await showDialog<bool>(
-        context: context,
-        builder: (context) => AlertDialog(
-          title: const Text('Reset Password'),
-          content: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              TextField(
-                controller: emailController,
-                decoration: const InputDecoration(
-                  labelText: 'Email',
-                  hintText: 'Enter user email (e.g., this@this.is)',
-                ),
-              ),
-              const SizedBox(height: 16),
-              TextField(
-                controller: passwordController,
-                obscureText: true,
-                decoration: const InputDecoration(
-                  labelText: 'New Password',
-                  hintText: 'Enter new password',
-                ),
-              ),
-            ],
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.of(context).pop(false),
-              child: const Text('Cancel'),
-            ),
-            ElevatedButton(
-              onPressed: () {
-                if (emailController.text.isNotEmpty &&
-                    passwordController.text.isNotEmpty) {
-                  Navigator.of(context).pop(true);
-                }
-              },
-              child: const Text('Reset'),
-            ),
-          ],
-        ),
-      );
-
-      if (result != true) return;
-
-      final email = emailController.text.trim();
-      final newPassword = passwordController.text;
-
-      if (email.isEmpty || newPassword.isEmpty) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Please enter both email and password'),
-            backgroundColor: Colors.red,
-          ),
-        );
-        return;
-      }
-
-      // Find user by email
-      final users = await StorageService.getUsers();
-      final user = users.firstWhere(
-        (u) => u.email.toLowerCase() == email.toLowerCase(),
-        orElse: () => throw Exception('User not found'),
-      );
-
-      // Save the new password (will be hashed automatically)
-      await StorageService.savePassword(user.id, newPassword);
-
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(
-              '✅ Password reset for ${user.email}\nNew password: $newPassword'),
-          backgroundColor: Colors.green,
-          duration: const Duration(seconds: 5),
-        ),
-      );
-
-      print('✅ Password reset for user: ${user.email}');
-    } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('❌ Failed to reset password: $e'),
-          backgroundColor: Colors.red,
-        ),
-      );
-    }
   }
 }

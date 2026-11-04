@@ -44,9 +44,9 @@ A comprehensive Flutter application for managing employee bonuses and rewards ba
 
 ## Demo Accounts
 
-These match `StorageService.initializeSampleData()` and the login screen Demo Accounts box.
+These match `StorageService.initializeSampleData()`. They are not shown on the logged-out login screen.
 
-### Login-screen accounts
+### Canonical seeded accounts
 - **Admin Store**: `admin@store.com` / `password123` — Store Manager
 - **Admin Utilif**: `admin@utilif.com` / `utilif123` — Utilif Administrator
 - **Employee**: `john.doe@example.com` / `password123` — John Doe
