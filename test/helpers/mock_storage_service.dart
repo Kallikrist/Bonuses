@@ -188,7 +188,7 @@ class MockStorageService {
         User(
           id: 'emp1',
           name: 'John Doe',
-          email: 'john@store.com',
+          email: 'john.doe@example.com',
           phoneNumber: '+1 (555) 234-5678',
           role: UserRole.employee,
           createdAt: DateTime.now(),
@@ -198,7 +198,7 @@ class MockStorageService {
         User(
           id: 'emp2',
           name: 'Jane Smith',
-          email: 'jane@store.com',
+          email: 'jane.smith@example.com',
           phoneNumber: '+1 (555) 345-6789',
           role: UserRole.employee,
           createdAt: DateTime.now(),
@@ -208,7 +208,7 @@ class MockStorageService {
         User(
           id: 'emp3',
           name: 'Mike Johnson',
-          email: 'mike@store.com',
+          email: 'mike.johnson@example.com',
           phoneNumber: '+1 (555) 456-7890',
           role: UserRole.employee,
           createdAt: DateTime.now(),

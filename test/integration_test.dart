@@ -295,7 +295,7 @@ void main() {
           () async {
         // Step 1: Login as employee
         final employeeLoginSuccess =
-            await appProvider.login('john@store.com', 'password123');
+            await appProvider.login('john.doe@example.com', 'password123');
         expect(employeeLoginSuccess, isTrue);
         expect(appProvider.isEmployee, isTrue);
 
@@ -336,7 +336,7 @@ void main() {
 
         // Step 6: Switch back to employee
         await appProvider.logout();
-        await appProvider.login('john@store.com', 'password123');
+        await appProvider.login('john.doe@example.com', 'password123');
 
         // Step 7: Verify employee received points (20 points for 130% achievement)
         final employeePoints =

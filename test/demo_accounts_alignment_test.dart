@@ -224,4 +224,33 @@ void main() {
       }
     });
   });
+
+  group('tests do not log in with stale store.com emails', () {
+    test('fixtures and login calls use seed emails, not john@store.com', () {
+      final testRoot = Directory('test');
+      expect(testRoot.existsSync(), isTrue);
+
+      final dartFiles = testRoot
+          .listSync(recursive: true)
+          .whereType<File>()
+          .where((file) => file.path.endsWith('.dart'))
+          .toList();
+      expect(dartFiles, isNotEmpty);
+
+      for (final file in dartFiles) {
+        final relative = file.path.replaceFirst(RegExp(r'^(\./)?'), '');
+        if (relative.endsWith('demo_accounts_alignment_test.dart')) {
+          continue;
+        }
+        final source = file.readAsStringSync();
+        for (final email in staleReadmeEmails) {
+          expect(
+            source.contains(email),
+            isFalse,
+            reason: '$relative still uses stale $email; use seed/README emails',
+          );
+        }
+      }
+    });
+  });
 }
