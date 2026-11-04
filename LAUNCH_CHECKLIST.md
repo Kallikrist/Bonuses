@@ -129,9 +129,9 @@ Canonical set (README, login Demo Accounts box, `StorageService.initializeSample
 | --- | --- | --- |
 | README matches seed + login box | Done | `README.md` Demo Accounts; locked by `test/demo_accounts_alignment_test.dart` |
 | App always seeds missing demo users | Done (launch risk) | `AppProvider.initialize()` calls `initializeSampleData()` when any of the four login-box emails is missing |
-| Passwords shown on the login screen | Done (launch risk) | `lib/screens/login_screen.dart` Demo Accounts box is not gated on `kDebugMode` / `DEMO_MODE` |
-| Debug / wipe controls on login | Done (launch risk) | Always visible: Reset Demo Data, Test Supabase Integration, Debug Users, Test Create Jon2 Employee, Test Create Bonus, Comprehensive DB Test, Check Password Status, Reset Password for User |
-| Hide demo chrome in store builds | Not started | Need `kReleaseMode` / `DEMO_MODE` gates before TestFlight or Play |
+| Passwords shown on the login screen | Done | Removed from logged-out `lib/screens/login_screen.dart`; locked by `test/login_screen_hardening_test.dart` |
+| Debug / wipe controls on login | Done | Removed from logged-out login (Reset Demo Data, Test Supabase, Debug Users, unauthenticated reset) |
+| Hide demo chrome in store builds | Done | Logged-out login has no demo box or debug buttons |
 | Some tests still use stale emails | Not started | e.g. `john@store.com` / `jane@store.com` in `test/widget_test.dart`, `test/john_login_test.dart`, `test/integration_test.dart` |
 | Auth users for these emails | Owner | After BON-12; same emails/passwords |
 

@@ -3,8 +3,8 @@ import 'dart:io';
 import 'package:bonuses/config/app_config.dart';
 import 'package:flutter_test/flutter_test.dart';
 
-/// Canonical login-box emails from README / login / seed. The launch
-/// checklist must list the same set, not a fourth copy.
+/// Canonical demo emails from README / seed. The launch checklist must list
+/// the same set. Logged-out login no longer shows this chrome.
 const loginScreenEmails = [
   'admin@store.com',
   'admin@utilif.com',
@@ -133,18 +133,14 @@ void main() {
       expect(authSource, isNot(contains('signInWithPassword')));
     });
 
-    test('login screen always shows demo chrome (not gated)', () {
-      expect(loginSource, contains('Demo Accounts:'));
-      expect(loginSource, contains('Reset Demo Data'));
-      expect(loginSource, contains('Test Supabase Integration'));
-      expect(loginSource, contains('Debug Users'));
-      final demoBox = loginSource.substring(
-        loginSource.indexOf('Demo Accounts:'),
-        loginSource.indexOf('Reset Demo Data'),
-      );
-      expect(demoBox, isNot(contains('kDebugMode')));
-      expect(demoBox, isNot(contains('kReleaseMode')));
-      expect(demoBox, isNot(contains('demoMode')));
+    test('login screen has no demo chrome', () {
+      expect(loginSource, isNot(contains('Demo Accounts:')));
+      expect(loginSource, isNot(contains('Reset Demo Data')));
+      expect(loginSource, isNot(contains('Test Supabase Integration')));
+      expect(loginSource, isNot(contains('Debug Users')));
+      expect(loginSource, isNot(contains('Reset Password for User')));
+      expect(loginSource, isNot(contains('Test Create Jon2 Employee')));
+      expect(loginSource, isNot(contains('Comprehensive DB Test')));
     });
   });
 
