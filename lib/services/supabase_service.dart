@@ -10,7 +10,16 @@ import '../models/approval_request.dart';
 import '../config/app_config.dart';
 
 class SupabaseService {
+  static bool _initialized = false;
+
   static SupabaseClient get client => Supabase.instance.client;
+
+  /// True after a successful [initialize]. Tests and missing-config runs stay false.
+  static bool get isInitialized => _initialized;
+
+  /// Login uses Supabase Auth only when credentials exist and init succeeded.
+  static bool get isAuthReady =>
+      AppConfig.isSupabaseConfigured && _initialized;
 
   // Initialize Supabase using environment variables
   static Future<void> initialize() async {
@@ -35,6 +44,7 @@ class SupabaseService {
       url: url,
       anonKey: anonKey,
     );
+    _initialized = true;
   }
 
   // Authentication

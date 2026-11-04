@@ -5,7 +5,7 @@
 ### 🛡️ Compile-critical source vs secrets:
 1. **`lib/config/app_config.dart`** — **tracked**. Credentials come from `--dart-define` / `String.fromEnvironment` with empty defaults only. Never put live secrets in this file.
 2. **`lib/services/supabase_service.dart`** — **tracked**. Reads `AppConfig.supabaseUrl` / `AppConfig.supabaseAnonKey`.
-3. **`lib/services/stripe_service.dart`** — **tracked**. Holds the Stripe **publishable** key only (`AppConfig` dart-define). Secret-key Stripe calls go to the `stripe-secret` Edge Function; payment UI stays mock unless demo is off and Supabase is configured.
+3. **`lib/services/stripe_service.dart`** — **tracked**. Holds the Stripe **publishable** key only (`AppConfig` dart-define). Secret-key Stripe calls go to the `stripe-secret` Edge Function (`verify_jwt=true`, Auth user required). Payment UI stays mock while `DEMO_MODE` is true (until launch).
 4. **`lib/services/payment_service.dart`** — **tracked**. Mock/local processing only; no live keys.
 
 Live credentials stay out of git: `.env`, `*.env`, `lib/secrets/`, `stripe_config.dart`, `supabase_config.dart`.

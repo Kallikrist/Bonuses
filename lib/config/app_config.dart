@@ -46,6 +46,8 @@ class AppConfig {
   }
 
   /// Secret-key Stripe calls stay on the local mock path unless demo is off
-  /// and Supabase is configured. The Edge Function then holds `STRIPE_SECRET_KEY`.
+  /// **and** Supabase is configured. Keep `DEMO_MODE=true` until launch; do not
+  /// treat a working Auth session as a live-Stripe cutover. The Edge Function
+  /// (`stripe-secret`) still requires a user JWT so it is safe when launch happens.
   static bool get useMockStripe => demoMode || !isSupabaseConfigured;
 }

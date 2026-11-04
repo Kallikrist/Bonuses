@@ -84,6 +84,10 @@ void main() {
       await AuthService.logout();
     });
 
+    test('tests without Supabase stay on local password auth', () {
+      expect(AuthService.usesSupabaseAuth, isFalse);
+    });
+
     test('Super admin can log in', () async {
       final success = await AuthService.login(
         'superadmin@platform.com',

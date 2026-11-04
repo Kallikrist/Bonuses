@@ -3,7 +3,7 @@ project_id = "hkpkznslzkgnijoahggn"
 
 [functions.stripe-secret]
 enabled = true
-# App auth is local, not Supabase Auth, so callers have no user JWT.
-# The Functions gateway still requires the project anon/publishable apikey.
-verify_jwt = false
+# Callers must send a Supabase Auth user JWT. The anon/publishable apikey
+# alone is not enough. OPTIONS preflight is still handled by the platform.
+verify_jwt = true
 entrypoint = "./functions/stripe-secret/index.ts"

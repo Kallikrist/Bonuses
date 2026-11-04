@@ -165,6 +165,36 @@ void main() {
       );
     });
 
+    test('Edge Function requires a Supabase Auth user and rate-limits', () {
+      final text =
+          File('supabase/functions/stripe-secret/index.ts').readAsStringSync();
+      expect(text, contains('auth.getUser'));
+      expect(text, contains('Unauthorized'));
+      expect(text, contains('Too many requests'));
+      expect(text, contains('RATE_LIMIT_MAX'));
+      expect(text, contains('MAX_AMOUNT_DOLLARS'));
+      expect(text, contains('ALLOWED_CURRENCIES'));
+      expect(text, contains('user.is_anonymous'));
+      expect(text, isNot(contains('verify_jwt = false')));
+    });
+
+    test('config.toml enables JWT verification on stripe-secret', () {
+      final text = File('supabase/config.toml').readAsStringSync();
+      expect(text, contains('verify_jwt = true'));
+      expect(text, isNot(contains('verify_jwt = false')));
+    });
+
+    test('AuthService uses Supabase Auth when the client is ready', () {
+      final auth = File('lib/services/auth_service.dart').readAsStringSync();
+      final supabase =
+          File('lib/services/supabase_service.dart').readAsStringSync();
+      expect(auth, contains('SupabaseService.signIn'));
+      expect(auth, contains('_loginWithSupabaseAuth'));
+      expect(auth, contains('_loginLocal'));
+      expect(auth, contains('usesSupabaseAuth'));
+      expect(supabase, contains('signInWithPassword'));
+    });
+
     test('function env example is a placeholder, not an embedded secret', () {
       final text = File('supabase/functions/.env.example').readAsStringSync();
       expect(text, contains('STRIPE_SECRET_KEY='));

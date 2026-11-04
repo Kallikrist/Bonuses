@@ -133,7 +133,7 @@ class AppProvider with ChangeNotifier {
   }
 
   Future<void> _loadData() async {
-    _currentUser = await StorageService.getCurrentUser();
+    _currentUser = await AuthService.restoreSession();
 
     // Auto-heal: if current user has no active company but has company memberships,
     // set the primaryCompanyId to the first company and persist the fix.
@@ -254,7 +254,7 @@ class AppProvider with ChangeNotifier {
 
   Future<void> logout() async {
     await AuthService.logout();
-    _currentUser = null;
+    _currentUser = AuthService.currentUser;
     _salesTargets.clear();
     _pointsTransactions.clear();
     _bonuses.clear();

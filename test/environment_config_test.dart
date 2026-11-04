@@ -1,5 +1,6 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:bonuses/config/app_config.dart';
+import 'package:bonuses/services/auth_service.dart';
 import 'package:bonuses/services/supabase_service.dart';
 
 void main() {
@@ -22,6 +23,7 @@ void main() {
           isNot(equals('pk_test_your_stripe_publishable_key_here')),
         );
         expect(AppConfig.useMockStripe, isTrue);
+        expect(AppConfig.demoMode, isTrue);
       });
 
       test('isSupabaseConfigured should return false for empty values', () {
@@ -98,6 +100,12 @@ void main() {
           expect(() async => await SupabaseService.initialize(),
               throwsA(isA<Exception>()));
         }
+      });
+
+      test('Auth is not ready without initialize', () {
+        expect(SupabaseService.isInitialized, isFalse);
+        expect(SupabaseService.isAuthReady, isFalse);
+        expect(AuthService.usesSupabaseAuth, isFalse);
       });
     });
 

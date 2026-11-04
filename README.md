@@ -45,6 +45,7 @@ A comprehensive Flutter application for managing employee bonuses and rewards ba
 ## Demo Accounts
 
 These match `StorageService.initializeSampleData()` and the login screen Demo Accounts box.
+When `SUPABASE_URL` / `SUPABASE_ANON_KEY` are set, login uses Supabase Auth with these same emails and passwords. Payments stay mock while `DEMO_MODE` is true.
 
 ### Login-screen accounts
 - **Admin Store**: `admin@store.com` / `password123` — Store Manager

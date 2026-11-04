@@ -286,11 +286,19 @@ class StripeService {
   }
 
   /// Calls the `stripe-secret` Edge Function. Never sends a Stripe secret.
+  /// Requires a Supabase Auth session (`verify_jwt=true`). Not used while
+  /// [AppConfig.useMockStripe] is true (default until launch).
   static Future<Map<String, dynamic>> _invokeSecretAction(
     String action,
     Map<String, dynamic> payload,
   ) async {
     try {
+      final session = SupabaseService.client.auth.currentSession;
+      if (session == null) {
+        throw Exception(
+          'stripe-secret requires a Supabase Auth session',
+        );
+      }
       final response = await SupabaseService.client.functions.invoke(
         _functionName,
         body: {
