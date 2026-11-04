@@ -1883,8 +1883,8 @@ class _AdminDashboardState extends State<AdminDashboard> {
               ],
             ),
           ),
-          // Keep AlertDialog open here; actions are defined below
-          actions: [
+        ),
+        actions: [
           TextButton(
             onPressed: () => Navigator.pop(context),
             child: const Text('Cancel'),
@@ -5328,9 +5328,11 @@ class _AdminDashboardState extends State<AdminDashboard> {
                     },
                   ),
                 ],
+                  ),
+                ),
+              ),
             ),
-          ),
-          actions: [
+            actions: [
             Row(
               mainAxisAlignment: MainAxisAlignment.end,
               mainAxisSize: MainAxisSize.min,
@@ -5694,6 +5696,7 @@ class _AdminDashboardState extends State<AdminDashboard> {
               ],
             ),
           ],
+          ),
         );
       },
     ).then((_) {
