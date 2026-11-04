@@ -68,7 +68,7 @@ dependencies:
   flutter_secure_storage: ^9.2.4
   
   # HTTP client for API calls
-  http: ^1.1.0
+  http: ^1.6.0
   
   # Using Supabase instead of Firebase for database and authentication
 
