@@ -54,7 +54,8 @@ config.json
 secrets.json
 
 # API Keys and sensitive configuration
-lib/config/
+# lib/config/app_config.dart is tracked: it reads credentials from
+# --dart-define / String.fromEnvironment with empty defaults only.
 lib/secrets/
 **/firebase_options.dart
 **/supabase_config.dart
@@ -69,10 +70,8 @@ firebase_options.dart
 supabase_config.dart
 # Note: lib/services/supabase_service.dart is NOT ignored - it uses AppConfig with env vars
 
-# Stripe configuration
+# Stripe key files (service source is tracked; keys come from AppConfig dart-defines)
 stripe_config.dart
-lib/services/stripe_service.dart
-lib/services/payment_service.dart
 
 # Debug and test files with sensitive data
 lib/test_*.dart

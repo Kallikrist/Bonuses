@@ -4,9 +4,11 @@ import 'package:bonuses/models/payment_card.dart';
 import 'package:bonuses/models/financial_transaction.dart';
 import 'package:bonuses/models/payment_record.dart';
 import 'package:bonuses/services/payment_service.dart';
-import 'package:bonuses/services/storage_service.dart';
 
 void main() {
+  // Keep fixture cards valid regardless of when the suite runs (2025 is expired as of 2026).
+  final futureYear = DateTime.now().year + 2;
+
   group('Payment System Tests', () {
     setUp(() async {
       SharedPreferences.setMockInitialValues({});
@@ -19,7 +21,7 @@ void main() {
           userId: 'test_user',
           cardNumber: '4111111111111111',
           expiryMonth: 12,
-          expiryYear: 2025,
+          expiryYear: futureYear,
           cvc: '123',
           cardholderName: 'John Doe',
         );
@@ -31,7 +33,7 @@ void main() {
         expect(card.brand, 'Visa');
         expect(card.cardType, CardType.visa);
         expect(card.expiryMonth, 12);
-        expect(card.expiryYear, 2025);
+        expect(card.expiryYear, futureYear);
         expect(card.cardholderName, 'John Doe');
         expect(card.status, CardStatus.active);
         expect(card.isValid, true);
@@ -44,7 +46,7 @@ void main() {
           userId: 'user_1',
           cardNumber: '4111111111111111',
           expiryMonth: 12,
-          expiryYear: 2025,
+          expiryYear: futureYear,
           cvc: '123',
         );
 
@@ -53,7 +55,7 @@ void main() {
           userId: 'user_2',
           cardNumber: '5555555555554444',
           expiryMonth: 6,
-          expiryYear: 2026,
+          expiryYear: futureYear,
           cvc: '456',
         );
 
@@ -73,7 +75,7 @@ void main() {
           userId: 'test_user',
           cardNumber: '4111111111111111',
           expiryMonth: 12,
-          expiryYear: 2025,
+          expiryYear: futureYear,
           cvc: '123',
         );
 
@@ -82,7 +84,7 @@ void main() {
           userId: 'test_user',
           cardNumber: '5555555555554444',
           expiryMonth: 6,
-          expiryYear: 2026,
+          expiryYear: futureYear,
           cvc: '456',
         );
 
@@ -106,7 +108,7 @@ void main() {
           userId: 'test_user',
           cardNumber: '4111111111111111',
           expiryMonth: 12,
-          expiryYear: 2025,
+          expiryYear: futureYear,
           cvc: '123',
         );
 
@@ -150,7 +152,7 @@ void main() {
           userId: 'test_user',
           cardNumber: '4111111111111111',
           expiryMonth: 12,
-          expiryYear: 2025,
+          expiryYear: futureYear,
           cvc: '123',
         );
 
@@ -182,7 +184,7 @@ void main() {
           userId: 'test_user',
           cardNumber: '4111111111111111',
           expiryMonth: 12,
-          expiryYear: 2025,
+          expiryYear: futureYear,
           cvc: '123',
         );
 
@@ -208,7 +210,7 @@ void main() {
           userId: 'test_user',
           cardNumber: '4111111111111111',
           expiryMonth: 12,
-          expiryYear: 2025,
+          expiryYear: futureYear,
           cvc: '123',
         );
 
@@ -242,7 +244,7 @@ void main() {
           userId: 'user_1',
           cardNumber: '4111111111111111',
           expiryMonth: 12,
-          expiryYear: 2025,
+          expiryYear: futureYear,
           cvc: '123',
         );
 
@@ -251,7 +253,7 @@ void main() {
           userId: 'user_2',
           cardNumber: '5555555555554444',
           expiryMonth: 6,
-          expiryYear: 2026,
+          expiryYear: futureYear,
           cvc: '456',
         );
 
@@ -293,7 +295,7 @@ void main() {
           userId: 'test_user',
           cardNumber: '4111111111111111',
           expiryMonth: 12,
-          expiryYear: 2025,
+          expiryYear: futureYear,
           cvc: '123',
         );
 
@@ -307,7 +309,7 @@ void main() {
           userId: 'test_user',
           cardNumber: '5555555555554444',
           expiryMonth: 12,
-          expiryYear: 2025,
+          expiryYear: futureYear,
           cvc: '123',
         );
 
@@ -321,7 +323,7 @@ void main() {
           userId: 'test_user',
           cardNumber: '378282246310005',
           expiryMonth: 12,
-          expiryYear: 2025,
+          expiryYear: futureYear,
           cvc: '123',
         );
 
@@ -337,7 +339,7 @@ void main() {
           userId: 'test_user',
           cardNumber: '4111111111111111',
           expiryMonth: 12,
-          expiryYear: 2025,
+          expiryYear: futureYear,
           cvc: '123',
         );
 
@@ -363,7 +365,7 @@ void main() {
           userId: 'test_user',
           cardNumber: '4111111111111111',
           expiryMonth: 12,
-          expiryYear: 2025,
+          expiryYear: futureYear,
           cvc: '123',
         );
 
@@ -396,7 +398,7 @@ void main() {
           userId: 'test_user',
           cardNumber: '1234', // Invalid card number
           expiryMonth: 12,
-          expiryYear: 2025,
+          expiryYear: futureYear,
           cvc: '123',
         );
 

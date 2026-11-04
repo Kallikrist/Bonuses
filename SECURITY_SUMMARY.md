@@ -2,28 +2,31 @@
 
 ## ✅ SECURITY MEASURES COMPLETED:
 
-### 🛡️ Protected Sensitive Files:
-1. **`lib/services/supabase_service.dart`** - Contains Supabase API key ✅ IGNORED
-2. **`lib/services/stripe_service.dart`** - Contains Stripe API keys ✅ IGNORED
-3. **`lib/services/payment_service.dart`** - Contains payment API keys ✅ IGNORED
+### 🛡️ Compile-critical source vs secrets:
+1. **`lib/config/app_config.dart`** — **tracked**. Credentials come from `--dart-define` / `String.fromEnvironment` with empty defaults only. Never put live secrets in this file.
+2. **`lib/services/supabase_service.dart`** — **tracked**. Reads `AppConfig.supabaseUrl` / `AppConfig.supabaseAnonKey`.
+3. **`lib/services/stripe_service.dart`** — **tracked**. Reads Stripe keys from `AppConfig` dart-defines; payment flows stay mock.
+4. **`lib/services/payment_service.dart`** — **tracked**. Mock/local processing only; no live keys.
+
+Live credentials stay out of git: `.env`, `*.env`, `lib/secrets/`, `stripe_config.dart`, `supabase_config.dart`.
 
 ### 🔧 Security Infrastructure Added:
 1. **Updated `.gitignore`** - Comprehensive protection for:
    - Environment files (`.env`, `*.env`)
-   - API key files (`supabase_service.dart`)
-   - Payment service files (`stripe_service.dart`, `payment_service.dart`)
+   - Secret/config dumps (`lib/secrets/`, `stripe_config.dart`, `supabase_config.dart`)
    - Debug/test files (`lib/test_*.dart`, `lib/debug_*.dart`)
    - Log files (`*.log`, `logs/`)
    - IDE files (`.vscode/`, `.idea/`)
+   - **Not ignored:** `app_config.dart`, `supabase_service.dart`, `stripe_service.dart`, `payment_service.dart`
 
 2. **Created `env.example`** - Template for environment variables
 3. **Created `lib/config/app_config.dart`** - Centralized configuration management
 4. **Created `SECURITY_CHECKLIST.md`** - Security guidelines
-5. **Removed sensitive files from git tracking** - `git rm --cached`
+5. **Compile-critical source is tracked** — `app_config.dart`, `stripe_service.dart`, `payment_service.dart` contain no live secrets
 
 ### 🔍 Verification Results:
 - ✅ **No hardcoded API keys found in tracked files**
-- ✅ **All sensitive files are properly ignored**
+- ✅ **Live secrets are ignored (`.env`); compile-critical service source is tracked with no hardcoded keys**
 - ✅ **Environment template provided**
 - ✅ **Configuration management implemented**
 
@@ -44,7 +47,10 @@
 3. **Verify security:**
    ```bash
    git status
-   git check-ignore lib/services/supabase_service.dart
+   git check-ignore .env
+   git check-ignore lib/config/app_config.dart lib/services/stripe_service.dart lib/services/payment_service.dart
+   # The three source paths must NOT be ignored.
+   git ls-files lib/config/app_config.dart lib/services/stripe_service.dart lib/services/payment_service.dart
    ```
 
 ## ⚠️ IMPORTANT NOTES:
