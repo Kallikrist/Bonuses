@@ -3,6 +3,7 @@ import '../models/user.dart';
 import 'storage_service.dart';
 import 'password_service.dart';
 import 'rate_limit_service.dart';
+import '../utils/super_admin_routing.dart';
 
 /// Exception thrown when account is rate limited
 class RateLimitException implements Exception {
@@ -101,9 +102,8 @@ class AuthService {
           return false;
         }
 
-        // Check if user has any active companies (skip check for super admin)
-        if (user.role != UserRole.superAdmin &&
-            user.email != 'superadmin@platform.com') {
+        // Skip the active-company check for super-admin (role only).
+        if (!skipsCompanyStatusCheck(user)) {
           print('DEBUG: Login - Checking active companies for ${user.email}');
           final hasActiveCompany = await _checkUserHasActiveCompany(user);
           print('DEBUG: Login - Has active company: $hasActiveCompany');
