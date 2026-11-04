@@ -1,4 +1,5 @@
 # Linked to project ref hkpkznslzkgnijoahggn.
+# SQL in supabase/migrations is tracked. Owner applies it; it is not auto-applied.
 project_id = "hkpkznslzkgnijoahggn"
 
 [functions.stripe-secret]
