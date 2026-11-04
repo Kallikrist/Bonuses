@@ -22,9 +22,9 @@ Status in this file:
 ## Hard rules
 
 - **Do not enable live Stripe.** `AppConfig.demoMode` defaults to `true`. `AppConfig.useMockStripe` is true when demo is on **or** Supabase is not configured. Leave that default until every Stripe and auth row below is Done.
-- **Do not enable live Kling.** `kling-secret` is test-mode only (`sk_test_`). It is not wired in Flutter (BON-42) and has no webhook handler (BON-41). Do not set `sk_live_` or treat a successful function deploy as a product cutover.
+- **Do not enable live Kling.** `kling-secret` is test-mode only (`sk_test_`). `kling-webhook` accepts `environment: test` only. Flutter is not wired (BON-42). Do not set `sk_live_` or treat a successful function deploy as a product cutover.
 - **Do not delete data.** Do not mass-wipe SharedPreferences or drop Supabase tables as part of launch prep. Logged-out login no longer has “Reset Demo Data”.
-- **Do not commit secrets.** `.env`, `*.env`, `STRIPE_SECRET_KEY`, and `KLING_SECRET_KEY` stay out of git and out of Flutter `--dart-define`.
+- **Do not commit secrets.** `.env`, `*.env`, `STRIPE_SECRET_KEY`, `KLING_SECRET_KEY`, and `KLING_WEBHOOK_SECRET` stay out of git and out of Flutter `--dart-define`.
 - **Owner-only** (even after review/CI): live payments, secret rotation, and any data deletion.
 
 ---
@@ -64,9 +64,9 @@ Until that flip, a successful checkout in the app is **mock money**.
 | Edge Function source | Done | `supabase/functions/kling-secret/index.ts`. Path A: checkout session (embedded overlay), billing portal, subscriptions API. `payment_method_type` / `collection_method` forced to `card`. ISK integers as-is (no x100) |
 | Secret key not in the Flutter app | Done | `KLING_SECRET_KEY` is `Deno.env` only. `env.example` tells you not to dart-define it. Placeholder: `supabase/functions/.env.example` |
 | Test-mode only | Done | POST refuses a missing key or any key that is not `sk_test_`. Live keys (`sk_live_`) return 500 and do not call Kling |
-| Flutter client | Not started | BON-42. No `kling-secret` invoke in `lib/` |
-| Webhook handler | Not started | BON-41. No `X-Kling-Signature` / `KLING_WEBHOOK_SECRET` in this function |
-| Function deploy + `KLING_SECRET_KEY` secret | Owner | Source is in repo; deploy is not done in this pass. Test-mode key only, project `hkpkznslzkgnijoahggn` |
+| Flutter client | Not started | BON-42. No `kling-secret` / `kling-webhook` invoke in `lib/` |
+| Webhook handler | Done | `supabase/functions/kling-webhook/index.ts` verifies `X-Kling-Signature`, handles `subscription.activated` / `payment_intent.captured` / `subscription.renewed` / `subscription.canceled` (status-checked), idempotent on event id. Test-mode only. ISK as-is |
+| Function deploy + secrets | Owner | `KLING_SECRET_KEY` (`sk_test_` only) and `KLING_WEBHOOK_SECRET` (from Kling webhook `config.secret`). Project `hkpkznslzkgnijoahggn`. Apply `supabase/migrations/20261104233000_kling_webhook.sql`. Do not treat deploy as launch |
 
 ---
 
@@ -96,7 +96,7 @@ Do not treat `SupabaseService.signIn` as “Auth is done.” The product login p
 | Item | Status | Current code |
 | --- | --- | --- |
 | Template | Done | `env.example`: `SUPABASE_URL`, `SUPABASE_ANON_KEY`, optional `STRIPE_PUBLISHABLE_KEY`, `DEMO_MODE`, `DEBUG_MODE`. Stripe and Kling secret keys called out as function-only |
-| Local run helper | Done | `./scripts/run_with_env.sh` passes URL, anon key, optional demo/debug/publishable key. Never `--dart-define=STRIPE_SECRET_KEY` |
+| Local run helper | Done | `./scripts/run_with_env.sh` passes URL, anon key, optional demo/debug/publishable key. Never `--dart-define` Stripe or Kling secrets |
 | Compile-time config | Done | `lib/config/app_config.dart` (`String.fromEnvironment` / `bool.fromEnvironment`). Tracked; empty defaults; no live secrets |
 | `.env` ignored | Done | `.gitignore` has `.env`, `.env.local`, `.env.production`, `.env.staging`, `*.env` |
 | Stripe / Kling secrets ignored | Done | `supabase/functions/.env` matches `*.env`. Do not add it to git |

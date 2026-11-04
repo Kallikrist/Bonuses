@@ -72,8 +72,9 @@ supabase_config.dart
 
 # Stripe key files (service source is tracked; publishable key via AppConfig dart-define)
 stripe_config.dart
-# Function secrets such as STRIPE_SECRET_KEY and KLING_SECRET_KEY live in
-# supabase/functions/.env (`*.env` above already ignores that file).
+# Function secrets such as STRIPE_SECRET_KEY, KLING_SECRET_KEY, and
+# KLING_WEBHOOK_SECRET live in supabase/functions/.env (`*.env` above
+# already ignores that file).
 
 # Debug and test files with sensitive data
 lib/test_*.dart
