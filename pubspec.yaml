@@ -57,7 +57,7 @@ dependencies:
   csv: ^6.0.0
   
   # Stripe payments
-  flutter_stripe: ^10.1.0
+  flutter_stripe: ^11.5.0
   
   # Supabase - PostgreSQL database with real-time features
   supabase_flutter: ^2.15.4
